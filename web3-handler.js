@@ -31,7 +31,6 @@ async function init() {
     if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
         
-        // Basic Init for global access
         const tempSigner = provider.getSigner();
         window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
         contract = window.contract;
@@ -71,7 +70,6 @@ window.handleRegister = async function() {
         btn.innerText = "WAITING FOR WALLET...";
         btn.disabled = true;
 
-        // Ensure accounts are connected
         await provider.send("eth_requestAccounts", []);
         const currentSigner = provider.getSigner();
         const contractWithSigner = contract.connect(currentSigner);
@@ -108,9 +106,9 @@ async function setupApp(address) {
     signer = window.signer;
     window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
     contract = window.contract;
-    usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    usdtContract = window.usdtContract;
     
-    // Security check
     if (window.location.pathname.includes('index1.html')) {
         const userData = await contract.users(address);
         if (!userData.registered) {
@@ -165,7 +163,9 @@ async function fetchAllData(address) {
             badge.className = "px-4 py-1 rounded-full bg-green-500/20 text-green-400 text-[10px] font-black border border-green-500/30 uppercase";
         }
 
-        const refUrl = `${window.location.origin}/register.html?ref=${user.username}`;
+        // --- GITHUB PAGES FLAT URL FIX ---
+        const baseUrl = window.location.href.split('?')[0].replace('index1.html', '').replace('dashboard.html', '');
+        const refUrl = `${baseUrl}register.html?ref=${user.username}`;
         if(document.getElementById('refURL')) document.getElementById('refURL').value = refUrl;
 
     } catch (err) { console.error("Data Fetch Error:", err); }
@@ -197,7 +197,6 @@ function updateNavbar(addr) {
     if(btn) btn.innerText = addr.substring(0,6) + "..." + addr.substring(38);
 }
 
-// Events
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', () => location.reload());
 }
