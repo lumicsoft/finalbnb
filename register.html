@@ -28,7 +28,7 @@
         <div class="glass-card w-full max-w-md p-8 rounded-3xl relative">
             <div class="text-center mb-8">
                 <h1 class="text-3xl font-black orbitron uppercase tracking-tighter mb-2">Create <span class="text-gradient">Account</span></h1>
-                <p class="text-gray-400 text-xs tracking-widest uppercase">Connect Wallet & Register</p>
+                <p class="text-gray-400 text-[10px] tracking-widest uppercase">Fast & Secure Registration</p>
             </div>
 
             <div class="space-y-6">
@@ -40,7 +40,7 @@
                 <div>
                     <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Referrer ID</label>
                     <input type="text" id="reg-referrer" placeholder="Referrer username" class="input-field">
-                    <p id="ref-status" class="text-[9px] mt-2 text-cyan-500 hidden italic uppercase tracking-tighter">Referral Link Detected</p>
+                    <p id="ref-status" class="text-[9px] mt-2 text-cyan-500 hidden italic uppercase">Referral Active</p>
                 </div>
 
                 <button onclick="handleRegister()" id="reg-btn" class="gold-btn w-full !py-4 orbitron font-black tracking-widest">
@@ -48,7 +48,7 @@
                 </button>
 
                 <p class="text-center text-[10px] text-gray-500 uppercase tracking-widest">
-                    Already registered? <a href="#" onclick="handleLogin()" class="text-cyan-400 hover:underline">Login here</a>
+                    Already registered? <a href="#" onclick="handleLogin()" class="text-cyan-400">Login here</a>
                 </p>
             </div>
         </div>
@@ -57,81 +57,53 @@
     <script src="js/web3-handler.js"></script>
 
     <script>
-        // --- AUTO CONNECT ON LOAD ---
+        // Halka logic - Fast Execution
         window.addEventListener('load', async () => {
-            // 1. URL se Referral code check karein
-            const urlParams = new URLSearchParams(window.location.search);
-            const refCode = urlParams.get('ref');
-            
-            if (refCode) {
-                const refInput = document.getElementById('reg-referrer');
-                const refStatus = document.getElementById('ref-status');
-                refInput.value = refCode;
-                refInput.readOnly = true;
-                refInput.style.opacity = "0.6";
-                refStatus.classList.remove('hidden');
+            // 1. URL Params (Fastest)
+            const ref = new URLSearchParams(window.location.search).get('ref');
+            if (ref) {
+                const el = document.getElementById('reg-referrer');
+                el.value = ref; el.readOnly = true; el.style.opacity = "0.6";
+                document.getElementById('ref-status').classList.remove('hidden');
             }
 
-            // 2. Wallet Auto-Popup logic
+            // 2. Immediate Wallet Request
             if (window.ethereum) {
                 try {
-                    // MetaMask Popup trigger karein
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    console.log("Wallet Connected:", accounts[0]);
-
-                    // Thoda wait karein taaki contract initialize ho jaye
+                    // Ek bar check karein contract ready hai ya nahi
                     setTimeout(async () => {
                         if (window.contract) {
-                            const userData = await window.contract.users(accounts[0]);
-                            if (userData.registered) {
-                                alert("Account already registered! Redirecting to Dashboard...");
-                                window.location.href = "index1.html";
-                            }
+                            const user = await window.contract.users(accounts[0]);
+                            if (user.registered) window.location.href = "index1.html";
                         }
-                    }, 1000);
-                } catch (err) {
-                    console.warn("User cancelled wallet connection");
-                }
-            } else {
-                alert("MetaMask not found! Please use a Web3 browser.");
+                    }, 800);
+                } catch (e) { console.log("User rejected"); }
             }
         });
 
-        // --- REGISTER FUNCTION ---
         async function handleRegister() {
-            const username = document.getElementById('reg-username').value.trim();
-            const referrer = document.getElementById('reg-referrer').value.trim();
+            const user = document.getElementById('reg-username').value.trim();
+            const ref = document.getElementById('reg-referrer').value.trim();
             const btn = document.getElementById('reg-btn');
 
-            if (!username || !referrer) {
-                alert("Please fill all fields!");
-                return;
-            }
+            if (!user || !ref) return alert("Fill all fields");
 
-            // Check if wallet is connected through web3-handler
+            // Agar contract load nahi hua to retry karein
             if (!window.contract) {
-                alert("Contract not loaded. Please ensure your wallet is connected to the correct network.");
-                return;
+                btn.innerText = "Connecting...";
+                if (typeof init === 'function') await init(); // Agar web3-handler mein init function hai
+                if (!window.contract) return alert("Wait 2 seconds & try again");
             }
 
             try {
-                btn.innerText = "WAITING FOR BLOCKCHAIN...";
-                btn.disabled = true;
-
-                // Smart Contract Call
-                const tx = await window.contract.register(username, referrer);
-                console.log("Transaction Hash:", tx.hash);
-                
+                btn.innerText = "Confirming..."; btn.disabled = true;
+                const tx = await window.contract.register(user, ref);
                 await tx.wait();
-                
-                alert("Registration Successful!");
-                window.location.href = "index1.html";
-
+                alert("Success!"); window.location.href = "index1.html";
             } catch (err) {
-                console.error("Reg Error:", err);
-                alert("Registration failed: " + (err.reason || "Check balance or network."));
-                btn.innerText = "REGISTER NOW";
-                btn.disabled = false;
+                alert("Error: " + (err.reason || "Transaction Failed"));
+                btn.innerText = "REGISTER NOW"; btn.disabled = false;
             }
         }
     </script>
