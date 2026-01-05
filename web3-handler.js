@@ -1,8 +1,8 @@
 let provider, signer, contract, usdtContract;
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "YOUR_TESTNET_CONTRACT_ADDRESS"; 
-const USDT_ADDRESS = "0x337610d27c2425019392024265f210e69503487c"; 
+const CONTRACT_ADDRESS = "0x33Ad74E9FB3aeA563baD0Bbe36D3E911c231200A"; 
+const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
 const CONTRACT_ABI = [
@@ -347,5 +347,6 @@ if (window.ethereum) {
         else location.reload();
     });
 }
+
 
 window.addEventListener('load', init);
