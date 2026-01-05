@@ -48,7 +48,7 @@
                 </button>
 
                 <p class="text-center text-[10px] text-gray-500 uppercase tracking-widest">
-                    Already registered? <a href="#" onclick="handleLogin()" class="text-cyan-400">Login here</a>
+                    Already registered? <a href="#" onclick="handleLogin()" class="text-cyan-400 cursor-pointer">Login here</a>
                 </p>
             </div>
         </div>
@@ -57,55 +57,17 @@
     <script src="js/web3-handler.js"></script>
 
     <script>
-        // Halka logic - Fast Execution
-        window.addEventListener('load', async () => {
-            // 1. URL Params (Fastest)
+        // Sirf Referral set karne ka logic yahan rakha hai
+        window.addEventListener('load', () => {
             const ref = new URLSearchParams(window.location.search).get('ref');
             if (ref) {
                 const el = document.getElementById('reg-referrer');
-                el.value = ref; el.readOnly = true; el.style.opacity = "0.6";
+                el.value = ref; 
+                el.readOnly = true; 
+                el.style.opacity = "0.6";
                 document.getElementById('ref-status').classList.remove('hidden');
             }
-
-            // 2. Immediate Wallet Request
-            if (window.ethereum) {
-                try {
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    // Ek bar check karein contract ready hai ya nahi
-                    setTimeout(async () => {
-                        if (window.contract) {
-                            const user = await window.contract.users(accounts[0]);
-                            if (user.registered) window.location.href = "index1.html";
-                        }
-                    }, 800);
-                } catch (e) { console.log("User rejected"); }
-            }
         });
-
-        async function handleRegister() {
-            const user = document.getElementById('reg-username').value.trim();
-            const ref = document.getElementById('reg-referrer').value.trim();
-            const btn = document.getElementById('reg-btn');
-
-            if (!user || !ref) return alert("Fill all fields");
-
-            // Agar contract load nahi hua to retry karein
-            if (!window.contract) {
-                btn.innerText = "Connecting...";
-                if (typeof init === 'function') await init(); // Agar web3-handler mein init function hai
-                if (!window.contract) return alert("Wait 2 seconds & try again");
-            }
-
-            try {
-                btn.innerText = "Confirming..."; btn.disabled = true;
-                const tx = await window.contract.register(user, ref);
-                await tx.wait();
-                alert("Success!"); window.location.href = "index1.html";
-            } catch (err) {
-                alert("Error: " + (err.reason || "Transaction Failed"));
-                btn.innerText = "REGISTER NOW"; btn.disabled = false;
-            }
-        }
     </script>
 </body>
 </html>
