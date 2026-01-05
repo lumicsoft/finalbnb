@@ -54,10 +54,10 @@
         </div>
     </main>
 
-    <script src="js/web3-handler.js"></script>
+   <script src="js/web3-handler.js"></script>
 
     <script>
-        // Sirf Referral set karne ka logic yahan rakha hai
+        // Referral check logic
         window.addEventListener('load', () => {
             const ref = new URLSearchParams(window.location.search).get('ref');
             if (ref) {
@@ -68,6 +68,23 @@
                 document.getElementById('ref-status').classList.remove('hidden');
             }
         });
+
+        // Agar web3-handler se handleRegister nahi utha raha, toh ye direct link:
+        async function handleRegister() {
+            if (typeof window.handleRegister === 'function') {
+                // Ye web3-handler.js wale function ko call karega
+                await window.handleRegister();
+            } else {
+                console.error("Web3 Handler not loaded yet!");
+                alert("Please wait a moment for the blockchain to connect...");
+            }
+        }
+
+        async function handleLogin() {
+            if (typeof window.handleLogin === 'function') {
+                await window.handleLogin();
+            } else {
+                alert("Connecting to wallet... please try again in a second.");
+            }
+        }
     </script>
-</body>
-</html>
