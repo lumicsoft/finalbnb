@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register | Earn BNB</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Inter:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css"> 
+    
+    <link rel="stylesheet" href="./css/style.css"> 
     <style>
         body { font-family: 'Inter', sans-serif; background: #050505; color: white; }
         .orbitron { font-family: 'Orbitron', sans-serif; }
@@ -20,7 +21,7 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <script src="js/components.js"></script>
+    <script src="./js/components.js"></script>
 
     <main class="flex-grow flex items-center justify-center px-6 py-20 relative overflow-hidden">
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] -z-10"></div>
@@ -43,7 +44,7 @@
                     <p id="ref-status" class="text-[9px] mt-2 text-cyan-500 hidden italic uppercase">Referral Active</p>
                 </div>
 
-                <button onclick="handleRegister()" id="reg-btn" class="gold-btn w-full !py-4 orbitron font-black tracking-widest">
+                <button onclick="handleRegister()" id="reg-btn" class="gold-btn w-full !py-4 orbitron font-black tracking-widest bg-gradient-to-r from-yellow-500 to-yellow-700 rounded-xl hover:scale-105 transition-transform">
                     REGISTER NOW
                 </button>
 
@@ -54,12 +55,13 @@
         </div>
     </main>
 
-   <script src="js/web3-handler.js"></script>
+    <script src="./js/web3-handler.js"></script>
 
     <script>
-        // Referral check logic
+        // Referral Auto-fill Logic
         window.addEventListener('load', () => {
-            const ref = new URLSearchParams(window.location.search).get('ref');
+            const urlParams = new URLSearchParams(window.location.search);
+            const ref = urlParams.get('ref');
             if (ref) {
                 const el = document.getElementById('reg-referrer');
                 el.value = ref; 
@@ -69,14 +71,13 @@
             }
         });
 
-        // Agar web3-handler se handleRegister nahi utha raha, toh ye direct link:
+        // Bridge functions to web3-handler.js
         async function handleRegister() {
             if (typeof window.handleRegister === 'function') {
-                // Ye web3-handler.js wale function ko call karega
                 await window.handleRegister();
             } else {
-                console.error("Web3 Handler not loaded yet!");
-                alert("Please wait a moment for the blockchain to connect...");
+                console.error("Web3 Handler not detected.");
+                alert("Blockchain connection is still loading. Please refresh (Ctrl+F5) and wait 5 seconds.");
             }
         }
 
@@ -84,7 +85,9 @@
             if (typeof window.handleLogin === 'function') {
                 await window.handleLogin();
             } else {
-                alert("Connecting to wallet... please try again in a second.");
+                alert("Wallet connection pending. Please try again.");
             }
         }
     </script>
+</body>
+</html>
