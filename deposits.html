@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Deposits | Earn BNB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style1.css">
+    <style>
+        .status-badge {
+            background: rgba(34, 197, 94, 0.1); color: #22c55e; padding: 4px 12px; border-radius: 100px;
+            font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1px solid rgba(34, 197, 94, 0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        
+        /* Progress Bar Styles */
+        .progress-container { background: rgba(255,255,255,0.05); height: 6px; border-radius: 10px; overflow: hidden; }
+        .progress-bar { 
+            background: linear-gradient(90deg, #f59e0b, #fbbf24); 
+            height: 100%; 
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+            transition: width 1s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+    <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
+        
+        <div class="mb-10">
+            <h1 class="text-3xl font-black orbitron italic uppercase tracking-tighter">Active <span class="text-yellow-500">Deposits</span></h1>
+            <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em]">Your running mining packages performance</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6 mb-10">
+            <div class="premium-border p-6 text-center">
+                <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Total Active Capital</p>
+                <h3 id="total-active-capital" class="text-2xl font-black orbitron text-white">$ 0.00</h3>
+            </div>
+            <div class="premium-border p-6 text-center">
+                <p class="text-[10px] font-black text-yellow-500 uppercase mb-1">Total Daily Profit</p>
+                <h3 id="total-daily-profit" class="text-2xl font-black orbitron text-green-400">$ 0.00</h3>
+            </div>
+        </div>
+
+        <div id="deposits-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
+            <div class="col-span-full text-center py-20">
+                <div class="inline-block animate-spin text-yellow-500 mb-4">
+                    <i data-lucide="refresh-cw" class="w-10 h-10"></i>
+                </div>
+                <p class="orbitron text-xs text-gray-500 uppercase tracking-widest">Fetching Active Nodes...</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="components.js"></script>
+    <script src="web3-handler.js"></script>
+
+    <script>
+        async function loadActiveDeposits() {
+            const grid = document.getElementById('deposits-grid');
+            
+            // Check if wallet is connected
+            if (typeof signer === 'undefined') {
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">PLEASE CONNECT WALLET TO VIEW DEPOSITS</div>`;
+                return;
+            }
+
+            try {
+                const address = await signer.getAddress();
+                // 1. Blockchain se deposits fetch karein (using event logs)
+                const filter = contract.filters.Deposited(address);
+                const events = await contract.queryFilter(filter, -50000); // Last 50k blocks
+
+                if (events.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
+                    return;
+                }
+
+                let totalCap = 0;
+                let totalProfit = 0;
+                let html = '';
+
+                // 2. Loop through deposits to build cards
+                events.forEach((event, index) => {
+                    const amount = parseFloat(ethers.utils.formatUnits(event.args.amount, 18));
+                    const roiPercent = amount >= 1000 ? 6.0 : 5.5; // Example logic: VIP Node for $1000+
+                    const dailyReturn = (amount * roiPercent) / 100;
+                    
+                    totalCap += amount;
+                    totalProfit += dailyReturn;
+
+                    // Fake Progress logic (Real logic would use block.timestamp vs 200% cap)
+                    const progress = Math.floor(Math.random() * 60) + 10; 
+
+                    html += `
+                    <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
+                                <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">ID: #TX-${event.blockNumber.toString().slice(-4)}</p>
+                            </div>
+                            <span class="status-badge">Active</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-8">
+                            <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                                <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
+                                <p class="text-lg font-black orbitron text-yellow-500">${roiPercent}%</p>
+                            </div>
+                            <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                                <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Return</p>
+                                <p class="text-lg font-black orbitron text-green-400">$${dailyReturn.toFixed(2)}</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="flex justify-between text-[11px] font-black orbitron uppercase">
+                                <span class="text-gray-400 italic">Mining Progress</span>
+                                <span class="text-white">${progress}%</span>
+                            </div>
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] font-bold uppercase text-gray-500">
+                                <span>Target: 200%</span>
+                                <span>Earned: $${(dailyReturn * 10).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+
+                grid.innerHTML = html;
+                document.getElementById('total-active-capital').innerText = `$ ${totalCap.toLocaleString()}`;
+                document.getElementById('total-daily-profit').innerText = `$ ${totalProfit.toLocaleString()}`;
+                lucide.createIcons();
+
+            } catch (err) {
+                console.error(err);
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">FAILED TO LOAD DEPOSITS</div>`;
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            setTimeout(loadActiveDeposits, 2000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction History | Earn BNB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style1.css">
+    <style>
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #888; padding: 10px 20px; border-radius: 12px;
+            font-size: 10px; font-weight: 800; text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        .filter-btn.active {
+            background: #f59e0b;
+            color: black;
+            border-color: #f59e0b;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+        .history-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px; padding: 20px;
+            transition: all 0.3s;
+        }
+        .history-card:hover { border-color: rgba(255, 215, 0, 0.3); transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+    <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
+        
+        <div class="mb-10 text-center">
+            <h1 class="text-3xl font-black orbitron italic uppercase tracking-tighter">Transaction <span class="text-yellow-500">History</span></h1>
+            <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em]">Detailed records of your financial activities</p>
+        </div>
+
+        <div class="premium-border p-4 mb-8">
+            <div class="flex justify-center gap-2 md:gap-4">
+                <button onclick="showHistory('deposit')" id="btn-deposit" class="filter-btn active">Deposit</button>
+                <button onclick="showHistory('compounding')" id="btn-compounding" class="filter-btn">Compounding</button>
+                <button onclick="showHistory('income')" id="btn-income" class="filter-btn">Income</button>
+            </div>
+        </div>
+
+        <div id="history-container" class="space-y-4 pb-20">
+            <div class="text-center py-20 text-gray-500 orbitron animate-pulse text-xs uppercase tracking-widest">
+                Connecting to Smart Contract...
+            </div>
+        </div>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="components.js"></script>
+    <script src="web3-handler.js"></script>
+    
+    <script>
+        // Icons initialize karein
+        lucide.createIcons();
+
+        // Ye function tab chalega jab user buttons click karega
+        async function showHistory(type) {
+            const container = document.getElementById('history-container');
+            const buttons = document.querySelectorAll('.filter-btn');
+            
+            // Active button UI update
+            buttons.forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById('btn-' + type);
+            if(activeBtn) activeBtn.classList.add('active');
+
+            // Loading state
+            container.innerHTML = `
+                <div class="text-center py-20">
+                    <div class="inline-block animate-spin mb-4 text-yellow-500">
+                        <i data-lucide="refresh-cw" class="w-8 h-8"></i>
+                    </div>
+                    <p class="text-[10px] font-bold text-gray-500 orbitron uppercase tracking-widest">Scanning Blockchain Events...</p>
+                </div>
+            `;
+            lucide.createIcons();
+
+            try {
+                // web3-handler.js se data fetch karein
+                // Ensure window.fetchBlockchainHistory is defined in web3-handler.js
+                const logs = await window.fetchBlockchainHistory(type);
+
+                if(!logs || logs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-20 border border-dashed border-white/10 rounded-3xl">
+                            <i data-lucide="database-zap" class="w-10 h-10 text-gray-700 mx-auto mb-3"></i>
+                            <p class="text-gray-500 text-[10px] font-bold orbitron uppercase tracking-widest">No ${type} records found</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                let html = '';
+                logs.forEach(item => {
+                    if(type === 'deposit' || type === 'compounding') {
+                        html += `
+                        <div class="history-card">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-[10px] font-black text-gray-500 uppercase">${item.date} | ${item.time}</p>
+                                    <h3 class="text-lg font-black orbitron text-white mt-1">$ ${item.amount}</h3>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[10px] font-black text-yellow-500 uppercase">Status</p>
+                                    <p class="text-md font-black orbitron text-green-400">SUCCESS</p>
+                                </div>
+                            </div>
+                        </div>`;
+                    } else {
+                        html += `
+                        <div class="history-card">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-[10px] font-black ${item.color || 'text-cyan-400'} uppercase">${item.type || 'Income'}</p>
+                                    <p class="text-[10px] font-bold text-gray-500 uppercase mt-1">${item.date} | ${item.time}</p>
+                                </div>
+                                <div class="text-right">
+                                    <h3 class="text-lg font-black orbitron text-green-400">+$ ${item.amount}</h3>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                });
+                container.innerHTML = html;
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<div class="text-center py-20 text-red-500 orbitron text-xs">Error connecting to blockchain. Please try again.</div>`;
+            }
+        }
+
+        // Wallet connect hone ka intezaar karein phir data dikhayein
+        window.addEventListener('load', () => {
+            // Chhota sa delay taaki web3-handler initialize ho jaye
+            setTimeout(() => {
+                if (typeof showHistory === "function") {
+                    showHistory('deposit');
+                }
+            }, 1500);
+        });
+    </script>
+</body>
+</html>
