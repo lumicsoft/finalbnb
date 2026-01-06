@@ -8,9 +8,12 @@ const TESTNET_CHAIN_ID = 97;
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
-    "function claimDailyReward(uint256 amount) external",
+    "function claimNetworkReward(uint256 amount) external",
     "function compoundDailyReward(uint256 amount) external",
+    "function claimDailyReward(uint256 amount) external",
+    "function compoundNetworkReward(uint256 amount) external",
     "function withdrawPrincipal() external",
+    "function getLevelTeamDetails(address _upline, uint256 _level) external",
     "function getLiveBalance(address uA) view returns (uint256 pendingROI, uint256 pendingCap)",
     "function users(address) view returns (address referrer, string username, bool registered, uint256 joinDate, uint256 totalActiveDeposit, uint256 teamActiveDeposit, uint256 teamTotalDeposit, uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalEarnings)",
     "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsOnboarding, uint256 rewardsRank, uint256 reserveDailyCapital, uint256 reserveDailyROI, uint256 reserveNetwork, uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
@@ -276,4 +279,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
