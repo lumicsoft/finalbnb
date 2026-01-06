@@ -59,10 +59,16 @@ window.handleLogin = async function() {
     } catch (err) { console.error("Login Error:", err); }
 }
 
+// FIXED: Removed self-recursion to stop 'Maximum call stack size' error
 window.handleRegister = async function() {
-    const username = document.getElementById('reg-username').value.trim();
-    const referrer = document.getElementById('reg-referrer').value.trim();
+    const usernameInput = document.getElementById('reg-username');
+    const referrerInput = document.getElementById('reg-referrer');
     const btn = document.getElementById('reg-btn');
+
+    if (!usernameInput || !referrerInput) return console.error("UI Elements missing");
+
+    const username = usernameInput.value.trim();
+    const referrer = referrerInput.value.trim();
 
     if (!username || !referrer) return alert("Please fill all fields!");
 
@@ -70,13 +76,14 @@ window.handleRegister = async function() {
         btn.innerText = "WAITING FOR WALLET...";
         btn.disabled = true;
 
-        // Ensure provider is ready
         await provider.send("eth_requestAccounts", []);
         const currentSigner = provider.getSigner();
-        const contractWithSigner = contract.connect(currentSigner);
+        
+        // Creating a local instance for the transaction to avoid variable conflicts
+        const txContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, currentSigner);
 
-        // Added Gas Limit to prevent transaction failure on BSC Testnet
-        const tx = await contractWithSigner.register(username, referrer, {
+        console.log("Attempting registration...");
+        const tx = await txContract.register(username, referrer, {
             gasLimit: 500000 
         });
 
@@ -87,8 +94,7 @@ window.handleRegister = async function() {
         window.location.href = "index1.html";
     } catch (err) {
         console.error("Reg Error:", err);
-        // Better error reporting
-        const errorReason = err.reason || err.data?.message || "Transaction failed";
+        const errorReason = err.reason || err.data?.message || err.message || "Transaction failed";
         alert("Error: " + errorReason);
         btn.innerText = "REGISTER NOW";
         btn.disabled = false;
@@ -170,7 +176,6 @@ async function fetchAllData(address) {
             badge.className = "px-4 py-1 rounded-full bg-green-500/20 text-green-400 text-[10px] font-black border border-green-500/30 uppercase";
         }
 
-        // --- GITHUB PAGES FLAT URL FIX ---
         const baseUrl = window.location.href.split('?')[0].replace('index1.html', '').replace('dashboard.html', '');
         const refUrl = `${baseUrl}register.html?ref=${user.username}`;
         if(document.getElementById('refURL')) document.getElementById('refURL').value = refUrl;
