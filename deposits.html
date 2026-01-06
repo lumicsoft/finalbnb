@@ -60,8 +60,8 @@
     <script>
     async function loadActiveDeposits() {
         const grid = document.getElementById('deposits-grid');
-        console.log("Fetching live data...");
-
+        
+        // 1. Wait for Web3
         if (typeof window.signer === 'undefined' || typeof window.contract === 'undefined') {
             setTimeout(loadActiveDeposits, 1000);
             return;
@@ -70,83 +70,96 @@
         try {
             const address = await window.signer.getAddress();
             
-            // 1. Block range ko 50,000 kar diya taaki RPC limit error na aaye
-            // Agar aapka contract naya hai to ye perfect chalega
-            const filter = window.contract.filters.Deposited(address);
-            const events = await window.contract.queryFilter(filter, -50000); 
+            // 2. User ki basic info mapping se uthayein
+            const userData = await window.contract.users(address);
+            
+            // Header stats update karein (Direct from mapping)
+            const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
+            document.getElementById('total-active-capital').innerText = `$ ${totalActive.toFixed(2)}`;
+            document.getElementById('total-daily-profit').innerText = `$ ${(totalActive * 0.05).toFixed(2)}`;
 
-            if (events.length === 0) {
+            if (totalActive <= 0) {
                 grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
                 return;
             }
 
-            let totalCap = 0;
-            let totalProfit = 0;
             let html = '';
+            
+            // 3. Contract mein "positions" array hai, hum har position ko loop karenge
+            // Hum tab tak loop karenge jab tak humein positions milti rahengi
+            for (let i = 0; i < 100; i++) {
+                try {
+                    // Contract ka custom view function use kar rahe hain
+                    const pos = await window.contract.getPosition(address, i);
+                    
+                    if (!pos.active && parseFloat(pos.amount) === 0) break; // End of array
+                    if (!pos.active) continue; // Skip inactive nodes
 
-            // 2. Data calculation
-            for (const event of events) {
-                // Har event ka block fetch karna RPC ko slow karta hai, isliye optimized rakhein
-                const block = await event.getBlock();
-                const amount = parseFloat(ethers.utils.formatUnits(event.args.amount, 18));
-                
-                const dailyRate = 0.05; // 5%
-                const dailyReturn = amount * dailyRate;
-                
-                const secondsPassed = Math.floor(Date.now() / 1000) - block.timestamp;
-                const daysPassed = (secondsPassed / 86400).toFixed(2);
-                
-                const earnedSoFar = dailyReturn * (secondsPassed / 86400);
-                const target200 = amount * 2;
-                
-                let progress = ((earnedSoFar / target200) * 100).toFixed(2);
-                if (parseFloat(progress) > 100) progress = 100;
+                    const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
+                    const startTime = parseInt(pos.startTime);
+                    const endTime = parseInt(pos.endTime);
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    
+                    // Calculation as per Contract Logic (5% to 6% based on tier)
+                    const dailyReturn = (amount * 0.05); // Standard 5%
+                    
+                    const totalDuration = endTime - startTime;
+                    const elapsed = currentTime - startTime;
+                    
+                    // Real Progress Calculation
+                    let progress = ((elapsed / totalDuration) * 100).toFixed(2);
+                    if (progress > 100) progress = 100;
+                    if (progress < 0) progress = 0;
 
-                totalCap += amount;
-                totalProfit += dailyReturn;
+                    const daysPassed = (elapsed / 86400).toFixed(1);
 
-                html += `
-                <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
-                    <div class="flex justify-between items-start mb-6">
-                        <div>
-                            <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
-                            <p class="text-[9px] text-green-400 font-bold uppercase mt-1 italic">AGE: ${daysPassed} DAYS</p>
+                    html += `
+                    <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
+                                <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic italic">Running: ${daysPassed} Days</p>
+                            </div>
+                            <span class="status-badge">Active</span>
                         </div>
-                        <span class="status-badge">${parseFloat(progress) >= 100 ? 'Completed' : 'Mining'}</span>
-                    </div>
 
-                    <div class="grid grid-cols-2 gap-4 mb-8">
-                        <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                            <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
-                            <p class="text-lg font-black orbitron text-yellow-500">5%</p>
+                        <div class="grid grid-cols-2 gap-4 mb-8">
+                            <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                                <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Source</p>
+                                <p class="text-xs font-black orbitron text-yellow-500">${pos.source == 1 ? 'COMPOUND' : 'DIRECT'}</p>
+                            </div>
+                            <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                                <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily Yield</p>
+                                <p class="text-lg font-black orbitron text-green-400">$${dailyReturn.toFixed(2)}</p>
+                            </div>
                         </div>
-                        <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                            <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Earned</p>
-                            <p class="text-lg font-black orbitron text-green-400">$${earnedSoFar.toFixed(4)}</p>
-                        </div>
-                    </div>
 
-                    <div class="space-y-4">
-                        <div class="flex justify-between text-[11px] font-black orbitron uppercase">
-                            <span class="text-gray-400 italic">Progress</span>
-                            <span class="text-white">${progress}%</span>
+                        <div class="space-y-4">
+                            <div class="flex justify-between text-[11px] font-black orbitron uppercase">
+                                <span class="text-gray-400 italic">Mining Cycle</span>
+                                <span class="text-white">${progress}%</span>
+                            </div>
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] font-bold uppercase text-gray-500">
+                                <span>Cycle: 25 Days</span>
+                                <span>Status: Healthy</span>
+                            </div>
                         </div>
-                        <div class="progress-container">
-                            <div class="progress-bar" style="width: ${progress}%"></div>
-                        </div>
-                    </div>
-                </div>`;
+                    </div>`;
+                } catch (e) {
+                    // Position array khatam ho gayi
+                    break;
+                }
             }
 
-            grid.innerHTML = html;
-            document.getElementById('total-active-capital').innerText = `$ ${totalCap.toLocaleString()}`;
-            document.getElementById('total-daily-profit').innerText = `$ ${totalProfit.toLocaleString()}`;
+            grid.innerHTML = html || `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">NO ACTIVE DEPOSITS FOUND</div>`;
             if (window.lucide) lucide.createIcons();
 
         } catch (err) {
-            console.error("RPC Error:", err);
-            // Agar limit error aaye to message dikhayein
-            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs uppercase">RPC LIMIT EXCEEDED - PLEASE REFRESH IN A MOMENT</div>`;
+            console.error("Mapping Read Error:", err);
+            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs uppercase tracking-widest">ERROR: Wallet Not Connected Properly</div>`;
         }
     }
 
@@ -156,4 +169,5 @@
 </script>
 </body>
 </html>
+
 
