@@ -99,10 +99,9 @@
     <script src="components.js"></script>
     <script src="web3-handler.js"></script>
    <script>
-    // 1. Initial Icons
+    // 1. Initial Setup
     lucide.createIcons();
 
-    // 2. Fetch and Display Referral Data
     async function loadReferralData() {
         if (typeof window.contract === 'undefined') {
             setTimeout(loadReferralData, 1000);
@@ -111,81 +110,102 @@
 
         try {
             const address = await window.signer.getAddress();
-            
-            // Contract se data mangwayein
-            const [user, extra, live] = await Promise.all([
+            const [user, extra] = await Promise.all([
                 window.contract.users(address),
-                window.contract.usersExtra(address),
-                window.contract.getLiveBalance(address)
+                window.contract.usersExtra(address)
             ]);
 
             if (!user.registered) return;
 
-            // --- Top Stats Update ---
+            // --- Stats Update ---
             document.getElementById('direct-count').innerText = extra.directsCount.toString();
             document.getElementById('team-count').innerText = extra.teamCount.toString();
-            
-            // Earnings Format
-            const totalEarned = ethers.utils.formatUnits(user.totalEarnings, 18);
-            const levelEarned = ethers.utils.formatUnits(extra.rewardsReferral, 18);
-            const directEarned = ethers.utils.formatUnits(extra.rewardsOnboarding, 18); // Example if using Onboarding for direct
+            document.getElementById('total-earned').innerText = `$ ${parseFloat(ethers.utils.formatUnits(user.totalEarnings, 18)).toFixed(2)}`;
+            document.getElementById('level-earnings').innerText = `$ ${parseFloat(ethers.utils.formatUnits(extra.rewardsReferral, 18)).toFixed(2)}`;
+            document.getElementById('direct-earnings').innerText = `$ ${parseFloat(ethers.utils.formatUnits(extra.rewardsOnboarding, 18)).toFixed(2)}`;
 
-            document.getElementById('total-earned').innerText = `$ ${parseFloat(totalEarned).toFixed(2)}`;
-            document.getElementById('level-earnings').innerText = `$ ${parseFloat(levelEarned).toFixed(2)}`;
-            document.getElementById('direct-earnings').innerText = `$ ${parseFloat(directEarned).toFixed(2)}`;
+            // Referral Balance (Jo withdraw ho sakta hai)
+            const refBalance = ethers.utils.formatUnits(extra.reserveNetwork, 18);
+            document.getElementById('ref-balance-display').innerText = `$ ${parseFloat(refBalance).toFixed(2)}`;
+            window.currentRefBalance = extra.reserveNetwork; // Storing for TX
 
-            // --- Withdrawable Balance (ROI + Capital + Referral Rewards) ---
-            const referralBalance = ethers.utils.formatUnits(extra.reserveNetwork, 18); 
-            document.getElementById('ref-balance-display').innerText = `$ ${parseFloat(referralBalance).toFixed(2)}`;
+            // --- Referral Link ---
+            const baseUrl = window.location.origin + window.location.pathname.replace('referral.html', '');
+            document.getElementById('refURL').value = `${baseUrl}register.html?ref=${user.username}`;
 
-            // --- Referral Link Generation ---
-            const baseUrl = window.location.origin + window.location.pathname.replace('referral.html', ''); // Adjust path
-            const refLink = `${baseUrl}register.html?ref=${user.username}`;
-            document.getElementById('refURL').value = refLink;
-
-            // Load Level 1 by default in table
+            // Initial Table Load (Level 1)
             loadLevelData(1);
 
         } catch (err) {
-            console.error("Referral Sync Error:", err);
+            console.error("Referral Load Error:", err);
         }
     }
 
-    // 3. Team Table Loader (Placeholder logic - update based on your API/Contract events)
+    // 2. Fetch Team Data Level-wise
     async function loadLevelData(level) {
         const tableBody = document.getElementById('team-table-body');
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 animate-pulse">Scanning Level ${level}...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 animate-pulse orbitron text-xs">SCANNING BLOCKCHAIN LEVEL ${level}...</td></tr>`;
 
         try {
-            // Note: Contract doesn't always provide a full list easily. 
-            // Most projects use a backend API here. If purely on-chain, 
-            // you might need to filter 'Registered' events.
-            
-            // Simple placeholder to show it's working
-            setTimeout(() => {
-                tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic">No data found for Level ${level}</td></tr>`;
-            }, 1000);
-        } catch (e) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error loading data</td></tr>`;
+            const address = await window.signer.getAddress();
+            // Calling your specific function: getLevelTeamDetails
+            const team = await window.contract.getLevelTeamDetails(address, level);
+
+            if (!team || team.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic">No users found in Level ${level}</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            team.forEach(member => {
+                const joinDate = new Date(parseInt(member.joinDate) * 1000).toLocaleDateString();
+                html += `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <td class="p-4 font-mono text-[10px] text-yellow-500">${member.uA.substring(0, 6)}...${member.uA.substring(38)}</td>
+                    <td class="p-4 text-xs font-bold">Lvl ${level}</td>
+                    <td class="p-4 text-xs font-black text-white">$${parseFloat(ethers.utils.formatUnits(member.totalDeposited, 18)).toFixed(2)}</td>
+                    <td class="p-4 text-xs text-gray-400">$${parseFloat(ethers.utils.formatUnits(member.teamTotalDeposit, 18)).toFixed(2)}</td>
+                    <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(ethers.utils.formatUnits(member.totalActiveDeposit, 18)).toFixed(2)}</td>
+                    <td class="p-4 text-xs font-black text-yellow-500 italic uppercase">TRACKING</td>
+                    <td class="p-4 text-[10px] text-gray-500">${joinDate}</td>
+                </tr>`;
+            });
+            tableBody.innerHTML = html;
+
+        } catch (err) {
+            console.error("Level Fetch Error:", err);
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">No active data for this level</td></tr>`;
         }
     }
 
-    // 4. Copy Link Function
-    window.copyLink = function() {
-        const input = document.getElementById("refURL");
-        input.select();
-        navigator.clipboard.writeText(input.value);
-        
-        // Premium Feedback
-        const btn = document.querySelector('.gold-btn');
-        const oldText = btn.innerText;
-        btn.innerText = "COPIED!";
-        setTimeout(() => { btn.innerText = oldText; }, 2000);
+    // 3. Withdrawal Logic
+    window.handleClaim = async function() {
+        if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No referral rewards to withdraw!");
+        try {
+            const tx = await window.contract.claimNetworkReward(window.currentRefBalance, { gasLimit: 500000 });
+            alert("Withdrawal submitted! Please wait...");
+            await tx.wait();
+            alert("Success! Referral rewards sent to your wallet.");
+            location.reload();
+        } catch (err) { alert("Error: " + (err.reason || err.message)); }
     }
 
-    // Initialize on load
+    // 4. Compounding Logic
+    window.handleCompoundDaily = async function() {
+        if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No referral rewards to compound!");
+        try {
+            const tx = await window.contract.compoundNetworkReward(window.currentRefBalance, { gasLimit: 800000 });
+            alert("Compounding referral rewards...");
+            await tx.wait();
+            alert("Compound Successful! Your active deposit increased.");
+            location.reload();
+        } catch (err) { alert("Error: " + (err.reason || err.message)); }
+    }
+
+    // Initialize
     window.addEventListener('load', () => setTimeout(loadReferralData, 1500));
 </script>
 </body>
 
 </html>
+
