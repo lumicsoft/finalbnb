@@ -58,107 +58,102 @@
     <script src="web3-handler.js"></script>
 
     <script>
-        async function loadActiveDeposits() {
-            const grid = document.getElementById('deposits-grid');
-            console.log("Attempting to load deposits...");
+    async function loadActiveDeposits() {
+        const grid = document.getElementById('deposits-grid');
+        console.log("Fetching live data...");
 
-            if (typeof window.signer === 'undefined' || typeof window.contract === 'undefined') {
-                console.warn("Signer or Contract not detected yet.");
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">Waiting for Wallet Connection...</div>`;
+        if (typeof window.signer === 'undefined' || typeof window.contract === 'undefined') {
+            setTimeout(loadActiveDeposits, 1000);
+            return;
+        }
+
+        try {
+            const address = await window.signer.getAddress();
+            
+            // 1. Block range ko 50,000 kar diya taaki RPC limit error na aaye
+            // Agar aapka contract naya hai to ye perfect chalega
+            const filter = window.contract.filters.Deposited(address);
+            const events = await window.contract.queryFilter(filter, -50000); 
+
+            if (events.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
                 return;
             }
 
-            try {
-                const address = await window.signer.getAddress();
-                console.log("Connected Address:", address);
+            let totalCap = 0;
+            let totalProfit = 0;
+            let html = '';
 
-                // Try fetching events
-                const filter = window.contract.filters.Deposited(address);
-                const events = await window.contract.queryFilter(filter, -200000); 
+            // 2. Data calculation
+            for (const event of events) {
+                // Har event ka block fetch karna RPC ko slow karta hai, isliye optimized rakhein
+                const block = await event.getBlock();
+                const amount = parseFloat(ethers.utils.formatUnits(event.args.amount, 18));
                 
-                console.log("Events found:", events.length);
+                const dailyRate = 0.05; // 5%
+                const dailyReturn = amount * dailyRate;
+                
+                const secondsPassed = Math.floor(Date.now() / 1000) - block.timestamp;
+                const daysPassed = (secondsPassed / 86400).toFixed(2);
+                
+                const earnedSoFar = dailyReturn * (secondsPassed / 86400);
+                const target200 = amount * 2;
+                
+                let progress = ((earnedSoFar / target200) * 100).toFixed(2);
+                if (parseFloat(progress) > 100) progress = 100;
 
-                if (events.length === 0) {
-                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO DEPOSITS DETECTED ON BLOCKCHAIN</div>`;
-                    return;
-                }
+                totalCap += amount;
+                totalProfit += dailyReturn;
 
-                let totalCap = 0;
-                let totalProfit = 0;
-                let html = '';
-
-                for (const event of events) {
-                    const block = await event.getBlock();
-                    const amount = parseFloat(ethers.utils.formatUnits(event.args.amount, 18));
-                    
-                    const dailyRate = 0.05; 
-                    const dailyReturn = amount * dailyRate;
-                    
-                    const secondsPassed = Math.floor(Date.now() / 1000) - block.timestamp;
-                    const daysPassed = (secondsPassed / 86400).toFixed(2);
-                    const earnedSoFar = dailyReturn * (secondsPassed / 86400);
-                    const target200 = amount * 2;
-                    let progress = ((earnedSoFar / target200) * 100).toFixed(2);
-                    if (parseFloat(progress) > 100) progress = 100;
-
-                    totalCap += amount;
-                    totalProfit += dailyReturn;
-
-                    html += `
-                    <div class="premium-border p-8">
-                        <div class="flex justify-between items-start mb-6">
-                            <div>
-                                <h3 class="text-xl font-black orbitron text-white">$${amount.toFixed(2)} Node</h3>
-                                <p class="text-[9px] text-green-400 font-bold uppercase mt-1">Age: ${daysPassed} Days</p>
-                            </div>
-                            <span class="status-badge">Active</span>
+                html += `
+                <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
+                            <p class="text-[9px] text-green-400 font-bold uppercase mt-1 italic">AGE: ${daysPassed} DAYS</p>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 mb-8">
-                            <div class="bg-white/5 p-4 rounded-2xl border border-white/10 text-center">
-                                <p class="text-[9px] text-gray-500 uppercase">ROI</p>
-                                <p class="text-lg font-black text-yellow-500">5%</p>
-                            </div>
-                            <div class="bg-white/5 p-4 rounded-2xl border border-white/10 text-center">
-                                <p class="text-[9px] text-gray-500 uppercase">Earned</p>
-                                <p class="text-lg font-black text-green-400">$${earnedSoFar.toFixed(4)}</p>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                             <div class="flex justify-between text-[10px] font-black uppercase">
-                                <span class="text-gray-400">Progress</span>
-                                <span class="text-white">${progress}%</span>
-                            </div>
-                            <div class="progress-container"><div class="progress-bar" style="width: ${progress}%"></div></div>
-                        </div>
-                    </div>`;
-                }
+                        <span class="status-badge">${parseFloat(progress) >= 100 ? 'Completed' : 'Mining'}</span>
+                    </div>
 
-                grid.innerHTML = html;
-                document.getElementById('total-active-capital').innerText = `$ ${totalCap.toLocaleString()}`;
-                document.getElementById('total-daily-profit').innerText = `$ ${totalProfit.toLocaleString()}`;
-                if (window.lucide) lucide.createIcons();
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                            <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
+                            <p class="text-lg font-black orbitron text-yellow-500">5%</p>
+                        </div>
+                        <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                            <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Earned</p>
+                            <p class="text-lg font-black orbitron text-green-400">$${earnedSoFar.toFixed(4)}</p>
+                        </div>
+                    </div>
 
-            } catch (err) {
-                console.error("Critical Error in loadActiveDeposits:", err);
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">Error: ${err.message}</div>`;
+                    <div class="space-y-4">
+                        <div class="flex justify-between text-[11px] font-black orbitron uppercase">
+                            <span class="text-gray-400 italic">Progress</span>
+                            <span class="text-white">${progress}%</span>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: ${progress}%"></div>
+                        </div>
+                    </div>
+                </div>`;
             }
-        }
 
-        // Auto-load retry logic
-        window.addEventListener('load', () => {
-            let retryCount = 0;
-            const checkWeb3 = setInterval(() => {
-                if (window.signer && window.contract) {
-                    loadActiveDeposits();
-                    clearInterval(checkWeb3);
-                }
-                retryCount++;
-                if (retryCount > 10) {
-                    console.log("Giving up on auto-load. Try manual refresh.");
-                    clearInterval(checkWeb3);
-                }
-            }, 1000);
-        });
-    </script>
+            grid.innerHTML = html;
+            document.getElementById('total-active-capital').innerText = `$ ${totalCap.toLocaleString()}`;
+            document.getElementById('total-daily-profit').innerText = `$ ${totalProfit.toLocaleString()}`;
+            if (window.lucide) lucide.createIcons();
+
+        } catch (err) {
+            console.error("RPC Error:", err);
+            // Agar limit error aaye to message dikhayein
+            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs uppercase">RPC LIMIT EXCEEDED - PLEASE REFRESH IN A MOMENT</div>`;
+        }
+    }
+
+    window.addEventListener('load', () => {
+        setTimeout(loadActiveDeposits, 2000);
+    });
+</script>
 </body>
 </html>
+
