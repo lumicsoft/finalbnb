@@ -60,22 +60,22 @@
     async function loadActiveDeposits() {
         const grid = document.getElementById('deposits-grid');
         
-        if (typeof window.signer === 'undefined' || typeof window.contract === 'undefined') {
+        // Wait for Web3/Contract to load
+        if (typeof window.contract === 'undefined') {
             setTimeout(loadActiveDeposits, 1000);
             return;
         }
 
         try {
             const address = await window.signer.getAddress();
-            
-            // 1. User ki main info fetch karein
             const userData = await window.contract.users(address);
-            const totalActiveValue = ethers.utils.formatUnits(userData.totalActiveDeposit, 18);
             
-            document.getElementById('total-active-capital').innerText = `$ ${parseFloat(totalActiveValue).toFixed(2)}`;
-            document.getElementById('total-daily-profit').innerText = `$ ${(parseFloat(totalActiveValue) * 0.05).toFixed(2)}`;
+            // Header Stats
+            const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
+            document.getElementById('total-active-capital').innerText = `$ ${totalActive.toFixed(2)}`;
+            document.getElementById('total-daily-profit').innerText = `$ ${(totalActive * 0.05).toFixed(2)}`;
 
-            if (parseFloat(totalActiveValue) <= 0) {
+            if (totalActive <= 0) {
                 grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
                 return;
             }
@@ -83,50 +83,43 @@
             let html = '';
             let foundAny = false;
 
-            // 2. Loop through positions
-            // Hum 0 se 50 tak check karenge (Aapke contract ki MAX_POSITIONS limit tak)
+            // Loop through positions (Contract calls each position)
             for (let i = 0; i < 50; i++) {
                 try {
-                    // Hum getPosition ko call kar rahe hain
                     const pos = await window.contract.getPosition(address, i);
+                    const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
                     
-                    // Ethers.js struct return ko array ya object dono tarah se handle kar sakta hai
-                    // Isliye hum dono checks lagate hain
-                    const amtRaw = pos.amount || pos[0];
-                    if (!amtRaw || amtRaw.toString() === "0") {
-                        if (i > 0) break; // Agar pehla nahi hai aur 0 aaya toh end of array
-                        continue;
-                    }
+                    if (amount === 0) break; // End of list
 
-                    const amount = parseFloat(ethers.utils.formatUnits(amtRaw, 18));
-                    const startTime = parseInt(pos.startTime || pos[1]);
-                    const isActive = pos.active || pos[7]; // PositionView mein 8th element active hai
-                    
-                    if (amount > 0) {
+                    if (pos.active) {
                         foundAny = true;
-                        
+                        const startTime = parseInt(pos.startTime);
+                        const endTime = parseInt(pos.endTime);
                         const currentTime = Math.floor(Date.now() / 1000);
-                        const duration = 25 * 3600; // 25 hours as per your TIME_STEP
+                        
+                        const totalDuration = endTime - startTime;
                         const elapsed = currentTime - startTime;
                         
-                        let progress = ((elapsed / duration) * 100).toFixed(2);
+                        let progress = ((elapsed / totalDuration) * 100).toFixed(2);
                         if (progress > 100) progress = 100;
                         if (progress < 0) progress = 0;
+
+                        const daysPassed = (elapsed / 86400).toFixed(1);
 
                         html += `
                         <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
                             <div class="flex justify-between items-start mb-6">
                                 <div>
                                     <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
-                                    <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">MINING IN PROGRESS</p>
+                                    <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1">Mining: ${daysPassed} Days</p>
                                 </div>
-                                <span class="status-badge">${isActive ? 'Active' : 'Finished'}</span>
+                                <span class="status-badge">Active</span>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4 mb-8">
                                 <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
                                     <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Source</p>
-                                    <p class="text-xs font-black orbitron text-yellow-500">DIRECT</p>
+                                    <p class="text-xs font-black orbitron text-yellow-500">${pos.source == 1 ? 'COMPOUND' : 'DIRECT'}</p>
                                 </div>
                                 <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
                                     <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
@@ -145,23 +138,17 @@
                             </div>
                         </div>`;
                     }
-                } catch (err) {
-                    console.log("Index " + i + " not found or error:", err.message);
-                    break; // Loop khatam
+                } catch (e) {
+                    break; 
                 }
             }
 
-            if (!foundAny) {
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">SCANNING COMPLETE - NO CARDS TO SHOW</div>`;
-            } else {
-                grid.innerHTML = html;
-            }
-            
+            grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">NO ACTIVE POSITIONS FOUND</div>`;
             if (window.lucide) lucide.createIcons();
 
         } catch (err) {
-            console.error("Critical Page Error:", err);
-            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">SYSTEM SYNC ERROR - REFRESH PAGE</div>`;
+            console.error("Critical Load Error:", err);
+            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">ERROR: CONTRACT SYNC FAILED</div>`;
         }
     }
 
@@ -169,6 +156,7 @@
 </script>
 </body>
 </html>
+
 
 
 
