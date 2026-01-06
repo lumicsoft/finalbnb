@@ -15,8 +15,6 @@
             animation: pulse 2s infinite;
         }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        
-        /* Progress Bar Styles */
         .progress-container { background: rgba(255,255,255,0.05); height: 6px; border-radius: 10px; overflow: hidden; }
         .progress-bar { 
             background: linear-gradient(90deg, #f59e0b, #fbbf24); 
@@ -26,10 +24,9 @@
         }
     </style>
 </head>
-<body>
+<body class="bg-[#050505] text-white">
 
     <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
-        
         <div class="mb-10">
             <h1 class="text-3xl font-black orbitron italic uppercase tracking-tighter">Active <span class="text-yellow-500">Deposits</span></h1>
             <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em]">Your running mining packages performance</p>
@@ -57,52 +54,55 @@
     </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="components.js"></script>
     <script src="web3-handler.js"></script>
 
     <script>
+        // Data load karne ka function
         async function loadActiveDeposits() {
             const grid = document.getElementById('deposits-grid');
             
-            // Check if wallet is connected
-            if (typeof signer === 'undefined') {
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">PLEASE CONNECT WALLET TO VIEW DEPOSITS</div>`;
+            // Wait for Web3 to be ready
+            if (typeof window.contract === 'undefined' || typeof window.signer === 'undefined') {
+                console.log("Waiting for Web3...");
+                setTimeout(loadActiveDeposits, 1000);
                 return;
             }
 
             try {
-                const address = await signer.getAddress();
-                // 1. Blockchain se deposits fetch karein (using event logs)
-                const filter = contract.filters.Deposited(address);
-                const events = await contract.queryFilter(filter, -50000); // Last 50k blocks
+                const address = await window.signer.getAddress();
+                
+                // 1. User ka total data fetch karein pehle
+                const userData = await window.contract.users(address);
+                const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
+                
+                document.getElementById('total-active-capital').innerText = `$ ${totalActive.toLocaleString()}`;
+                document.getElementById('total-daily-profit').innerText = `$ ${(totalActive * 0.05).toFixed(2)}`;
 
-                if (events.length === 0) {
+                // 2. Deposit History fetch karein
+                const filter = window.contract.filters.Deposited(address);
+                const events = await window.contract.queryFilter(filter, -100000); // Check last 1 lakh blocks
+
+                if (events.length === 0 && totalActive === 0) {
                     grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
                     return;
                 }
 
-                let totalCap = 0;
-                let totalProfit = 0;
                 let html = '';
 
-                // 2. Loop through deposits to build cards
-                events.forEach((event, index) => {
+                // 3. Agar Events mil gaye to card banayein
+                events.forEach((event) => {
                     const amount = parseFloat(ethers.utils.formatUnits(event.args.amount, 18));
-                    const roiPercent = amount >= 1000 ? 6.0 : 5.5; // Example logic: VIP Node for $1000+
-                    const dailyReturn = (amount * roiPercent) / 100;
+                    const dailyReturn = (amount * 0.05); // Fixed 5% as per your logic
                     
-                    totalCap += amount;
-                    totalProfit += dailyReturn;
-
-                    // Fake Progress logic (Real logic would use block.timestamp vs 200% cap)
-                    const progress = Math.floor(Math.random() * 60) + 10; 
+                    // Logic for progress (Max 200%)
+                    const progress = 35; // Example: You can link this to totalEarnings/activeDeposit later
 
                     html += `
                     <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
                         <div class="flex justify-between items-start mb-6">
                             <div>
                                 <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
-                                <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">ID: #TX-${event.blockNumber.toString().slice(-4)}</p>
+                                <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">BLOCK: #${event.blockNumber}</p>
                             </div>
                             <span class="status-badge">Active</span>
                         </div>
@@ -110,7 +110,7 @@
                         <div class="grid grid-cols-2 gap-4 mb-8">
                             <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
                                 <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
-                                <p class="text-lg font-black orbitron text-yellow-500">${roiPercent}%</p>
+                                <p class="text-lg font-black orbitron text-yellow-500">5%</p>
                             </div>
                             <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
                                 <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Return</p>
@@ -128,27 +128,22 @@
                             </div>
                             <div class="flex justify-between text-[10px] font-bold uppercase text-gray-500">
                                 <span>Target: 200%</span>
-                                <span>Earned: $${(dailyReturn * 10).toFixed(2)}</span>
+                                <span>Status: Mining...</span>
                             </div>
                         </div>
                     </div>`;
                 });
 
                 grid.innerHTML = html;
-                document.getElementById('total-active-capital').innerText = `$ ${totalCap.toLocaleString()}`;
-                document.getElementById('total-daily-profit').innerText = `$ ${totalProfit.toLocaleString()}`;
                 lucide.createIcons();
 
             } catch (err) {
-                console.error(err);
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">FAILED TO LOAD DEPOSITS</div>`;
+                console.error("Mining Page Error:", err);
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">FAILED TO CONNECT TO NODES</div>`;
             }
         }
 
-        // Initialize on load
-        window.addEventListener('load', () => {
-            setTimeout(loadActiveDeposits, 2000);
-        });
+        window.addEventListener('load', loadActiveDeposits);
     </script>
 </body>
 </html>
