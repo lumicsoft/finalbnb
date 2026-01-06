@@ -1,149 +1,169 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Active Deposits | Earn BNB</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style1.css">
-    <style>
-        .status-badge {
-            background: rgba(34, 197, 94, 0.1); color: #22c55e; padding: 4px 12px; border-radius: 100px;
-            font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1px solid rgba(34, 197, 94, 0.3);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        .progress-container { background: rgba(255,255,255,0.05); height: 6px; border-radius: 10px; overflow: hidden; }
-        .progress-bar { 
-            background: linear-gradient(90deg, #f59e0b, #fbbf24); 
-            height: 100%; 
-            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
-            transition: width 1s ease-in-out;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Deposits | Earn BNB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style1.css">
+    <style>
+        .status-badge {
+            background: rgba(34, 197, 94, 0.1); color: #22c55e; padding: 4px 12px; border-radius: 100px;
+            font-size: 10px; font-weight: 800; text-transform: uppercase; border: 1px solid rgba(34, 197, 94, 0.3);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        
+        /* Progress Bar Styles */
+        .progress-container { background: rgba(255,255,255,0.05); height: 6px; border-radius: 10px; overflow: hidden; }
+        .progress-bar { 
+            background: linear-gradient(90deg, #f59e0b, #fbbf24); 
+            height: 100%; 
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+            transition: width 1s ease-in-out;
+        }
+    </style>
 </head>
 <body class="bg-[#050505] text-white">
 
-    <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
-        <div class="mb-10">
-            <h1 class="text-3xl font-black orbitron italic uppercase tracking-tighter">Active <span class="text-yellow-500">Deposits</span></h1>
-            <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em]">Your running mining packages performance</p>
-        </div>
+    <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
+        
+        <div class="mb-10">
+            <h1 class="text-3xl font-black orbitron italic uppercase tracking-tighter">Active <span class="text-yellow-500">Deposits</span></h1>
+            <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em]">Your running mining packages performance</p>
+        </div>
 
-        <div class="grid grid-cols-2 gap-6 mb-10">
-            <div class="premium-border p-6 text-center">
-                <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Total Active Capital</p>
-                <h3 id="total-active-capital" class="text-2xl font-black orbitron text-white">$ 0.00</h3>
-            </div>
-            <div class="premium-border p-6 text-center">
-                <p class="text-[10px] font-black text-yellow-500 uppercase mb-1">Total Daily Profit</p>
-                <h3 id="total-daily-profit" class="text-2xl font-black orbitron text-green-400">$ 0.00</h3>
-            </div>
-        </div>
+        <div class="grid grid-cols-2 gap-6 mb-10">
+            <div class="premium-border p-6 text-center">
+                <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Total Active Capital</p>
+                <h3 id="total-active-capital" class="text-2xl font-black orbitron text-white">$ 0.00</h3>
+            </div>
+            <div class="premium-border p-6 text-center">
+                <p class="text-[10px] font-black text-yellow-500 uppercase mb-1">Total Daily Profit</p>
+                <h3 id="total-daily-profit" class="text-2xl font-black orbitron text-green-400">$ 0.00</h3>
+            </div>
+        </div>
 
-        <div id="deposits-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
-            <div class="col-span-full text-center py-20">
-                <div class="inline-block animate-spin text-yellow-500 mb-4">
-                    <i data-lucide="refresh-cw" class="w-10 h-10"></i>
-                </div>
-                <p class="orbitron text-xs text-gray-500 uppercase tracking-widest">Fetching Active Nodes...</p>
-            </div>
-        </div>
-    </main>
+        <div id="deposits-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
+            <div class="col-span-full text-center py-20">
+                <div class="inline-block animate-spin text-yellow-500 mb-4">
+                    <i data-lucide="refresh-cw" class="w-10 h-10"></i>
+                </div>
+                <p class="orbitron text-xs text-gray-500 uppercase tracking-widest">Fetching Active Nodes...</p>
+            </div>
+        </div>
+    </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="web3-handler.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="web3-handler.js"></script>
 
-    <script>
-        // Data load karne ka function
-        async function loadActiveDeposits() {
-            const grid = document.getElementById('deposits-grid');
-            
-            // Wait for Web3 to be ready
-            if (typeof window.contract === 'undefined' || typeof window.signer === 'undefined') {
-                console.log("Waiting for Web3...");
-                setTimeout(loadActiveDeposits, 1000);
-                return;
-            }
+    <script>
+    async function loadActiveDeposits() {
+        const grid = document.getElementById('deposits-grid');
+        
+        // 1. Wait for Web3 to be ready
+        if (typeof window.signer === 'undefined' || typeof window.contract === 'undefined') {
+            console.log("Web3 not ready yet, retrying...");
+            setTimeout(loadActiveDeposits, 1000);
+            return;
+        }
 
-            try {
-                const address = await window.signer.getAddress();
-                
-                // 1. User ka total data fetch karein pehle
-                const userData = await window.contract.users(address);
-                const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
-                
-                document.getElementById('total-active-capital').innerText = `$ ${totalActive.toLocaleString()}`;
-                document.getElementById('total-daily-profit').innerText = `$ ${(totalActive * 0.05).toFixed(2)}`;
+        try {
+            const address = await window.signer.getAddress();
+            
+            // 2. Blockchain se real deposit events fetch karein
+            const filter = window.contract.filters.Deposited(address);
+            const events = await window.contract.queryFilter(filter, -100000); 
 
-                // 2. Deposit History fetch karein
-                const filter = window.contract.filters.Deposited(address);
-                const events = await window.contract.queryFilter(filter, -100000); // Check last 1 lakh blocks
+            if (events.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
+                return;
+            }
 
-                if (events.length === 0 && totalActive === 0) {
-                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
-                    return;
-                }
+            let totalCap = 0;
+            let totalProfit = 0;
+            let html = '';
 
-                let html = '';
+            // 3. Loop through events to calculate REAL DATA
+            for (const event of events) {
+                // Real Block Time nikalne ke liye
+                const block = await event.getBlock();
+                const depositTime = block.timestamp; // Real timestamp (seconds mein)
+                const currentTime = Math.floor(Date.now() / 1000);
+                
+                const amount = parseFloat(ethers.utils.formatUnits(event.args.amount, 18));
+                const dailyRate = 0.05; // 5% Daily ROI
+                const dailyReturn = amount * dailyRate;
 
-                // 3. Agar Events mil gaye to card banayein
-                events.forEach((event) => {
-                    const amount = parseFloat(ethers.utils.formatUnits(event.args.amount, 18));
-                    const dailyReturn = (amount * 0.05); // Fixed 5% as per your logic
-                    
-                    // Logic for progress (Max 200%)
-                    const progress = 35; // Example: You can link this to totalEarnings/activeDeposit later
+                // --- REAL CALCULATION LOGIC ---
+                const secondsPassed = currentTime - depositTime;
+                const daysPassed = (secondsPassed / 86400).toFixed(2); // Days calculation
+                
+                const earnedSoFar = dailyReturn * (secondsPassed / 86400);
+                const target200Percent = amount * 2;
+                
+                // Real Progress (Max 100% on the bar for 200% earnings)
+                let progress = ((earnedSoFar / target200Percent) * 100).toFixed(2);
+                if (parseFloat(progress) > 100) progress = 100;
 
-                    html += `
-                    <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
-                        <div class="flex justify-between items-start mb-6">
-                            <div>
-                                <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
-                                <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">BLOCK: #${event.blockNumber}</p>
-                            </div>
-                            <span class="status-badge">Active</span>
-                        </div>
+                totalCap += amount;
+                totalProfit += dailyReturn;
 
-                        <div class="grid grid-cols-2 gap-4 mb-8">
-                            <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                                <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
-                                <p class="text-lg font-black orbitron text-yellow-500">5%</p>
-                            </div>
-                            <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                                <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Return</p>
-                                <p class="text-lg font-black orbitron text-green-400">$${dailyReturn.toFixed(2)}</p>
-                            </div>
-                        </div>
+                // --- GENERATE CARD WITH REAL DATA ---
+                html += `
+                <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
+                            <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">ACTIVE SINCE: ${daysPassed} DAYS AGO</p>
+                        </div>
+                        <span class="status-badge">${parseFloat(progress) >= 100 ? 'Completed' : 'Mining'}</span>
+                    </div>
 
-                        <div class="space-y-4">
-                            <div class="flex justify-between text-[11px] font-black orbitron uppercase">
-                                <span class="text-gray-400 italic">Mining Progress</span>
-                                <span class="text-white">${progress}%</span>
-                            </div>
-                            <div class="progress-container">
-                                <div class="progress-bar" style="width: ${progress}%"></div>
-                            </div>
-                            <div class="flex justify-between text-[10px] font-bold uppercase text-gray-500">
-                                <span>Target: 200%</span>
-                                <span>Status: Mining...</span>
-                            </div>
-                        </div>
-                    </div>`;
-                });
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                            <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
+                            <p class="text-lg font-black orbitron text-yellow-500">5%</p>
+                        </div>
+                        <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                            <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Real Earned</p>
+                            <p class="text-lg font-black orbitron text-green-400">$${earnedSoFar.toFixed(4)}</p>
+                        </div>
+                    </div>
 
-                grid.innerHTML = html;
-                lucide.createIcons();
+                    <div class="space-y-4">
+                        <div class="flex justify-between text-[11px] font-black orbitron uppercase">
+                            <span class="text-gray-400 italic">Target Progress (200%)</span>
+                            <span class="text-white">${progress}%</span>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] font-bold uppercase text-gray-500">
+                            <span>Max Cap: $${target200Percent.toFixed(2)}</span>
+                            <span>Yield: $${dailyReturn.toFixed(2)}/day</span>
+                        </div>
+                    </div>
+                </div>`;
+            }
 
-            } catch (err) {
-                console.error("Mining Page Error:", err);
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">FAILED TO CONNECT TO NODES</div>`;
-            }
-        }
+            // UI Update
+            grid.innerHTML = html;
+            document.getElementById('total-active-capital').innerText = `$ ${totalCap.toLocaleString()}`;
+            document.getElementById('total-daily-profit').innerText = `$ ${totalProfit.toLocaleString()}`;
+            
+            if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        window.addEventListener('load', loadActiveDeposits);
-    </script>
+        } catch (err) {
+            console.error("Real Data Fetch Error:", err);
+            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">BLOCKCHAIN SYNC ERROR</div>`;
+        }
+    }
+
+    // Initialize on load
+    window.addEventListener('load', loadActiveDeposits);
+</script>
 </body>
 </html>
