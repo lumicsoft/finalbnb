@@ -36,7 +36,7 @@
                 <h3 id="total-active-capital" class="text-2xl font-black orbitron text-white">$ 0.00</h3>
             </div>
             <div class="premium-border p-6 text-center">
-                <p class="text-[10px] font-black text-yellow-500 uppercase mb-1">Total Daily Profit</p>
+                <p class="text-[10px] font-black text-yellow-500 uppercase mb-1">Estimated Daily Profit</p>
                 <h3 id="total-daily-profit" class="text-2xl font-black orbitron text-green-400">$ 0.00</h3>
             </div>
         </div>
@@ -46,7 +46,7 @@
                 <div class="inline-block animate-spin text-yellow-500 mb-4">
                     <i data-lucide="refresh-cw" class="w-10 h-10"></i>
                 </div>
-                <p class="orbitron text-xs text-gray-500 uppercase tracking-widest">Connecting to Smart Contract...</p>
+                <p class="orbitron text-xs text-gray-500 uppercase tracking-widest">Scanning Your Nodes...</p>
             </div>
         </div>
     </main>
@@ -56,111 +56,119 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="components.js"></script>
     <script src="web3-handler.js"></script>
-<script>
-    async function loadActiveDeposits() {
-        const grid = document.getElementById('deposits-grid');
-        
-        // Wait for Web3/Contract to load
-        if (typeof window.contract === 'undefined') {
-            setTimeout(loadActiveDeposits, 1000);
-            return;
+    <script>
+        // ROI Helper Function
+        function calculateROI(amount) {
+            if (amount >= 5000) return 6.00;
+            if (amount >= 2500) return 5.75;
+            if (amount >= 1000) return 5.50;
+            if (amount >= 500) return 5.25;
+            return 5.00;
         }
 
-        try {
-            const address = await window.signer.getAddress();
-            const userData = await window.contract.users(address);
+        async function loadActiveDeposits() {
+            const grid = document.getElementById('deposits-grid');
             
-            // Header Stats
-            const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
-            document.getElementById('total-active-capital').innerText = `$ ${totalActive.toFixed(2)}`;
-            document.getElementById('total-daily-profit').innerText = `$ ${(totalActive * 0.05).toFixed(2)}`;
-
-            if (totalActive <= 0) {
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
+            if (typeof window.contract === 'undefined') {
+                setTimeout(loadActiveDeposits, 1000);
                 return;
             }
 
-            let html = '';
-            let foundAny = false;
+            try {
+                const address = await window.signer.getAddress();
+                const userData = await window.contract.users(address);
+                
+                const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
+                document.getElementById('total-active-capital').innerText = `$ ${totalActive.toFixed(2)}`;
 
-            // Loop through positions (Contract calls each position)
-            for (let i = 0; i < 50; i++) {
-                try {
-                    const pos = await window.contract.getPosition(address, i);
-                    const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
-                    
-                    if (amount === 0) break; // End of list
-
-                    if (pos.active) {
-                        foundAny = true;
-                        const startTime = parseInt(pos.startTime);
-                        const endTime = parseInt(pos.endTime);
-                        const currentTime = Math.floor(Date.now() / 1000);
-                        
-                        const totalDuration = endTime - startTime;
-                        const elapsed = currentTime - startTime;
-                        
-                        let progress = ((elapsed / totalDuration) * 100).toFixed(2);
-                        if (progress > 100) progress = 100;
-                        if (progress < 0) progress = 0;
-
-                        const daysPassed = (elapsed / 86400).toFixed(1);
-
-                        html += `
-                        <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
-                            <div class="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
-                                    <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1">Mining: ${daysPassed} Days</p>
-                                </div>
-                                <span class="status-badge">Active</span>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-4 mb-8">
-                                <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                                    <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Source</p>
-                                    <p class="text-xs font-black orbitron text-yellow-500">${pos.source == 1 ? 'COMPOUND' : 'DIRECT'}</p>
-                                </div>
-                                <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                                    <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
-                                    <p class="text-lg font-black orbitron text-green-400">5%</p>
-                                </div>
-                            </div>
-
-                            <div class="space-y-4">
-                                <div class="flex justify-between text-[11px] font-black orbitron uppercase">
-                                    <span class="text-gray-400 italic">Progress</span>
-                                    <span class="text-white">${progress}%</span>
-                                </div>
-                                <div class="progress-container">
-                                    <div class="progress-bar" style="width: ${progress}%"></div>
-                                </div>
-                            </div>
-                        </div>`;
-                    }
-                } catch (e) {
-                    break; 
+                if (totalActive <= 0) {
+                    document.getElementById('total-daily-profit').innerText = `$ 0.00`;
+                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
+                    return;
                 }
+
+                let html = '';
+                let foundAny = false;
+                let cumulativeDailyProfit = 0;
+
+                for (let i = 0; i < 50; i++) {
+                    try {
+                        const pos = await window.contract.getPosition(address, i);
+                        const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
+                        
+                        if (amount === 0) break;
+
+                        if (pos.active) {
+                            foundAny = true;
+                            
+                            // Get ROI based on Tier
+                            const roiRate = calculateROI(amount);
+                            const dailyYield = (amount * (roiRate / 100));
+                            cumulativeDailyProfit += dailyYield;
+
+                            const startTime = parseInt(pos.startTime);
+                            const endTime = parseInt(pos.endTime);
+                            const currentTime = Math.floor(Date.now() / 1000);
+                            
+                            const totalDuration = endTime - startTime;
+                            const elapsed = currentTime - startTime;
+                            
+                            let progress = ((elapsed / totalDuration) * 100).toFixed(2);
+                            if (progress > 100) progress = 100;
+                            if (progress < 0) progress = 0;
+
+                            const daysPassed = (elapsed / 86400).toFixed(1);
+
+                            html += `
+                            <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
+                                <div class="flex justify-between items-start mb-6">
+                                    <div>
+                                        <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
+                                        <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">ROI Tier: ${roiRate.toFixed(2)}% Daily</p>
+                                    </div>
+                                    <span class="status-badge">Active</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4 mb-8">
+                                    <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                                        <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Source</p>
+                                        <p class="text-xs font-black orbitron text-yellow-500">${pos.source == 1 ? 'COMPOUND' : 'DIRECT'}</p>
+                                    </div>
+                                    <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                                        <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily Yield</p>
+                                        <p class="text-lg font-black orbitron text-green-400">$${dailyYield.toFixed(2)}</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div class="flex justify-between text-[11px] font-black orbitron uppercase">
+                                        <span class="text-gray-400 italic">Progress (${daysPassed}d)</span>
+                                        <span class="text-white">${progress}%</span>
+                                    </div>
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }
+                    } catch (e) {
+                        break; 
+                    }
+                }
+
+                // Update total daily profit based on real tiers
+                document.getElementById('total-daily-profit').innerText = `$ ${cumulativeDailyProfit.toFixed(2)}`;
+                
+                grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">NO ACTIVE DEPOSITS FOUND</div>`;
+                if (window.lucide) lucide.createIcons();
+
+            } catch (err) {
+                console.error("Critical Load Error:", err);
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs uppercase">ERROR: Contract Sync Failed</div>`;
             }
-
-            grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">NO ACTIVE POSITIONS FOUND</div>`;
-            if (window.lucide) lucide.createIcons();
-
-        } catch (err) {
-            console.error("Critical Load Error:", err);
-            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">ERROR: CONTRACT SYNC FAILED</div>`;
         }
-    }
 
-    window.addEventListener('load', () => setTimeout(loadActiveDeposits, 2000));
-</script>
+        window.addEventListener('load', () => setTimeout(loadActiveDeposits, 1500));
+    </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
