@@ -41,6 +41,54 @@ async function init() {
     }
 }
 
+// --- NEW: DEPOSIT ACTION WITH SPENDING CAP ---
+window.handleDeposit = async function() {
+    const amountInput = document.getElementById('deposit-amount');
+    const depositBtn = document.getElementById('deposit-btn');
+
+    if (!amountInput || !amountInput.value || amountInput.value <= 0) {
+        return alert("Please enter a valid USDT amount!");
+    }
+
+    const rawAmount = amountInput.value;
+    const amountInWei = ethers.utils.parseUnits(rawAmount.toString(), 18);
+
+    try {
+        depositBtn.disabled = true;
+        depositBtn.innerText = "CHECKING CAP...";
+
+        const userAddress = await signer.getAddress();
+        
+        // 1. Check Spending Cap (Allowance)
+        const currentAllowance = await usdtContract.allowance(userAddress, CONTRACT_ADDRESS);
+
+        if (currentAllowance.lt(amountInWei)) {
+            depositBtn.innerText = "APPROVE USDT...";
+            // Approval transaction (Spending Cap call)
+            const approveTx = await usdtContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+            await approveTx.wait();
+            alert("USDT Spending Cap Approved!");
+        }
+
+        // 2. Deposit Transaction
+        depositBtn.innerText = "CONFIRM DEPOSIT...";
+        const tx = await contract.deposit(amountInWei, {
+            gasLimit: 500000 
+        });
+
+        depositBtn.innerText = "PROCESSING...";
+        await tx.wait();
+
+        alert("Deposit Successful!");
+        location.reload(); 
+    } catch (err) {
+        console.error("Deposit Error:", err);
+        alert("Error: " + (err.reason || err.message || "Transaction failed"));
+        depositBtn.innerText = "DEPOSIT NOW";
+        depositBtn.disabled = false;
+    }
+}
+
 // --- LOGIN & REGISTER ACTIONS ---
 window.handleLogin = async function() {
     try {
@@ -58,11 +106,8 @@ window.handleLogin = async function() {
     } catch (err) { console.error("Login Error:", err); }
 }
 
-// FIXED: Renamed internal variables to prevent stack overflow
 window.handleRegister = async function() {
     console.log("Register function triggered");
-    
-    // Check if provider is available
     if (!window.ethereum || !provider) return alert("MetaMask not connected!");
 
     const userField = document.getElementById('reg-username');
@@ -85,8 +130,6 @@ window.handleRegister = async function() {
 
         const accounts = await provider.send("eth_requestAccounts", []);
         const currentSigner = provider.getSigner();
-        
-        // Creating a dedicated instance for this transaction
         const txContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, currentSigner);
 
         registerBtn.innerText = "WAITING FOR WALLET...";
