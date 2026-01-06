@@ -41,7 +41,7 @@ async function init() {
     }
 }
 
-// --- NEW: DEPOSIT ACTION WITH SPENDING CAP ---
+// --- 1. DEPOSIT ACTION WITH SPENDING CAP ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
@@ -56,26 +56,18 @@ window.handleDeposit = async function() {
     try {
         depositBtn.disabled = true;
         depositBtn.innerText = "CHECKING CAP...";
-
         const userAddress = await signer.getAddress();
-        
-        // 1. Check Spending Cap (Allowance)
         const currentAllowance = await usdtContract.allowance(userAddress, CONTRACT_ADDRESS);
 
         if (currentAllowance.lt(amountInWei)) {
             depositBtn.innerText = "APPROVE USDT...";
-            // Approval transaction (Spending Cap call)
             const approveTx = await usdtContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
             await approveTx.wait();
             alert("USDT Spending Cap Approved!");
         }
 
-        // 2. Deposit Transaction
-        depositBtn.innerText = "CONFIRM DEPOSIT...";
-        const tx = await contract.deposit(amountInWei, {
-            gasLimit: 500000 
-        });
-
+        depositBtn.innerText = "CONFIRMING DEPOSIT...";
+        const tx = await contract.deposit(amountInWei, { gasLimit: 500000 });
         depositBtn.innerText = "PROCESSING...";
         await tx.wait();
 
@@ -83,9 +75,61 @@ window.handleDeposit = async function() {
         location.reload(); 
     } catch (err) {
         console.error("Deposit Error:", err);
-        alert("Error: " + (err.reason || err.message || "Transaction failed"));
+        alert("Error: " + (err.reason || err.message));
         depositBtn.innerText = "DEPOSIT NOW";
         depositBtn.disabled = false;
+    }
+}
+
+// --- 2. WITHDRAW ROI ACTION ---
+window.handleClaim = async function() {
+    try {
+        const userAddress = await signer.getAddress();
+        const live = await contract.getLiveBalance(userAddress);
+        const totalPending = live.pendingROI.add(live.pendingCap);
+
+        if (totalPending.lte(0)) return alert("No rewards to withdraw!");
+
+        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 500000 });
+        await tx.wait();
+        alert("ROI Withdrawn Successfully!");
+        location.reload();
+    } catch (err) {
+        console.error("Withdraw Error:", err);
+        alert("Withdraw failed: " + (err.reason || err.message));
+    }
+}
+
+// --- 3. COMPOUND ROI ACTION ---
+window.handleCompoundDaily = async function() {
+    try {
+        const userAddress = await signer.getAddress();
+        const live = await contract.getLiveBalance(userAddress);
+        const totalPending = live.pendingROI.add(live.pendingCap);
+
+        if (totalPending.lte(0)) return alert("No rewards to compound!");
+
+        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 500000 });
+        await tx.wait();
+        alert("ROI Compounded Successfully!");
+        location.reload();
+    } catch (err) {
+        console.error("Compound Error:", err);
+        alert("Compound failed: " + (err.reason || err.message));
+    }
+}
+
+// --- 4. CAPITAL WITHDRAWAL ACTION ---
+window.handleCapitalWithdraw = async function() {
+    if (!confirm("Are you sure you want to withdraw your Capital? This will stop your daily returns.")) return;
+    try {
+        const tx = await contract.withdrawPrincipal({ gasLimit: 500000 });
+        await tx.wait();
+        alert("Capital Withdrawn Successfully!");
+        location.reload();
+    } catch (err) {
+        console.error("Capital Error:", err);
+        alert("Capital withdraw failed: " + (err.reason || err.message));
     }
 }
 
@@ -95,57 +139,34 @@ window.handleLogin = async function() {
         if (!window.ethereum) return alert("Please install MetaMask!");
         const accounts = await provider.send("eth_requestAccounts", []);
         const address = accounts[0];
-        
         const userData = await contract.users(address);
-        if (userData.registered) {
-            window.location.href = "index1.html";
-        } else {
-            alert("Not registered! Redirecting...");
-            window.location.href = "register.html";
-        }
+        if (userData.registered) window.location.href = "index1.html";
+        else { alert("Not registered!"); window.location.href = "register.html"; }
     } catch (err) { console.error("Login Error:", err); }
 }
 
 window.handleRegister = async function() {
-    console.log("Register function triggered");
     if (!window.ethereum || !provider) return alert("MetaMask not connected!");
-
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
     const registerBtn = document.getElementById('reg-btn');
-
-    if (!userField || !refField) {
-        console.error("Missing input fields in HTML");
-        return;
-    }
+    if (!userField || !refField) return;
 
     const _username = userField.value.trim();
     const _referrer = refField.value.trim();
-
     if (!_username || !_referrer) return alert("Please fill all fields!");
 
     try {
         registerBtn.innerText = "CONNECTING...";
         registerBtn.disabled = true;
-
-        const accounts = await provider.send("eth_requestAccounts", []);
         const currentSigner = provider.getSigner();
         const txContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, currentSigner);
-
-        registerBtn.innerText = "WAITING FOR WALLET...";
-        const tx = await txContract.register(_username, _referrer, {
-            gasLimit: 500000 
-        });
-
-        registerBtn.innerText = "PROCESSING...";
+        const tx = await txContract.register(_username, _referrer, { gasLimit: 500000 });
         await tx.wait();
-        
         alert("Registration Successful!");
         window.location.href = "index1.html";
     } catch (err) {
-        console.error("Reg Error:", err);
-        const msg = err.reason || err.data?.message || err.message || "Transaction failed";
-        alert("Error: " + msg);
+        alert("Error: " + (err.reason || err.message));
         registerBtn.innerText = "REGISTER NOW";
         registerBtn.disabled = false;
     }
@@ -160,10 +181,7 @@ async function connectWallet() {
 
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
-    if (chainId !== TESTNET_CHAIN_ID) {
-        alert("Please switch to BSC Testnet!");
-        return;
-    }
+    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Testnet!"); return; }
 
     window.signer = provider.getSigner();
     signer = window.signer;
@@ -174,18 +192,12 @@ async function setupApp(address) {
     
     if (window.location.pathname.includes('index1.html')) {
         const userData = await contract.users(address);
-        if (!userData.registered) {
-            window.location.href = "register.html";
-            return;
-        }
+        if (!userData.registered) { window.location.href = "register.html"; return; }
     }
 
     updateNavbar(address);
     fetchAllData(address);
     start8HourCountdown(); 
-    
-    if(document.getElementById('team-table-body')) fetchTeamReport(address, 1);
-    if(document.getElementById('history-container')) window.showHistory('deposit');
 }
 
 async function fetchAllData(address) {
@@ -213,7 +225,7 @@ async function fetchAllData(address) {
         updateText('capital-withdrawn-display', `$ ${format(user.totalWithdrawn)}`);
         
         const dailyROI = (parseFloat(format(user.totalActiveDeposit)) * 0.05).toFixed(2);
-        updateText('project-return', `$ ${dailyROI}`);
+        updateText('projected-return', `$ ${dailyROI}`); // Fixed ID here
         updateText('rank-display', getRankName(extra.rank));
 
         const cpVal = Math.floor(parseFloat(format(user.totalActiveDeposit)) / 100);
