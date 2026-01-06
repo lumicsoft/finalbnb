@@ -30,7 +30,6 @@ const USDT_ABI = [
 async function init() {
     if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
-        
         const tempSigner = provider.getSigner();
         window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
         contract = window.contract;
@@ -59,45 +58,53 @@ window.handleLogin = async function() {
     } catch (err) { console.error("Login Error:", err); }
 }
 
-// FIXED: Removed self-recursion to stop 'Maximum call stack size' error
+// FIXED: Renamed internal variables to prevent stack overflow
 window.handleRegister = async function() {
-    const usernameInput = document.getElementById('reg-username');
-    const referrerInput = document.getElementById('reg-referrer');
-    const btn = document.getElementById('reg-btn');
+    console.log("Register function triggered");
+    
+    // Check if provider is available
+    if (!window.ethereum || !provider) return alert("MetaMask not connected!");
 
-    if (!usernameInput || !referrerInput) return console.error("UI Elements missing");
+    const userField = document.getElementById('reg-username');
+    const refField = document.getElementById('reg-referrer');
+    const registerBtn = document.getElementById('reg-btn');
 
-    const username = usernameInput.value.trim();
-    const referrer = referrerInput.value.trim();
+    if (!userField || !refField) {
+        console.error("Missing input fields in HTML");
+        return;
+    }
 
-    if (!username || !referrer) return alert("Please fill all fields!");
+    const _username = userField.value.trim();
+    const _referrer = refField.value.trim();
+
+    if (!_username || !_referrer) return alert("Please fill all fields!");
 
     try {
-        btn.innerText = "WAITING FOR WALLET...";
-        btn.disabled = true;
+        registerBtn.innerText = "CONNECTING...";
+        registerBtn.disabled = true;
 
-        await provider.send("eth_requestAccounts", []);
+        const accounts = await provider.send("eth_requestAccounts", []);
         const currentSigner = provider.getSigner();
         
-        // Creating a local instance for the transaction to avoid variable conflicts
+        // Creating a dedicated instance for this transaction
         const txContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, currentSigner);
 
-        console.log("Attempting registration...");
-        const tx = await txContract.register(username, referrer, {
+        registerBtn.innerText = "WAITING FOR WALLET...";
+        const tx = await txContract.register(_username, _referrer, {
             gasLimit: 500000 
         });
 
-        btn.innerText = "PROCESSING...";
+        registerBtn.innerText = "PROCESSING...";
         await tx.wait();
         
         alert("Registration Successful!");
         window.location.href = "index1.html";
     } catch (err) {
         console.error("Reg Error:", err);
-        const errorReason = err.reason || err.data?.message || err.message || "Transaction failed";
-        alert("Error: " + errorReason);
-        btn.innerText = "REGISTER NOW";
-        btn.disabled = false;
+        const msg = err.reason || err.data?.message || err.message || "Transaction failed";
+        alert("Error: " + msg);
+        registerBtn.innerText = "REGISTER NOW";
+        registerBtn.disabled = false;
     }
 }
 
@@ -138,7 +145,6 @@ async function setupApp(address) {
     if(document.getElementById('history-container')) window.showHistory('deposit');
 }
 
-// --- DATA FETCHING ---
 async function fetchAllData(address) {
     try {
         const [user, extra, live] = await Promise.all([
@@ -183,7 +189,6 @@ async function fetchAllData(address) {
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- TIMER & UTILS ---
 function start8HourCountdown() {
     const timerElement = document.getElementById('next-timer');
     if (!timerElement) return;
