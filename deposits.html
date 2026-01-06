@@ -68,8 +68,6 @@
 
         try {
             const address = await window.signer.getAddress();
-            
-            // 1. User ki basic info mapping se fetch karein
             const userData = await window.contract.users(address);
             
             const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
@@ -84,27 +82,27 @@
             let html = '';
             let foundAny = false;
 
-            // 2. Loop through positions
-            // Aapke contract mein Position struct array hai, ise hum loop karenge
+            // Loop through positions (Increasing limit to 100)
             for (let i = 0; i < 100; i++) {
                 try {
-                    // Yahan hum getPosition view function use kar rahe hain jo contract mein hai
                     const pos = await window.contract.getPosition(address, i);
                     
-                    // Agar amount 0 hai, matlab positions khatam ho gayi hain
-                    if (pos.amount.toString() === "0") break; 
+                    // Critical Fix: Agar amount > 0 hai, toh humein card dikhana chahiye 
+                    // chahe contract use 'active: false' kahe (purana cycle complete hone par bhi)
+                    const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
                     
-                    // Card tabhi dikhayein agar position active hai
-                    if (pos.active) {
+                    if (amount === 0 && i > 0) break; // Array end check
+                    if (amount === 0) continue; 
+
+                    // Hum sirf wahi dikhayenge jo ya toh active hain ya jinme abhi bhi amount hai
+                    if (pos.active || amount > 0) {
                         foundAny = true;
-                        const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
+                        
                         const startTime = parseInt(pos.startTime);
                         const endTime = parseInt(pos.endTime);
                         const currentTime = Math.floor(Date.now() / 1000);
                         
-                        // ROI logic as per your contract (Standard 5% daily for display)
                         const dailyReturn = (amount * 0.05);
-                        
                         const totalDuration = endTime - startTime;
                         const elapsed = currentTime - startTime;
                         
@@ -119,9 +117,9 @@
                             <div class="flex justify-between items-start mb-6">
                                 <div>
                                     <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
-                                    <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">TIME: ${daysPassed} DAYS ELAPSED</p>
+                                    <p class="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-1 italic">STATUS: ${pos.active ? 'MINING' : 'COMPLETED'}</p>
                                 </div>
-                                <span class="status-badge">Mining</span>
+                                <span class="${pos.active ? 'status-badge' : 'bg-gray-500/10 text-gray-500 border border-gray-500/30 px-3 py-1 rounded-full text-[10px]'}">${pos.active ? 'Active' : 'Finished'}</span>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4 mb-8">
@@ -130,43 +128,33 @@
                                     <p class="text-xs font-black orbitron text-yellow-500">${pos.source == 1 ? 'COMPOUND' : (pos.source == 2 ? 'NETWORK' : 'DIRECT')}</p>
                                 </div>
                                 <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                                    <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Yield</p>
+                                    <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Daily ROI</p>
                                     <p class="text-lg font-black orbitron text-green-400">$${dailyReturn.toFixed(2)}</p>
                                 </div>
                             </div>
 
                             <div class="space-y-4">
                                 <div class="flex justify-between text-[11px] font-black orbitron uppercase">
-                                    <span class="text-gray-400 italic">Progress</span>
+                                    <span class="text-gray-400 italic">Age: ${daysPassed} Days</span>
                                     <span class="text-white">${progress}%</span>
                                 </div>
                                 <div class="progress-container">
                                     <div class="progress-bar" style="width: ${progress}%"></div>
                                 </div>
-                                <div class="flex justify-between text-[10px] font-bold uppercase text-gray-500">
-                                    <span>25 Days Cycle</span>
-                                    <span>Healthy Status</span>
-                                </div>
                             </div>
                         </div>`;
                     }
                 } catch (e) {
-                    // Agar koi error aaye (like index out of bounds), toh loop break karein
-                    break;
+                    break; 
                 }
             }
 
-            if (!foundAny) {
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">ALL DEPOSITS COMPLETED OR WITHDRAWN</div>`;
-            } else {
-                grid.innerHTML = html;
-            }
-            
+            grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs">NO VALID POSITIONS FOUND</div>`;
             if (window.lucide) lucide.createIcons();
 
         } catch (err) {
-            console.error("Mapping Read Error:", err);
-            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs uppercase">CONNECTION ERROR - PLEASE REFRESH</div>`;
+            console.error("Mapping Error:", err);
+            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron text-xs">SYNC ERROR</div>`;
         }
     }
 
@@ -174,6 +162,7 @@
 </script>
 </body>
 </html>
+
 
 
 
