@@ -70,11 +70,16 @@ window.handleRegister = async function() {
         btn.innerText = "WAITING FOR WALLET...";
         btn.disabled = true;
 
+        // Ensure provider is ready
         await provider.send("eth_requestAccounts", []);
         const currentSigner = provider.getSigner();
         const contractWithSigner = contract.connect(currentSigner);
 
-        const tx = await contractWithSigner.register(username, referrer);
+        // Added Gas Limit to prevent transaction failure on BSC Testnet
+        const tx = await contractWithSigner.register(username, referrer, {
+            gasLimit: 500000 
+        });
+
         btn.innerText = "PROCESSING...";
         await tx.wait();
         
@@ -82,7 +87,9 @@ window.handleRegister = async function() {
         window.location.href = "index1.html";
     } catch (err) {
         console.error("Reg Error:", err);
-        alert("Error: " + (err.reason || "Transaction failed or cancelled"));
+        // Better error reporting
+        const errorReason = err.reason || err.data?.message || "Transaction failed";
+        alert("Error: " + errorReason);
         btn.innerText = "REGISTER NOW";
         btn.disabled = false;
     }
