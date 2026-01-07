@@ -214,16 +214,27 @@ window.loadLevelData = async function(level) {
     try {
         const address = await signer.getAddress();
         const res = await contract.getLevelTeamDetails(address, level);
-        console.log("Raw Response Debug:", res);
+        
+        // --- ULTIMATE DEBUGGING ---
+        console.log("FULL_RESPONSE_OBJECT:", res);
 
-        // Mapping using your specific names logic
-        const names = res.names || res[0] || [];
-        const wallets = res.wallets || res[1] || [];
-        const joinDates = res.joinDates || res[2] || [];
-        const activeDeps = res.activeDeps || res[3] || [];
-        const teamTotalDeps = res.teamTotalDeps || res[4] || [];
+        // Sabhi possible tarikon se data nikalne ki koshish
+        let names = res.names || res[0] || [];
+        let wallets = res.wallets || res[1] || [];
+        let joinDates = res.joinDates || res[2] || [];
+        let activeDeps = res.activeDeps || res[3] || [];
+        let teamTotalDeps = res.teamTotalDeps || res[4] || [];
 
-        if (!wallets || wallets.length === 0) {
+        // Agar res ek Array-like object hai (jo Ethers bhejta hai)
+        if (wallets.length === 0 && res.length > 1) {
+            names = res[0];
+            wallets = res[1];
+            joinDates = res[2];
+            activeDeps = res[3];
+            teamTotalDeps = res[4];
+        }
+
+        if (!wallets || !wallets.length || wallets.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-400">No users found in Level ${level}</td></tr>`;
             return;
         }
@@ -231,25 +242,31 @@ window.loadLevelData = async function(level) {
         let html = '';
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            if (!uA || uA === ethers.constants.AddressZero) continue;
+            
+            // Skip invalid addresses safely
+            if (!uA || uA === "0x0000000000000000000000000000000000000000") continue;
 
             const uName = (names && names[i]) ? names[i] : "N/A";
-            let activeD = "0.00";
-            let teamTD = "0.00";
-            let jDate = "N/A";
+            
+            // Safe Number Formatting Function
+            const toEth = (val) => {
+                try {
+                    if (!val) return "0.00";
+                    // BigNumber ko string mein convert karke format karein
+                    return ethers.utils.formatUnits(val.toString(), 18);
+                } catch(e) { return "0.00"; }
+            };
 
+            const activeD = toEth(activeDeps[i]);
+            const teamTD = toEth(teamTotalDeps[i]);
+            
+            let jDate = "N/A";
             try {
-                if (activeDeps && activeDeps[i]) {
-                    activeD = ethers.utils.formatUnits(activeDeps[i].toString(), 18);
-                }
-                if (teamTotalDeps && teamTotalDeps[i]) {
-                    teamTD = ethers.utils.formatUnits(teamTotalDeps[i].toString(), 18);
-                }
                 if (joinDates && joinDates[i]) {
-                    const unixTime = parseInt(joinDates[i].toString());
-                    if (unixTime > 0) jDate = new Date(unixTime * 1000).toLocaleDateString();
+                    const ts = parseInt(joinDates[i].toString());
+                    if (ts > 0) jDate = new Date(ts * 1000).toLocaleDateString();
                 }
-            } catch (err) { console.warn(`Row ${i} parsing issue:`, err); }
+            } catch(e) {}
 
             html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                 <td class="p-4 font-mono text-yellow-500 text-[10px]">
@@ -268,10 +285,12 @@ window.loadLevelData = async function(level) {
                 <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
             </tr>`;
         }
-        tableBody.innerHTML = html;
+        
+        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No active records.</td></tr>`;
+
     } catch (e) { 
-        console.error("Critical Fetch Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error: ${e.message}</td></tr>`; 
+        console.error("CRITICAL_DISPLAY_ERROR:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error: ${e.message}</td></tr>`; 
     }
 }
 
@@ -308,3 +327,4 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
