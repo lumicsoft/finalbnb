@@ -67,7 +67,7 @@ async function init() {
     }
 }
 
-// --- CORE LOGIC (DEPOSIT, CLAIM, COMPOUND) ---
+// --- CORE LOGIC ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
@@ -166,14 +166,7 @@ window.handleRegister = async function() {
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
     if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Testnet!"); return; }
-    window.signer = provider.getSigner();
-    signer = window.signer;
-    window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    contract = window.contract;
-    window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-    usdtContract = window.usdtContract;
     
-    // Check registration
     const userData = await contract.users(address);
     if (!userData.registered && !window.location.pathname.includes('register.html') && !window.location.pathname.includes('login.html')) {
         window.location.href = "register.html"; 
@@ -182,7 +175,6 @@ async function setupApp(address) {
 
     updateNavbar(address);
 
-    // --- PAGE SPECIFIC LOADERS ---
     if (window.location.pathname.includes('index1.html')) {
         fetchAllData(address);
         start8HourCountdown(); 
@@ -192,69 +184,42 @@ async function setupApp(address) {
         fetchLeadershipData(address);
     }
     
-    // NEW: Load history if on history page
     if (window.location.pathname.includes('history.html')) {
         window.fetchBlockchainHistory(address);
     }
 }
 
-// --- NEW: HISTORY PAGE LOADER ---
-async function window.fetchBlockchainHistory(address) {
+// --- FIXED: HISTORY PAGE LOADER ---
+window.fetchBlockchainHistory = async function(address) {
     const tableBody = document.getElementById('history-table-body');
     if(!tableBody) return;
     tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-yellow-500 italic">Fetching History...</td></tr>`;
 
     try {
-        // Fetch all relevant events
         const depFilter = contract.filters.Deposited(address);
         const claimFilter = contract.filters.RewardClaimed(address);
         const compFilter = contract.filters.Compounded(address);
 
         const [depLogs, claimLogs, compLogs] = await Promise.all([
-            contract.queryFilter(depFilter, -10000), // Scan last 10,000 blocks
+            contract.queryFilter(depFilter, -10000),
             contract.queryFilter(claimFilter, -10000),
             contract.queryFilter(compFilter, -10000)
         ]);
 
         let allEvents = [];
-
-        // Process Deposits
         for(let log of depLogs) {
             const block = await log.getBlock();
-            allEvents.push({
-                type: 'DEPOSIT',
-                amount: format(log.args.amount),
-                date: new Date(block.timestamp * 1000).toLocaleString(),
-                ts: block.timestamp,
-                color: 'text-blue-400'
-            });
+            allEvents.push({ type: 'DEPOSIT', amount: format(log.args.amount), date: new Date(block.timestamp * 1000).toLocaleString(), ts: block.timestamp, color: 'text-blue-400' });
         }
-
-        // Process Claims
         for(let log of claimLogs) {
             const block = await log.getBlock();
-            allEvents.push({
-                type: log.args.rewardType.toUpperCase(),
-                amount: format(log.args.amount),
-                date: new Date(block.timestamp * 1000).toLocaleString(),
-                ts: block.timestamp,
-                color: 'text-green-400'
-            });
+            allEvents.push({ type: log.args.rewardType.toUpperCase(), amount: format(log.args.amount), date: new Date(block.timestamp * 1000).toLocaleString(), ts: block.timestamp, color: 'text-green-400' });
         }
-
-        // Process Compounding
         for(let log of compLogs) {
             const block = await log.getBlock();
-            allEvents.push({
-                type: 'COMPOUND',
-                amount: format(log.args.amount),
-                date: new Date(block.timestamp * 1000).toLocaleString(),
-                ts: block.timestamp,
-                color: 'text-yellow-500'
-            });
+            allEvents.push({ type: 'COMPOUND', amount: format(log.args.amount), date: new Date(block.timestamp * 1000).toLocaleString(), ts: block.timestamp, color: 'text-yellow-500' });
         }
 
-        // Sort by newest first
         allEvents.sort((a,b) => b.ts - a.ts);
 
         if(allEvents.length === 0) {
@@ -277,7 +242,7 @@ async function window.fetchBlockchainHistory(address) {
     }
 }
 
-// --- NEW: LEADERSHIP PAGE DATA LOADER ---
+// --- LEADERSHIP DATA ---
 async function fetchLeadershipData(address) {
     try {
         const [user, extra] = await Promise.all([
@@ -293,7 +258,6 @@ async function fetchLeadershipData(address) {
         updateText('team-total-deposit', `$ ${format(user.teamTotalDeposit)}`);
         updateText('team-active-deposit', `$ ${format(user.teamActiveDeposit)}`);
 
-        // Next Rank Progress logic
         const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
         const nextRank = RANK_DETAILS[nextIdx];
         updateText('next-rank-display', nextRank.name.toUpperCase());
@@ -314,13 +278,11 @@ async function fetchLeadershipData(address) {
         if(document.getElementById('team-volume-bar')) document.getElementById('team-volume-bar').style.width = `${vPercent}%`;
         updateText('team-volume-percent', `${vPercent.toFixed(0)}%`);
 
-        // Load Direct Downlines specifically for leadership page
         loadLeadershipDownlines(address, rIdx);
 
     } catch (err) { console.error("Leadership Fetch Error:", err); }
 }
 
-// Special Table Loader for Leadership (Differential ROI focus)
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -339,7 +301,6 @@ async function loadLeadershipDownlines(address, myRankIdx) {
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
             if (!uA || uA === ethers.constants.AddressZero) continue;
-            
             const [dUser, dExtra] = await Promise.all([contract.users(uA), contract.usersExtra(uA)]);
             const diff = Math.max(parseFloat(RANK_DETAILS[myRankIdx].roi) - parseFloat(RANK_DETAILS[dExtra.rank].roi), 0).toFixed(2);
 
@@ -367,9 +328,8 @@ async function fetchAllData(address) {
 
         if (!user.registered) return;
 
-        const totalActive = format(user.totalActiveDeposit);
         updateText('total-deposit-display', `$ ${format(user.totalDeposited)}`);
-        updateText('active-deposit', `$ ${totalActive}`);
+        updateText('active-deposit', `$ ${format(user.totalActiveDeposit)}`);
         updateText('total-earned', `$ ${format(user.totalEarnings)}`);
         updateText('total-withdrawn', `$ ${format(user.totalWithdrawn)}`);
         updateText('team-count', extra.teamCount.toString());
@@ -381,18 +341,16 @@ async function fetchAllData(address) {
         updateText('ref-balance-display', `$ ${parseFloat(networkBalance).toFixed(2)}`);
 
         const dailyPending = parseFloat(format(live.pendingROI)) + parseFloat(format(live.pendingCap));
-        const totalWithdrawable = (dailyPending + parseFloat(networkBalance)).toFixed(2);
-        updateText('withdrawable-display', `$ ${totalWithdrawable}`);
+        updateText('withdrawable-display', `$ ${(dailyPending + parseFloat(networkBalance)).toFixed(2)}`);
         updateText('rank-display', getRankName(extra.rank));
 
-        const baseUrl = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/');
-        const refUrl = `${baseUrl}/register.html?ref=${user.username}`;
+        const refUrl = `${window.location.origin}/register.html?ref=${user.username}`;
         if(document.getElementById('refURL')) document.getElementById('refURL').value = refUrl;
 
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- TEAM LOADER (PREVIOUSLY PROVIDED) ---
+// --- FIXED: TEAM LOADER ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
@@ -401,7 +359,6 @@ window.loadLevelData = async function(level) {
     try {
         const address = await signer.getAddress();
         const res = await contract.getLevelTeamDetails(address, level);
-        
         const names = res.names || res[0] || [];
         const wallets = res.wallets || res[1] || [];
         const joinDates = res.joinDates || res[2] || [];
@@ -417,27 +374,10 @@ window.loadLevelData = async function(level) {
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
             if (!uA || uA === ethers.constants.AddressZero) continue;
-
-            const safeFormat = (arr, index) => {
-                try {
-                    if (arr && arr[index] !== undefined && arr[index] !== null) {
-                        return ethers.utils.formatUnits(arr[index].toString(), 18);
-                    }
-                } catch (err) {}
-                return "0.00";
-            };
-
-            const uName = (names && names[i]) ? names[i] : "N/A";
-            const activeD = safeFormat(activeDeps, i);
-            const teamTD = safeFormat(teamTotalDeps, i);
-            
-            let jDate = "N/A";
-            try {
-                if (joinDates && joinDates[i]) {
-                    const ts = parseInt(joinDates[i].toString());
-                    if (ts > 0) jDate = new Date(ts * 1000).toLocaleDateString();
-                }
-            } catch(e) {}
+            const uName = names[i] || "N/A";
+            const activeD = format(activeDeps[i]);
+            const teamTD = format(teamTotalDeps[i]);
+            let jDate = joinDates[i] > 0 ? new Date(joinDates[i] * 1000).toLocaleDateString() : "N/A";
 
             html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                 <td class="p-4 font-mono text-yellow-500 text-[10px]">
@@ -450,16 +390,12 @@ window.loadLevelData = async function(level) {
                 <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
                 <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
                 <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
-                <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">
-                    ${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}
-                </td>
+                <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}</td>
                 <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
             </tr>`;
         }
         tableBody.innerHTML = html;
-    } catch (e) { 
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error</td></tr>`; 
-    }
+    } catch (e) { tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error</td></tr>`; }
 }
 
 function start8HourCountdown() {
@@ -479,10 +415,7 @@ function start8HourCountdown() {
 }
 
 const format = (val) => {
-    try {
-        if (!val) return "0.00";
-        return ethers.utils.formatUnits(val.toString(), 18);
-    } catch (e) { return "0.00"; }
+    try { if (!val) return "0.00"; return ethers.utils.formatUnits(val.toString(), 18); } catch (e) { return "0.00"; }
 };
 
 const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
@@ -495,4 +428,3 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
-
