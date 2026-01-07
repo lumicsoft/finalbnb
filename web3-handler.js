@@ -194,12 +194,12 @@ async function setupApp(address) {
     
     // NEW: Load history if on history page
     if (window.location.pathname.includes('history.html')) {
-        loadTransactionHistory(address);
+        window.fetchBlockchainHistory(address);
     }
 }
 
 // --- NEW: HISTORY PAGE LOADER ---
-async function loadTransactionHistory(address) {
+async function window.fetchBlockchainHistory(address) {
     const tableBody = document.getElementById('history-table-body');
     if(!tableBody) return;
     tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-yellow-500 italic">Fetching History...</td></tr>`;
@@ -495,3 +495,4 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
