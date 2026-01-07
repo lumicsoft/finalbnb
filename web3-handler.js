@@ -5,6 +5,7 @@ const CONTRACT_ADDRESS = "0x33Ad74E9FB3aeA563baD0Bbe36D3E911c231200A";
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
+// --- ABI UPDATED FOR OVERFLOW PROTECTION ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -13,7 +14,8 @@ const CONTRACT_ABI = [
     "function claimDailyReward(uint256 amount) external",
     "function compoundNetworkReward(uint256 amount) external",
     "function withdrawPrincipal() external",
-    "function getLevelTeamDetails(address _upline, uint256 _level) view returns (tuple(address uA, string username, uint256 totalDeposited, uint256 teamTotalDeposit, uint256 totalActiveDeposit, uint256 joinDate)[])",
+    // MODIFIED THIS LINE: Removed internal names to let ethers decode as raw array first
+    "function getLevelTeamDetails(address _upline, uint256 _level) view returns (tuple(address, string, uint256, uint256, uint256, uint256)[])",
     "function getLiveBalance(address uA) view returns (uint256 pendingROI, uint256 pendingCap)",
     "function users(address) view returns (address referrer, string username, bool registered, uint256 joinDate, uint256 totalActiveDeposit, uint256 teamActiveDeposit, uint256 teamTotalDeposit, uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalEarnings)",
     "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsOnboarding, uint256 rewardsRank, uint256 reserveDailyCapital, uint256 reserveDailyROI, uint256 reserveNetwork, uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
@@ -243,6 +245,8 @@ window.loadLevelData = async function(level) {
     tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic orbitron animate-pulse">Scanning Blockchain...</td></tr>`;
     try {
         const address = await signer.getAddress();
+        
+        // Use raw call for stability
         const team = await contract.getLevelTeamDetails(address, level);
         
         if (!team || team.length === 0) {
@@ -253,17 +257,31 @@ window.loadLevelData = async function(level) {
         let html = '';
         for(let i=0; i<team.length; i++) {
             const m = team[i];
-            if (m.uA && m.uA !== "0x0000000000000000000000000000000000000000") {
-                const totalD = ethers.utils.formatUnits(m.totalDeposited, 18);
-                const teamTD = ethers.utils.formatUnits(m.teamTotalDeposit, 18);
-                const activeD = ethers.utils.formatUnits(m.totalActiveDeposit, 18);
+            
+            // Accessing by index for safety when name-mapping fails in ethers
+            const uA = m[0];
+            const username = m[1];
+            const totalDeposited = m[2];
+            const teamTotalDeposit = m[3];
+            const totalActiveDeposit = m[4];
+            const joinDate = m[5];
+
+            if (uA && uA !== "0x0000000000000000000000000000000000000000") {
+                const totalD = ethers.utils.formatUnits(totalDeposited, 18);
+                const teamTD = ethers.utils.formatUnits(teamTotalDeposit, 18);
+                const activeD = ethers.utils.formatUnits(totalActiveDeposit, 18);
                 
-                // Overflow Safe Fix: Convert joinDate to string before parsing
-                const rawDate = m.joinDate.toString();
-                const jDate = new Date(parseInt(rawDate) * 1000).toLocaleDateString();
+                // Final fix for timestamp overflow
+                const rawDateStr = joinDate.toString();
+                const jDate = new Date(parseInt(rawDateStr) * 1000).toLocaleDateString();
                 
                 html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
-                    <td class="p-4 font-mono text-yellow-500 text-[10px]">${m.uA.substring(0,8)}...${m.uA.substring(34)}</td>
+                    <td class="p-4 font-mono text-yellow-500 text-[10px]">
+                        <div class="flex flex-col">
+                            <span>${uA.substring(0,8)}...${uA.substring(34)}</span>
+                            <span class="text-[8px] text-gray-400 font-sans uppercase">${username || 'N/A'}</span>
+                        </div>
+                    </td>
                     <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
                     <td class="p-4 text-xs font-black text-white">$${parseFloat(totalD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
@@ -273,10 +291,10 @@ window.loadLevelData = async function(level) {
                 </tr>`;
             }
         }
-        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No active members</td></tr>`;
+        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No members found</td></tr>`;
     } catch (e) { 
         console.error("Critical Sync Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500 italic">Sync Error: ${e.message.substring(0,40)}</td></tr>`; 
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500 italic text-xs">ABI Sync Error: Please Refresh and Clear Cache.</td></tr>`; 
     }
 }
 
