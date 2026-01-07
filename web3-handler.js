@@ -5,7 +5,7 @@ const CONTRACT_ADDRESS = "0x33Ad74E9FB3aeA563baD0Bbe36D3E911c231200A";
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
-// --- ABI UPDATED (FIXED ARRAY FORMAT) ---
+// --- ABI UPDATED ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -54,6 +54,7 @@ async function init() {
     }
 }
 
+// --- CORE LOGIC FUNCTIONS ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
@@ -61,7 +62,7 @@ window.handleDeposit = async function() {
     const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
     try {
         depositBtn.disabled = true;
-        depositBtn.innerText = "CHECKING CAP...";
+        depositBtn.innerText = "CHECKING...";
         const userAddress = await signer.getAddress();
         const currentAllowance = await usdtContract.allowance(userAddress, CONTRACT_ADDRESS);
         if (currentAllowance.lt(amountInWei)) {
@@ -69,7 +70,7 @@ window.handleDeposit = async function() {
             const approveTx = await usdtContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
             await approveTx.wait();
         }
-        depositBtn.innerText = "CONFIRMING DEPOSIT...";
+        depositBtn.innerText = "DEPOSITING...";
         const tx = await contract.deposit(amountInWei, { gasLimit: 500000 });
         await tx.wait();
         location.reload(); 
@@ -206,23 +207,24 @@ async function fetchAllData(address) {
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- FINAL FIXED TEAM LOADER (ANTI-OVERFLOW & UNDEFINED CHECK) ---
+// --- UPDATED TEAM LOADER WITH FAIL-SAFE LOGIC ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
     tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic">Scanning Blockchain...</td></tr>`;
+    
     try {
         const address = await signer.getAddress();
         const data = await contract.getLevelTeamDetails(address, level);
         
-        // Ethers response can be an array OR object. We handle both.
-        const names = data.names || data[0];
-        const wallets = data.wallets || data[1];
-        const joinDates = data.joinDates || data[2];
-        const activeDeps = data.activeDeps || data[3];
-        const teamTotalDeps = data.teamTotalDeps || data[4];
+        // Anti-Undefined Logic: Access by name OR by index
+        const names = data.names || data[0] || [];
+        const wallets = data.wallets || data[1] || [];
+        const joinDates = data.joinDates || data[2] || [];
+        const activeDeps = data.activeDeps || data[3] || [];
+        const teamTotalDeps = data.teamTotalDeps || data[4] || [];
 
-        if (!wallets || wallets.length === 0) {
+        if (wallets.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users in Level ${level}</td></tr>`;
             return;
         }
@@ -230,24 +232,16 @@ window.loadLevelData = async function(level) {
         let html = '';
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            const username = (names && names[i]) ? names[i] : 'N/A';
+            const username = names[i] || 'N/A';
             
-            // SAFELY Formatting each unit - checking if data[i] exists first
-            let activeD = "0.00";
-            if (activeDeps && activeDeps[i]) {
-                activeD = ethers.utils.formatUnits(activeDeps[i].toString(), 18);
-            }
-
-            let teamTD = "0.00";
-            if (teamTotalDeps && teamTotalDeps[i]) {
-                teamTD = ethers.utils.formatUnits(teamTotalDeps[i].toString(), 18);
-            }
+            // Critical Fix: Only format if value exists, else use 0
+            const activeD = activeDeps[i] ? ethers.utils.formatUnits(activeDeps[i].toString(), 18) : "0.0";
+            const teamTD = teamTotalDeps[i] ? ethers.utils.formatUnits(teamTotalDeps[i].toString(), 18) : "0.0";
             
             let jDate = "N/A";
             try {
-                if (joinDates && joinDates[i]) {
-                    const ts = joinDates[i].toString();
-                    if (ts !== "0") jDate = new Date(parseInt(ts) * 1000).toLocaleDateString();
+                if (joinDates[i] && joinDates[i].toString() !== "0") {
+                    jDate = new Date(parseInt(joinDates[i].toString()) * 1000).toLocaleDateString();
                 }
             } catch(e) {}
 
@@ -263,7 +257,9 @@ window.loadLevelData = async function(level) {
                     <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
-                    <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}</td>
+                    <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">
+                        ${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}
+                    </td>
                     <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
                 </tr>`;
             }
@@ -286,14 +282,15 @@ function start8HourCountdown() {
         const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
         const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
         const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-        timerElement.innerText = `${h}:${m}:${s}`;
+        if(timerElement) timerElement.innerText = `${h}:${m}:${s}`;
     }, 1000);
 }
 
 // SAFE FORMAT FUNCTION
 const format = (val) => {
     try {
-        return ethers.utils.formatUnits(val ? val.toString() : "0", 18);
+        if (!val) return "0.00";
+        return ethers.utils.formatUnits(val.toString(), 18);
     } catch (e) {
         return "0.00";
     }
