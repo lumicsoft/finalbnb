@@ -190,87 +190,84 @@ async function setupApp(address) {
 }
 
 // --- FIXED: HISTORY PAGE LOADER (Now fetches properly) ---
-window.fetchBlockchainHistory = async function(address) {
-    const tableBody = document.getElementById('history-table-body');
-    if(!tableBody) return;
-    
-    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-yellow-500 italic animate-pulse">Scanning Blockchain...</td></tr>`;
+// --- FIXED: HISTORY PAGE LOADER (Compatible with your HTML Cards & Filters) ---
+window.fetchBlockchainHistory = async function(type) {
+    const container = document.getElementById('history-container');
+    if(!container) return;
 
     try {
-        // Range: Last 50,000 blocks scan karega (Aap ise contract age ke hisab se badha sakte hain)
-        const blockRange = 50000; 
+        // Agar signer ready nahi hai to address khud nikal lein
+        const address = await signer.getAddress();
+        
+        // Range: Pichle 100,000 blocks scan karega (isey aap badha bhi sakte hain)
+        const blockRange = 100000; 
+        let logs = [];
 
-        // User specific filters: Sirf usi ka data aayega jo login hai
-        const depFilter = contract.filters.Deposited(address);
-        const claimFilter = contract.filters.RewardClaimed(address);
-        const compFilter = contract.filters.Compounded(address);
+        // 1. Logic based on Filter Button Type
+        if (type === 'deposit') {
+            const filter = contract.filters.Deposited(address);
+            const rawLogs = await contract.queryFilter(filter, -blockRange);
+            for(let log of rawLogs) {
+                const block = await provider.getBlock(log.blockNumber);
+                const dt = new Date(block.timestamp * 1000);
+                logs.push({
+                    amount: format(log.args.amount),
+                    date: dt.toLocaleDateString(),
+                    time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    ts: block.timestamp
+                });
+            }
+        } 
+        else if (type === 'compounding') {
+            const filter = contract.filters.Compounded(address);
+            const rawLogs = await contract.queryFilter(filter, -blockRange);
+            for(let log of rawLogs) {
+                const block = await provider.getBlock(log.blockNumber);
+                const dt = new Date(block.timestamp * 1000);
+                logs.push({
+                    amount: format(log.args.amount),
+                    date: dt.toLocaleDateString(),
+                    time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    ts: block.timestamp
+                });
+            }
+        }
+        else if (type === 'income' || type === 'withdrawal') {
+            const filter = contract.filters.RewardClaimed(address);
+            const rawLogs = await contract.queryFilter(filter, -blockRange);
+            for(let log of rawLogs) {
+                const rType = log.args.rewardType ? log.args.rewardType.toLowerCase() : "";
+                
+                // Income filter: Jo rewards team ya referral se aaye
+                const isIncome = rType.includes('referral') || rType.includes('network') || rType.includes('onboarding');
+                // Withdrawal filter: Jo ROI ya Principal withdrawal hai
+                const isWithdraw = rType.includes('daily') || rType.includes('principal') || rType.includes('withdraw');
 
-        // Sabhi logs ko ek saath fetch kar rha hai efficiency ke liye
-        const [depLogs, claimLogs, compLogs] = await Promise.all([
-            contract.queryFilter(depFilter, -blockRange),
-            contract.queryFilter(claimFilter, -blockRange),
-            contract.queryFilter(compFilter, -blockRange)
-        ]);
-
-        let allEvents = [];
-
-        // 1. Deposits process karein
-        for(let log of depLogs) {
-            const block = await provider.getBlock(log.blockNumber);
-            allEvents.push({ 
-                type: 'DEPOSIT', 
-                amount: format(log.args.amount), 
-                date: new Date(block.timestamp * 1000).toLocaleString(), 
-                ts: block.timestamp, 
-                color: 'text-blue-400' 
-            });
+                if ((type === 'income' && isIncome) || (type === 'withdrawal' && isWithdraw)) {
+                    const block = await provider.getBlock(log.blockNumber);
+                    const dt = new Date(block.timestamp * 1000);
+                    logs.push({
+                        type: rType.toUpperCase(),
+                        amount: format(log.args.amount),
+                        date: dt.toLocaleDateString(),
+                        time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                        ts: block.timestamp,
+                        color: type === 'income' ? 'text-cyan-400' : 'text-red-400'
+                    });
+                }
+            }
         }
 
-        // 2. Withdrawals / Income process karein
-        for(let log of claimLogs) {
-            const block = await provider.getBlock(log.blockNumber);
-            allEvents.push({ 
-                type: (log.args.rewardType || 'CLAIM').toUpperCase(), 
-                amount: format(log.args.amount), 
-                date: new Date(block.timestamp * 1000).toLocaleString(), 
-                ts: block.timestamp, 
-                color: 'text-green-400' 
-            });
-        }
-
-        // 3. Compounding process karein
-        for(let log of compLogs) {
-            const block = await provider.getBlock(log.blockNumber);
-            allEvents.push({ 
-                type: 'COMPOUND', 
-                amount: format(log.args.amount), 
-                date: new Date(block.timestamp * 1000).toLocaleString(), 
-                ts: block.timestamp, 
-                color: 'text-yellow-500' 
-            });
-        }
-
-        // Sabse naye transactions upar (Sorting)
-        allEvents.sort((a,b) => b.ts - a.ts);
-
-        if(allEvents.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-gray-500 italic">No transaction history found for this account.</td></tr>`;
-            return;
-        }
-
-        // Final Table Rendering
-        tableBody.innerHTML = allEvents.map(ev => `
-            <tr class="border-b border-white/5 hover:bg-white/5 transition-all">
-                <td class="p-4 text-[10px] text-gray-400 font-mono">${ev.date}</td>
-                <td class="p-4 text-xs font-bold ${ev.color}">${ev.type}</td>
-                <td class="p-4 text-xs font-bold text-white font-mono">$${parseFloat(ev.amount).toFixed(2)}</td>
-                <td class="p-4 text-[10px] text-green-500 uppercase font-black">Success</td>
-            </tr>
-        `).join('');
+        // Transactions ko sorting (Latest first)
+        const sortedLogs = logs.sort((a, b) => b.ts - a.ts);
+        
+        // IMPORTANT: Hum yahan array return kar rahe hain kyunki aapka HTML script 
+        // logs.forEach(item => { ... }) chala raha hai.
+        return sortedLogs;
 
     } catch (e) {
-        console.error("History Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">Sync Error: Please try refreshing.</td></tr>`;
+        console.error("Blockchain History Error:", e);
+        return []; // Error par khali array bhejenge
     }
 }
 // --- LEADERSHIP DATA ---
@@ -458,4 +455,5 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
