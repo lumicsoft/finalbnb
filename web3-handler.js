@@ -5,7 +5,7 @@ const CONTRACT_ADDRESS = "0x33Ad74E9FB3aeA563baD0Bbe36D3E911c231200A";
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
-// --- ABI (Optimized for Ethers v5 Decoding) ---
+// --- ABI UPDATED FOR OVERFLOW PROTECTION ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -41,7 +41,6 @@ const calculateGlobalROI = (amount) => {
     return 5.00;
 };
 
-// --- INITIALIZATION ---
 async function init() {
     if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -55,14 +54,14 @@ async function init() {
     }
 }
 
-// --- ACTIONS ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
     if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Please enter a valid USDT amount!");
     const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
     try {
-        depositBtn.disabled = true; depositBtn.innerText = "CHECKING...";
+        depositBtn.disabled = true;
+        depositBtn.innerText = "CHECKING CAP...";
         const userAddress = await signer.getAddress();
         const currentAllowance = await usdtContract.allowance(userAddress, CONTRACT_ADDRESS);
         if (currentAllowance.lt(amountInWei)) {
@@ -70,10 +69,15 @@ window.handleDeposit = async function() {
             const approveTx = await usdtContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
             await approveTx.wait();
         }
-        depositBtn.innerText = "DEPOSITING...";
+        depositBtn.innerText = "CONFIRMING DEPOSIT...";
         const tx = await contract.deposit(amountInWei, { gasLimit: 500000 });
-        await tx.wait(); location.reload(); 
-    } catch (err) { alert("Error: " + (err.reason || err.message)); depositBtn.innerText = "DEPOSIT NOW"; depositBtn.disabled = false; }
+        await tx.wait();
+        location.reload(); 
+    } catch (err) {
+        alert("Error: " + (err.reason || err.message));
+        depositBtn.innerText = "DEPOSIT NOW";
+        depositBtn.disabled = false;
+    }
 }
 
 window.handleClaim = async function() {
@@ -81,9 +85,10 @@ window.handleClaim = async function() {
         const userAddress = await signer.getAddress();
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
-        if (totalPending.lte(0)) return alert("No rewards!");
+        if (totalPending.lte(0)) return alert("No rewards to withdraw!");
         const tx = await contract.claimDailyReward(totalPending, { gasLimit: 500000 });
-        await tx.wait(); location.reload();
+        await tx.wait();
+        location.reload();
     } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
 }
 
@@ -92,44 +97,77 @@ window.handleCompoundDaily = async function() {
         const userAddress = await signer.getAddress();
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
+        if (totalPending.lte(0)) return alert("No rewards to compound!");
         const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 500000 });
-        await tx.wait(); location.reload();
-    } catch (err) { alert("Compound failed"); }
+        await tx.wait();
+        location.reload();
+    } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
 }
 
 window.claimNetworkReward = async function(amountInWei) {
-    try { const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 500000 }); await tx.wait(); location.reload(); } catch (err) { alert("Failed"); }
+    try {
+        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 500000 });
+        await tx.wait();
+        location.reload();
+    } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
 }
 
 window.compoundNetworkReward = async function(amountInWei) {
-    try { const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 500000 }); await tx.wait(); location.reload(); } catch (err) { alert("Failed"); }
+    try {
+        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 500000 });
+        await tx.wait();
+        location.reload();
+    } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
 }
 
 window.handleCapitalWithdraw = async function() {
-    if (!confirm("Are you sure?")) return;
-    try { const tx = await contract.withdrawPrincipal({ gasLimit: 500000 }); await tx.wait(); location.reload(); } catch (err) { alert("Failed"); }
+    if (!confirm("Are you sure? This will stop your daily returns.")) return;
+    try {
+        const tx = await contract.withdrawPrincipal({ gasLimit: 500000 });
+        await tx.wait();
+        location.reload();
+    } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
+}
+
+window.handleLogin = async function() {
+    try {
+        const accounts = await provider.send("eth_requestAccounts", []);
+        const userData = await contract.users(accounts[0]);
+        if (userData.registered) window.location.href = "index1.html";
+        else { alert("Not registered!"); window.location.href = "register.html"; }
+    } catch (err) { console.error(err); }
 }
 
 window.handleRegister = async function() {
-    const u = document.getElementById('reg-username');
-    const r = document.getElementById('reg-referrer');
-    try { const tx = await contract.register(u.value.trim(), r.value.trim(), { gasLimit: 500000 }); await tx.wait(); window.location.href = "index1.html"; } catch (err) { alert(err.message); }
+    const userField = document.getElementById('reg-username');
+    const refField = document.getElementById('reg-referrer');
+    if (!userField || !refField) return;
+    try {
+        const tx = await contract.register(userField.value.trim(), refField.value.trim(), { gasLimit: 500000 });
+        await tx.wait();
+        window.location.href = "index1.html";
+    } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
 
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
-    if (chainId !== TESTNET_CHAIN_ID) { alert("Switch to BSC Testnet!"); return; }
-    signer = provider.getSigner();
-    contract = contract.connect(signer);
-    usdtContract = usdtContract.connect(signer);
+    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Testnet!"); return; }
+    window.signer = provider.getSigner();
+    signer = window.signer;
+    window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    contract = window.contract;
+    window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    usdtContract = window.usdtContract;
+    
     if (window.location.pathname.includes('index1.html')) {
         const userData = await contract.users(address);
         if (!userData.registered) { window.location.href = "register.html"; return; }
     }
-    updateNavbar(address); fetchAllData(address); start8HourCountdown(); 
+    updateNavbar(address);
+    fetchAllData(address);
+    start8HourCountdown(); 
 }
 
-// --- DATA FETCH (SAFE FROM OVERFLOW) ---
 async function fetchAllData(address) {
     try {
         const [user, extra, live] = await Promise.all([
@@ -137,11 +175,11 @@ async function fetchAllData(address) {
             contract.usersExtra(address),
             contract.getLiveBalance(address)
         ]);
+
         if (!user.registered) return;
 
         const totalActive = format(user.totalActiveDeposit);
         const roiPercent = calculateGlobalROI(totalActive);
-        const networkBalance = format(extra.reserveNetwork);
 
         updateText('total-deposit-display', `$ ${format(user.totalDeposited)}`);
         updateText('active-deposit', `$ ${totalActive}`);
@@ -151,18 +189,24 @@ async function fetchAllData(address) {
         updateText('direct-count', extra.directsCount.toString());
         updateText('level-earnings', `$ ${format(extra.rewardsReferral)}`);
         updateText('direct-earnings', `$ ${format(extra.rewardsOnboarding)}`);
+        
+        const networkBalance = format(extra.reserveNetwork);
         updateText('ref-balance-display', `$ ${parseFloat(networkBalance).toFixed(2)}`);
-        updateText('rank-display', getRankName(extra.rank));
 
         const dailyPending = parseFloat(format(live.pendingROI)) + parseFloat(format(live.pendingCap));
-        updateText('withdrawable-display', `$ ${(dailyPending + parseFloat(networkBalance)).toFixed(2)}`);
+        const totalWithdrawable = (dailyPending + parseFloat(networkBalance)).toFixed(2);
+        updateText('withdrawable-display', `$ ${totalWithdrawable}`);
+
+        updateText('rank-display', getRankName(extra.rank));
 
         const baseUrl = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/');
-        if(document.getElementById('refURL')) document.getElementById('refURL').value = `${baseUrl}/register.html?ref=${user.username}`;
+        const refUrl = `${baseUrl}/register.html?ref=${user.username}`;
+        if(document.getElementById('refURL')) document.getElementById('refURL').value = refUrl;
+
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- TEAM LOADER (ANTI-CRASH DECODING) ---
+// --- UPDATED TEAM LOADER WITH OVERFLOW FIX ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
@@ -172,7 +216,7 @@ window.loadLevelData = async function(level) {
         const team = await contract.getLevelTeamDetails(address, level);
         
         if (!team || team.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users found in Level ${level}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users in Level ${level}</td></tr>`;
             return;
         }
         
@@ -182,18 +226,21 @@ window.loadLevelData = async function(level) {
             const uA = m[0];
             const username = m[1];
             
-            // SECURITY: Convert BigNumber to String before formatting
+            // FIX: explicitly use .toString() before formatting to prevent toNumber() overflow
             const totalD = ethers.utils.formatUnits(m[2].toString(), 18);
             const teamTD = ethers.utils.formatUnits(m[3].toString(), 18);
             const activeD = ethers.utils.formatUnits(m[4].toString(), 18);
             
+            // FIX: Timestamp protection
             let jDate = "N/A";
             try {
-                const tsStr = m[5].toString();
-                if (tsStr !== "0") jDate = new Date(parseInt(tsStr) * 1000).toLocaleDateString();
+                const ts = m[5].toString();
+                if (ts.length < 15) { 
+                    jDate = new Date(parseInt(ts) * 1000).toLocaleDateString();
+                }
             } catch(e) {}
 
-            if (uA && uA !== ethers.constants.AddressZero) {
+            if (uA && uA !== "0x0000000000000000000000000000000000000000") {
                 html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                     <td class="p-4 font-mono text-yellow-500 text-[10px]">
                         <div class="flex flex-col">
@@ -212,8 +259,8 @@ window.loadLevelData = async function(level) {
         }
         tableBody.innerHTML = html;
     } catch (e) { 
-        console.error("Critical Sync Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Overflow Error: Value too large for browser.</td></tr>`; 
+        console.error("Sync Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Data loading error. Please refresh.</td></tr>`; 
     }
 }
 
@@ -223,7 +270,8 @@ function start8HourCountdown() {
     setInterval(() => {
         const now = new Date();
         const targetHour = now.getHours() < 8 ? 8 : now.getHours() < 16 ? 16 : 24;
-        const diff = new Date().setHours(targetHour, 0, 0, 0) - now;
+        const targetTime = new Date().setHours(targetHour, 0, 0, 0);
+        const diff = targetTime - now;
         const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
         const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
         const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
@@ -231,7 +279,16 @@ function start8HourCountdown() {
     }, 1000);
 }
 
-const format = (v) => ethers.utils.formatUnits(v || 0, 18);
+// SAFE FORMAT FUNCTION
+const format = (val) => {
+    try {
+        // BigNumber ko pehle string banao fir format karo taaki overflow na ho
+        return ethers.utils.formatUnits(val ? val.toString() : "0", 18);
+    } catch (e) {
+        return "0.00";
+    }
+};
+
 const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
 const getRankName = (r) => ["Inviter", "Promoter", "Leader", "Partner", "Star", "Royal Star", "Crown Star"][r] || "NONE (-)";
 
