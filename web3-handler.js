@@ -44,11 +44,15 @@ const calculateGlobalROI = (amount) => {
 async function init() {
     if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
-        const tempSigner = provider.getSigner();
-        window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
+        // Correcting signer assignment to be global immediately
+        window.signer = provider.getSigner();
+        signer = window.signer;
+        
+        window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         contract = window.contract;
-        window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, tempSigner);
+        window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
         usdtContract = window.usdtContract;
+        
         const accounts = await provider.listAccounts();
         if (accounts.length > 0) setupApp(accounts[0]);
     }
@@ -217,14 +221,14 @@ window.loadLevelData = async function(level) {
         const address = await signer.getAddress();
         const data = await contract.getLevelTeamDetails(address, level);
         
-        // Anti-Undefined Logic: Access by name OR by index
+        // Anti-Undefined Logic: Accessing data safely
         const names = data.names || data[0] || [];
         const wallets = data.wallets || data[1] || [];
         const joinDates = data.joinDates || data[2] || [];
         const activeDeps = data.activeDeps || data[3] || [];
         const teamTotalDeps = data.teamTotalDeps || data[4] || [];
 
-        if (wallets.length === 0) {
+        if (!wallets || wallets.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users in Level ${level}</td></tr>`;
             return;
         }
@@ -232,18 +236,25 @@ window.loadLevelData = async function(level) {
         let html = '';
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            const username = names[i] || 'N/A';
+            const username = (names && names[i]) ? names[i] : 'N/A';
             
-            // Critical Fix: Only format if value exists, else use 0
-            const activeD = activeDeps[i] ? ethers.utils.formatUnits(activeDeps[i].toString(), 18) : "0.0";
-            const teamTD = teamTotalDeps[i] ? ethers.utils.formatUnits(teamTotalDeps[i].toString(), 18) : "0.0";
+            // Fix: Check if BigNumber exists before toString/format
+            const getSafeUnits = (arr, index) => {
+                if (arr && arr[index] !== undefined && arr[index] !== null) {
+                    return ethers.utils.formatUnits(arr[index].toString(), 18);
+                }
+                return "0.0";
+            };
+
+            const activeD = getSafeUnits(activeDeps, i);
+            const teamTD = getSafeUnits(teamTotalDeps, i);
             
             let jDate = "N/A";
             try {
-                if (joinDates[i] && joinDates[i].toString() !== "0") {
+                if (joinDates && joinDates[i] && joinDates[i].toString() !== "0") {
                     jDate = new Date(parseInt(joinDates[i].toString()) * 1000).toLocaleDateString();
                 }
-            } catch(e) {}
+            } catch(e) { jDate = "N/A"; }
 
             if (uA && uA !== ethers.constants.AddressZero) {
                 html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
@@ -264,10 +275,10 @@ window.loadLevelData = async function(level) {
                 </tr>`;
             }
         }
-        tableBody.innerHTML = html;
+        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No active records found.</td></tr>`;
     } catch (e) { 
-        console.error("Sync Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Syncing issue. Please check console or refresh.</td></tr>`; 
+        console.error("Level Fetch Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error: ${e.message}</td></tr>`; 
     }
 }
 
@@ -279,10 +290,11 @@ function start8HourCountdown() {
         const targetHour = now.getHours() < 8 ? 8 : now.getHours() < 16 ? 16 : 24;
         const targetTime = new Date().setHours(targetHour, 0, 0, 0);
         const diff = targetTime - now;
+        if (diff <= 0) return;
         const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
         const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
         const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-        if(timerElement) timerElement.innerText = `${h}:${m}:${s}`;
+        timerElement.innerText = `${h}:${m}:${s}`;
     }, 1000);
 }
 
