@@ -41,12 +41,13 @@
         </div>
 
         <div class="premium-border p-4 mb-8">
-            <div class="flex justify-center gap-2 md:gap-4">
-                <button onclick="showHistory('deposit')" id="btn-deposit" class="filter-btn active">Deposit</button>
-                <button onclick="showHistory('compounding')" id="btn-compounding" class="filter-btn">Compounding</button>
-                <button onclick="showHistory('income')" id="btn-income" class="filter-btn">Income</button>
-            </div>
-        </div>
+    <div class="flex flex-wrap justify-center gap-2 md:gap-4">
+        <button onclick="showHistory('deposit')" id="btn-deposit" class="filter-btn active">Deposit</button>
+        <button onclick="showHistory('compounding')" id="btn-compounding" class="filter-btn">Compounding</button>
+        <button onclick="showHistory('income')" id="btn-income" class="filter-btn">Income</button>
+        <button onclick="showHistory('withdrawal')" id="btn-withdrawal" class="filter-btn">Withdrawals</button>
+    </div>
+</div>
 
         <div id="history-container" class="space-y-4 pb-20">
             <div class="text-center py-20 text-gray-500 orbitron animate-pulse text-xs uppercase tracking-widest">
@@ -150,4 +151,5 @@
         });
     </script>
 </body>
+
 </html>
