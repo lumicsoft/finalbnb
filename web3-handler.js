@@ -412,3 +412,4 @@ function updateNavbar(addr) {
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
 
+
