@@ -5,7 +5,7 @@ const CONTRACT_ADDRESS = "0x33Ad74E9FB3aeA563baD0Bbe36D3E911c231200A";
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
-// --- ABI UPDATED FOR OVERFLOW PROTECTION ---
+// --- ABI UPDATED (ARRAY FORMAT FIX) ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -14,7 +14,8 @@ const CONTRACT_ABI = [
     "function claimDailyReward(uint256 amount) external",
     "function compoundNetworkReward(uint256 amount) external",
     "function withdrawPrincipal() external",
-    "function getLevelTeamDetails(address _upline, uint256 _level) view returns (tuple(address, string, uint256, uint256, uint256, uint256)[])",
+    // FIXED: Return type changed from Tuple[] to Multiple Arrays
+    "function getLevelTeamDetails(address _upline, uint256 _level) view returns (string[] names, address[] wallets, uint256[] joinDates, uint256[] activeDeps, uint256[] teamTotalDeps, uint256[] teamActiveDeps, uint256[] withdrawals)",
     "function getLiveBalance(address uA) view returns (uint256 pendingROI, uint256 pendingCap)",
     "function users(address) view returns (address referrer, string username, bool registered, uint256 joinDate, uint256 totalActiveDeposit, uint256 teamActiveDeposit, uint256 teamTotalDeposit, uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalEarnings)",
     "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsOnboarding, uint256 rewardsRank, uint256 reserveDailyCapital, uint256 reserveDailyROI, uint256 reserveNetwork, uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
@@ -206,41 +207,40 @@ async function fetchAllData(address) {
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- UPDATED TEAM LOADER WITH OVERFLOW FIX ---
+// --- UPDATED TEAM LOADER WITH ARRAY DECODING FIX ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
     tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic">Scanning Blockchain...</td></tr>`;
     try {
         const address = await signer.getAddress();
-        const team = await contract.getLevelTeamDetails(address, level);
         
-        if (!team || team.length === 0) {
+        // Destructuring parallel arrays from the response
+        const [names, wallets, joinDates, activeDeps, teamTotalDeps, teamActiveDeps, withdrawals] = await contract.getLevelTeamDetails(address, level);
+        
+        if (!wallets || wallets.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users in Level ${level}</td></tr>`;
             return;
         }
         
         let html = '';
-        for(let i=0; i<team.length; i++) {
-            const m = team[i];
-            const uA = m[0];
-            const username = m[1];
+        for(let i=0; i < wallets.length; i++) {
+            const uA = wallets[i];
+            const username = names[i];
             
-            // FIX: explicitly use .toString() before formatting to prevent toNumber() overflow
-            const totalD = ethers.utils.formatUnits(m[2].toString(), 18);
-            const teamTD = ethers.utils.formatUnits(m[3].toString(), 18);
-            const activeD = ethers.utils.formatUnits(m[4].toString(), 18);
+            // SECURITY: Convert BigNumbers to string first to avoid overflow
+            const activeD = ethers.utils.formatUnits(activeDeps[i].toString(), 18);
+            const teamTD = ethers.utils.formatUnits(teamTotalDeps[i].toString(), 18);
             
-            // FIX: Timestamp protection
             let jDate = "N/A";
             try {
-                const ts = m[5].toString();
-                if (ts.length < 15) { 
+                const ts = joinDates[i].toString();
+                if (ts !== "0") { 
                     jDate = new Date(parseInt(ts) * 1000).toLocaleDateString();
                 }
             } catch(e) {}
 
-            if (uA && uA !== "0x0000000000000000000000000000000000000000") {
+            if (uA && uA !== ethers.constants.AddressZero) {
                 html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                     <td class="p-4 font-mono text-yellow-500 text-[10px]">
                         <div class="flex flex-col">
@@ -249,7 +249,7 @@ window.loadLevelData = async function(level) {
                         </div>
                     </td>
                     <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                    <td class="p-4 text-xs font-black text-white">$${parseFloat(totalD).toFixed(2)}</td>
+                    <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}</td>
@@ -282,7 +282,6 @@ function start8HourCountdown() {
 // SAFE FORMAT FUNCTION
 const format = (val) => {
     try {
-        // BigNumber ko pehle string banao fir format karo taaki overflow na ho
         return ethers.utils.formatUnits(val ? val.toString() : "0", 18);
     } catch (e) {
         return "0.00";
