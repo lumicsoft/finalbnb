@@ -13,7 +13,6 @@ const CONTRACT_ABI = [
     "function claimDailyReward(uint256 amount) external",
     "function compoundNetworkReward(uint256 amount) external",
     "function withdrawPrincipal() external",
-    // FIXED ABI LINE BELOW (Removed 'memory' for better compatibility)
     "function getLevelTeamDetails(address _upline, uint256 _level) view returns (tuple(address uA, string username, uint256 totalDeposited, uint256 teamTotalDeposit, uint256 totalActiveDeposit, uint256 joinDate)[])",
     "function getLiveBalance(address uA) view returns (uint256 pendingROI, uint256 pendingCap)",
     "function users(address) view returns (address referrer, string username, bool registered, uint256 joinDate, uint256 totalActiveDeposit, uint256 teamActiveDeposit, uint256 teamTotalDeposit, uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalEarnings)",
@@ -252,13 +251,16 @@ window.loadLevelData = async function(level) {
         }
         
         let html = '';
-        // Fixed loop for object arrays
         for(let i=0; i<team.length; i++) {
             const m = team[i];
-            if (m.uA !== "0x0000000000000000000000000000000000000000") {
+            if (m.uA && m.uA !== "0x0000000000000000000000000000000000000000") {
                 const totalD = ethers.utils.formatUnits(m.totalDeposited, 18);
                 const teamTD = ethers.utils.formatUnits(m.teamTotalDeposit, 18);
                 const activeD = ethers.utils.formatUnits(m.totalActiveDeposit, 18);
+                
+                // Overflow Safe Fix: Convert joinDate to string before parsing
+                const rawDate = m.joinDate.toString();
+                const jDate = new Date(parseInt(rawDate) * 1000).toLocaleDateString();
                 
                 html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                     <td class="p-4 font-mono text-yellow-500 text-[10px]">${m.uA.substring(0,8)}...${m.uA.substring(34)}</td>
@@ -267,14 +269,14 @@ window.loadLevelData = async function(level) {
                     <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
                     <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}</td>
-                    <td class="p-4 text-[10px] text-gray-500">${new Date(m.joinDate * 1000).toLocaleDateString()}</td>
+                    <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
                 </tr>`;
             }
         }
         tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No active members</td></tr>`;
     } catch (e) { 
-        console.error(e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error: ${e.message.substring(0,40)}</td></tr>`; 
+        console.error("Critical Sync Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500 italic">Sync Error: ${e.message.substring(0,40)}</td></tr>`; 
     }
 }
 
