@@ -5,7 +5,6 @@ const CONTRACT_ADDRESS = "0x33Ad74E9FB3aeA563baD0Bbe36D3E911c231200A";
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
-// --- NEW: RANK CONFIG FOR LEADERSHIP ---
 const RANK_DETAILS = [
     { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
     { name: "Inviter", roi: "0.50%", targetTeam: 50, targetVolume: 2500 },
@@ -17,7 +16,6 @@ const RANK_DETAILS = [
     { name: "Crown Star", roi: "5.00%", targetTeam: 2500, targetVolume: 100000 }
 ];
 
-// --- ABI UPDATED ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -30,8 +28,6 @@ const CONTRACT_ABI = [
     "function getLiveBalance(address uA) view returns (uint256 pendingROI, uint256 pendingCap)",
     "function users(address) view returns (address referrer, string username, bool registered, uint256 joinDate, uint256 totalActiveDeposit, uint256 teamActiveDeposit, uint256 teamTotalDeposit, uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalEarnings)",
     "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsOnboarding, uint256 rewardsRank, uint256 reserveDailyCapital, uint256 reserveDailyROI, uint256 reserveNetwork, uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
-    "function getPosition(address uA, uint256 i) view returns (tuple(uint256 amount, uint256 startTime, uint256 lastCheckpoint, uint256 endTime, uint256 earned, uint256 expectedTotalEarn, uint8 source, bool active) v)",
-    "function getUserTotalPositions(address uA) view returns (uint256)",
     "event Registered(address indexed user, address indexed referrer, string username)",
     "event Deposited(address indexed user, uint256 amount)",
     "event Compounded(address indexed user, uint256 amount)",
@@ -44,15 +40,7 @@ const USDT_ABI = [
     "function balanceOf(address account) view returns (uint256)"
 ];
 
-const calculateGlobalROI = (amount) => {
-    const amt = parseFloat(amount);
-    if (amt >= 5000) return 6.00;
-    if (amt >= 2500) return 5.75;
-    if (amt >= 1000) return 5.50;
-    if (amt >= 500) return 5.25;
-    return 5.00;
-};
-
+// --- INITIALIZATION ---
 async function init() {
     if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -67,176 +55,126 @@ async function init() {
     }
 }
 
-// --- CORE LOGIC (DEPOSIT, CLAIM, COMPOUND) ---
+async function setupApp(address) {
+    const { chainId } = await provider.getNetwork();
+    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Testnet!"); return; }
+
+    const userData = await contract.users(address);
+    if (!userData.registered && !window.location.pathname.includes('register.html') && !window.location.pathname.includes('login.html')) {
+        window.location.href = "register.html";
+        return;
+    }
+
+    updateNavbar(address);
+    const path = window.location.pathname;
+    if (path.includes('index1.html')) { fetchAllData(address); start8HourCountdown(); }
+    if (path.includes('leadership.html')) { fetchLeadershipData(address); }
+}
+
+// --- HISTORY PAGE LOGIC (DEPOSITS, INCOME, WITHDRAWALS) ---
+window.fetchBlockchainHistory = async function(type) {
+    try {
+        const address = await signer.getAddress();
+        let filter;
+
+        if (type === 'deposit') filter = contract.filters.Deposited(address);
+        else if (type === 'compounding') filter = contract.filters.Compounded(address);
+        else filter = contract.filters.RewardClaimed(address);
+
+        const logs = await contract.queryFilter(filter, -10000, "latest");
+
+        const history = await Promise.all(logs.map(async (log) => {
+            const block = await log.getBlock();
+            const dateObj = new Date(block.timestamp * 1000);
+            const amount = format(log.args.amount);
+            const rType = (log.args.rewardType || "").toLowerCase();
+
+            // Withdrawal Actions check (Daily, Network, Principal)
+            const isWithdrawAction = rType.includes('withdraw') || rType.includes('claim') || rType.includes('principal');
+
+            if (type === 'withdrawal' && !isWithdrawAction) return null;
+            if (type === 'income' && isWithdrawAction) return null;
+
+            let label = rType.toUpperCase() || "TRANSACTION";
+            let color = "text-cyan-400";
+
+            if (rType.includes('principal')) { label = "CAPITAL WITHDRAW"; color = "text-red-500"; }
+            else if (rType.includes('daily')) { label = "DAILY WITHDRAW"; }
+            else if (rType.includes('network')) { label = "NETWORK WITHDRAW"; }
+
+            return {
+                date: dateObj.toLocaleDateString(),
+                time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                amount: parseFloat(amount).toFixed(2),
+                type: label,
+                color: color
+            };
+        }));
+
+        return history.filter(item => item !== null).reverse();
+    } catch (err) { console.error(err); return []; }
+};
+
+// --- CORE FUNCTIONS (ACTIONS) ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
-    if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Please enter a valid USDT amount!");
+    if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Enter amount!");
     const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
     try {
-        depositBtn.disabled = true;
-        depositBtn.innerText = "CHECKING...";
+        depositBtn.innerText = "APPROVING...";
         const userAddress = await signer.getAddress();
         const currentAllowance = await usdtContract.allowance(userAddress, CONTRACT_ADDRESS);
         if (currentAllowance.lt(amountInWei)) {
-            depositBtn.innerText = "APPROVE USDT...";
-            const approveTx = await usdtContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
-            await approveTx.wait();
+            const tx = await usdtContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+            await tx.wait();
         }
         depositBtn.innerText = "DEPOSITING...";
         const tx = await contract.deposit(amountInWei, { gasLimit: 500000 });
         await tx.wait();
-        location.reload(); 
-    } catch (err) {
-        alert("Error: " + (err.reason || err.message));
-        depositBtn.innerText = "DEPOSIT NOW";
-        depositBtn.disabled = false;
-    }
-}
+        location.reload();
+    } catch (err) { alert(err.reason || err.message); depositBtn.innerText = "DEPOSIT NOW"; }
+};
 
 window.handleClaim = async function() {
     try {
-        const userAddress = await signer.getAddress();
-        const live = await contract.getLiveBalance(userAddress);
-        const totalPending = live.pendingROI.add(live.pendingCap);
-        if (totalPending.lte(0)) return alert("No rewards to withdraw!");
-        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 500000 });
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
-}
-
-window.handleCompoundDaily = async function() {
-    try {
-        const userAddress = await signer.getAddress();
-        const live = await contract.getLiveBalance(userAddress);
-        const totalPending = live.pendingROI.add(live.pendingCap);
-        if (totalPending.lte(0)) return alert("No rewards to compound!");
-        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 500000 });
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
-}
-
-window.claimNetworkReward = async function(amountInWei) {
-    try {
-        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 500000 });
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
-}
-
-window.compoundNetworkReward = async function(amountInWei) {
-    try {
-        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 500000 });
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
-}
+        const live = await contract.getLiveBalance(await signer.getAddress());
+        const total = live.pendingROI.add(live.pendingCap);
+        if (total.lte(0)) return alert("No rewards!");
+        const tx = await contract.claimDailyReward(total, { gasLimit: 500000 });
+        await tx.wait(); location.reload();
+    } catch (err) { alert(err.reason || err.message); }
+};
 
 window.handleCapitalWithdraw = async function() {
-    if (!confirm("Are you sure? This will stop your daily returns.")) return;
+    if (!confirm("Confirm Capital Withdrawal? This stops returns.")) return;
     try {
         const tx = await contract.withdrawPrincipal({ gasLimit: 500000 });
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
-}
+        await tx.wait(); location.reload();
+    } catch (err) { alert(err.reason || err.message); }
+};
 
-window.handleLogin = async function() {
+// --- LEADERSHIP & TEAM ---
+async function fetchLeadershipData(address) {
     try {
-        const accounts = await provider.send("eth_requestAccounts", []);
-        const userData = await contract.users(accounts[0]);
-        if (userData.registered) window.location.href = "index1.html";
-        else { alert("Not registered!"); window.location.href = "register.html"; }
+        const [user, extra] = await Promise.all([contract.users(address), contract.usersExtra(address)]);
+        const rIdx = extra.rank;
+        const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
+        const nextRank = RANK_DETAILS[nextIdx];
+        
+        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
+        updateText('team-active-deposit', `$ ${format(user.teamActiveDeposit)}`);
+        
+        const tPercent = Math.min((extra.teamCount / nextRank.targetTeam) * 100, 100) || 0;
+        const vPercent = Math.min((parseFloat(format(user.teamActiveDeposit)) / nextRank.targetVolume) * 100, 100) || 0;
+
+        if(document.getElementById('team-count-bar')) document.getElementById('team-count-bar').style.width = `${tPercent}%`;
+        if(document.getElementById('team-volume-bar')) document.getElementById('team-volume-bar').style.width = `${vPercent}%`;
+
+        loadLeadershipDownlines(address, rIdx);
     } catch (err) { console.error(err); }
 }
 
-window.handleRegister = async function() {
-    const userField = document.getElementById('reg-username');
-    const refField = document.getElementById('reg-referrer');
-    if (!userField || !refField) return;
-    try {
-        const tx = await contract.register(userField.value.trim(), refField.value.trim(), { gasLimit: 500000 });
-        await tx.wait();
-        window.location.href = "index1.html";
-    } catch (err) { alert("Error: " + (err.reason || err.message)); }
-}
-
-async function setupApp(address) {
-    const { chainId } = await provider.getNetwork();
-    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Testnet!"); return; }
-    window.signer = provider.getSigner();
-    signer = window.signer;
-    window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    contract = window.contract;
-    window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-    usdtContract = window.usdtContract;
-    
-    // Check registration
-    const userData = await contract.users(address);
-    if (!userData.registered && !window.location.pathname.includes('register.html') && !window.location.pathname.includes('login.html')) {
-        window.location.href = "register.html"; 
-        return; 
-    }
-
-    updateNavbar(address);
-
-    // --- PAGE SPECIFIC LOADERS ---
-    if (window.location.pathname.includes('index1.html')) {
-        fetchAllData(address);
-        start8HourCountdown(); 
-    }
-
-    if (window.location.pathname.includes('leadership.html')) {
-        fetchLeadershipData(address);
-    }
-}
-
-// --- NEW: LEADERSHIP PAGE DATA LOADER ---
-async function fetchLeadershipData(address) {
-    try {
-        const [user, extra] = await Promise.all([
-            contract.users(address),
-            contract.usersExtra(address)
-        ]);
-
-        const rIdx = extra.rank;
-        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
-        updateText('rank-bonus-display', `${RANK_DETAILS[rIdx].roi} Leadership ROI`);
-        updateText('rank-reward-available', `$ ${format(extra.rewardsRank)}`);
-        updateText('total-rank-earned', `$ ${format(user.totalEarnings)}`);
-        updateText('team-total-deposit', `$ ${format(user.teamTotalDeposit)}`);
-        updateText('team-active-deposit', `$ ${format(user.teamActiveDeposit)}`);
-
-        // Next Rank Progress logic
-        const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
-        const nextRank = RANK_DETAILS[nextIdx];
-        updateText('next-rank-display', nextRank.name.toUpperCase());
-        updateText('progress-next-rank', nextRank.name.toUpperCase());
-
-        const tCount = extra.teamCount;
-        const tVol = parseFloat(format(user.teamActiveDeposit));
-        const tPercent = Math.min((tCount / nextRank.targetTeam) * 100, 100) || 0;
-        const vPercent = Math.min((tVol / nextRank.targetVolume) * 100, 100) || 0;
-
-        updateText('current-team-count', tCount);
-        updateText('target-team-count', `/ ${nextRank.targetTeam}`);
-        if(document.getElementById('team-count-bar')) document.getElementById('team-count-bar').style.width = `${tPercent}%`;
-        updateText('team-count-percent', `${tPercent.toFixed(0)}%`);
-
-        updateText('current-team-volume', tVol.toFixed(2));
-        updateText('target-team-volume', `/ ${nextRank.targetVolume.toLocaleString()} USDT`);
-        if(document.getElementById('team-volume-bar')) document.getElementById('team-volume-bar').style.width = `${vPercent}%`;
-        updateText('team-volume-percent', `${vPercent.toFixed(0)}%`);
-
-        // Load Direct Downlines specifically for leadership page
-        loadLeadershipDownlines(address, rIdx);
-
-    } catch (err) { console.error("Leadership Fetch Error:", err); }
-}
-
-// Special Table Loader for Leadership (Differential ROI focus)
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -244,29 +182,17 @@ async function loadLeadershipDownlines(address, myRankIdx) {
         const res = await contract.getLevelTeamDetails(address, 1);
         const wallets = res.wallets || res[1] || [];
         const names = res.names || res[0] || [];
-        const activeDeps = res.activeDeps || res[3] || [];
-
-        if (wallets.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-500 italic">No direct members</td></tr>`;
-            return;
-        }
-
         let html = '';
         for(let i=0; i < wallets.length; i++) {
-            const uA = wallets[i];
-            if (!uA || uA === ethers.constants.AddressZero) continue;
-            
-            const [dUser, dExtra] = await Promise.all([contract.users(uA), contract.usersExtra(uA)]);
+            if (!wallets[i] || wallets[i] === ethers.constants.AddressZero) continue;
+            const [dUser, dExtra] = await Promise.all([contract.users(wallets[i]), contract.usersExtra(wallets[i])]);
             const diff = Math.max(parseFloat(RANK_DETAILS[myRankIdx].roi) - parseFloat(RANK_DETAILS[dExtra.rank].roi), 0).toFixed(2);
-
-            html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
-                <td class="p-4 flex flex-col"><span class="text-white font-bold">${names[i] || 'N/A'}</span><span class="text-[9px] text-gray-400">${uA.substring(0,8)}...</span></td>
-                <td class="p-4 text-yellow-500 font-bold">${RANK_DETAILS[dExtra.rank].name}</td>
-                <td class="p-4">$${format(dUser.totalDeposited)}</td>
-                <td class="p-4 text-green-400">$${format(activeDeps[i])}</td>
-                <td class="p-4">${dExtra.teamCount}</td>
-                <td class="p-4 text-blue-400 font-bold">${diff}%</td>
-                <td class="p-4">$${format(dUser.teamActiveDeposit)}</td>
+            html += `<tr class="border-b border-white/5">
+                <td class="p-4 text-xs font-bold text-white">${names[i] || 'N/A'}</td>
+                <td class="p-4 text-xs text-yellow-500">${RANK_DETAILS[dExtra.rank].name}</td>
+                <td class="p-4 text-xs">$${format(dUser.totalActiveDeposit)}</td>
+                <td class="p-4 text-xs text-blue-400">${diff}%</td>
+                <td class="p-4 text-xs text-gray-400">$${format(dUser.teamActiveDeposit)}</td>
             </tr>`;
         }
         tableBody.innerHTML = html;
@@ -275,140 +201,33 @@ async function loadLeadershipDownlines(address, myRankIdx) {
 
 async function fetchAllData(address) {
     try {
-        const [user, extra, live] = await Promise.all([
-            contract.users(address),
-            contract.usersExtra(address),
-            contract.getLiveBalance(address)
-        ]);
-
-        if (!user.registered) return;
-
-        const totalActive = format(user.totalActiveDeposit);
-        updateText('total-deposit-display', `$ ${format(user.totalDeposited)}`);
-        updateText('active-deposit', `$ ${totalActive}`);
+        const [user, extra, live] = await Promise.all([contract.users(address), contract.usersExtra(address), contract.getLiveBalance(address)]);
+        updateText('active-deposit', `$ ${format(user.totalActiveDeposit)}`);
         updateText('total-earned', `$ ${format(user.totalEarnings)}`);
         updateText('total-withdrawn', `$ ${format(user.totalWithdrawn)}`);
         updateText('team-count', extra.teamCount.toString());
-        updateText('direct-count', extra.directsCount.toString());
-        updateText('level-earnings', `$ ${format(extra.rewardsReferral)}`);
-        updateText('direct-earnings', `$ ${format(extra.rewardsOnboarding)}`);
         
-        const networkBalance = format(extra.reserveNetwork);
-        updateText('ref-balance-display', `$ ${parseFloat(networkBalance).toFixed(2)}`);
-
-        const dailyPending = parseFloat(format(live.pendingROI)) + parseFloat(format(live.pendingCap));
-        const totalWithdrawable = (dailyPending + parseFloat(networkBalance)).toFixed(2);
-        updateText('withdrawable-display', `$ ${totalWithdrawable}`);
-        updateText('rank-display', getRankName(extra.rank));
-
-        const baseUrl = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/');
-        const refUrl = `${baseUrl}/register.html?ref=${user.username}`;
+        const netBal = format(extra.reserveNetwork);
+        const daily = parseFloat(format(live.pendingROI)) + parseFloat(format(live.pendingCap));
+        updateText('withdrawable-display', `$ ${(daily + parseFloat(netBal)).toFixed(2)}`);
+        
+        const refUrl = `${window.location.origin}${window.location.pathname.replace('index1.html','register.html')}?ref=${user.username}`;
         if(document.getElementById('refURL')) document.getElementById('refURL').value = refUrl;
-
-    } catch (err) { console.error("Data Fetch Error:", err); }
+    } catch (err) { console.error(err); }
 }
 
-// --- TEAM LOADER (PREVIOUSLY PROVIDED) ---
-window.loadLevelData = async function(level) {
-    const tableBody = document.getElementById('team-table-body');
-    if(!tableBody) return;
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic">Scanning Blockchain...</td></tr>`;
-    
-    try {
-        const address = await signer.getAddress();
-        const res = await contract.getLevelTeamDetails(address, level);
-        
-        const names = res.names || res[0] || [];
-        const wallets = res.wallets || res[1] || [];
-        const joinDates = res.joinDates || res[2] || [];
-        const activeDeps = res.activeDeps || res[3] || [];
-        const teamTotalDeps = res.teamTotalDeps || res[4] || [];
-
-        if (!wallets || wallets.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users found in Level ${level}</td></tr>`;
-            return;
-        }
-        
-        let html = '';
-        for(let i=0; i < wallets.length; i++) {
-            const uA = wallets[i];
-            if (!uA || uA === ethers.constants.AddressZero) continue;
-
-            const safeFormat = (arr, index) => {
-                try {
-                    if (arr && arr[index] !== undefined && arr[index] !== null) {
-                        return ethers.utils.formatUnits(arr[index].toString(), 18);
-                    }
-                } catch (err) {}
-                return "0.00";
-            };
-
-            const uName = (names && names[i]) ? names[i] : "N/A";
-            const activeD = safeFormat(activeDeps, i);
-            const teamTD = safeFormat(teamTotalDeps, i);
-            
-            let jDate = "N/A";
-            try {
-                if (joinDates && joinDates[i]) {
-                    const ts = parseInt(joinDates[i].toString());
-                    if (ts > 0) jDate = new Date(ts * 1000).toLocaleDateString();
-                }
-            } catch(e) {}
-
-            html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
-                <td class="p-4 font-mono text-yellow-500 text-[10px]">
-                    <div class="flex flex-col">
-                        <span>${uA.substring(0,8)}...${uA.substring(34)}</span>
-                        <span class="text-[8px] text-gray-400 font-sans uppercase">${uName}</span>
-                    </div>
-                </td>
-                <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
-                <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
-                <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
-                <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">
-                    ${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}
-                </td>
-                <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
-            </tr>`;
-        }
-        tableBody.innerHTML = html;
-    } catch (e) { 
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error</td></tr>`; 
-    }
-}
-
-function start8HourCountdown() {
-    const timerElement = document.getElementById('next-timer');
-    if (!timerElement) return;
-    setInterval(() => {
-        const now = new Date();
-        const targetHour = now.getHours() < 8 ? 8 : now.getHours() < 16 ? 16 : 24;
-        const targetTime = new Date().setHours(targetHour, 0, 0, 0);
-        const diff = targetTime - now;
-        if (diff <= 0) return;
-        const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
-        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
-        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-        timerElement.innerText = `${h}:${m}:${s}`;
-    }, 1000);
-}
-
-const format = (val) => {
-    try {
-        if (!val) return "0.00";
-        return ethers.utils.formatUnits(val.toString(), 18);
-    } catch (e) { return "0.00"; }
-};
-
+// --- UTILS ---
+const format = (v) => { try { return ethers.utils.formatUnits(v.toString(), 18); } catch(e) { return "0.00"; } };
 const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
-const getRankName = (r) => RANK_DETAILS[r]?.name || "NONE (-)";
-
-function updateNavbar(addr) {
-    const btn = document.getElementById('connect-btn');
-    if(btn) btn.innerText = addr.substring(0,6) + "..." + addr.substring(38);
+function updateNavbar(addr) { const btn = document.getElementById('connect-btn'); if(btn) btn.innerText = addr.substring(0,6) + "..." + addr.substring(38); }
+function start8HourCountdown() {
+    const el = document.getElementById('next-timer'); if (!el) return;
+    setInterval(() => {
+        const now = new Date(); const target = new Date().setHours(now.getHours() < 8 ? 8 : now.getHours() < 16 ? 16 : 24, 0, 0, 0);
+        const diff = target - now; if (diff <= 0) return;
+        el.innerText = new Date(diff).toISOString().substr(11, 8);
+    }, 1000);
 }
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
-
