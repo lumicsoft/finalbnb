@@ -67,7 +67,7 @@ async function init() {
     }
 }
 
-// --- CORE LOGIC ---
+// --- CORE LOGIC (DEPOSIT, CLAIM, COMPOUND) ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
@@ -189,24 +189,28 @@ async function setupApp(address) {
     }
 }
 
-// --- FIXED: HISTORY PAGE LOADER ---
+// --- FIXED: HISTORY PAGE LOADER (Now fetches properly) ---
 window.fetchBlockchainHistory = async function(address) {
     const tableBody = document.getElementById('history-table-body');
     if(!tableBody) return;
-    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-yellow-500 italic">Fetching History...</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-yellow-500 italic">Syncing Transactions...</td></tr>`;
 
     try {
+        // Range badha diya hai taaki purane logs bhi dikhein
+        const blockRange = 50000; 
+
         const depFilter = contract.filters.Deposited(address);
         const claimFilter = contract.filters.RewardClaimed(address);
         const compFilter = contract.filters.Compounded(address);
 
         const [depLogs, claimLogs, compLogs] = await Promise.all([
-            contract.queryFilter(depFilter, -10000),
-            contract.queryFilter(claimFilter, -10000),
-            contract.queryFilter(compFilter, -10000)
+            contract.queryFilter(depFilter, -blockRange),
+            contract.queryFilter(claimFilter, -blockRange),
+            contract.queryFilter(compFilter, -blockRange)
         ]);
 
         let allEvents = [];
+        
         for(let log of depLogs) {
             const block = await log.getBlock();
             allEvents.push({ type: 'DEPOSIT', amount: format(log.args.amount), date: new Date(block.timestamp * 1000).toLocaleString(), ts: block.timestamp, color: 'text-blue-400' });
@@ -237,7 +241,7 @@ window.fetchBlockchainHistory = async function(address) {
         `).join('');
 
     } catch (e) {
-        console.error(e);
+        console.error("History Sync Error:", e);
         tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500">History Sync Error</td></tr>`;
     }
 }
@@ -350,7 +354,6 @@ async function fetchAllData(address) {
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- FIXED: TEAM LOADER ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
