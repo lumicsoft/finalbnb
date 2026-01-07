@@ -103,7 +103,8 @@
     lucide.createIcons();
 
     async function loadReferralData() {
-        if (typeof window.contract === 'undefined') {
+        // Wait for contract to be ready from web3-handler.js
+        if (typeof window.contract === 'undefined' || !window.signer) {
             setTimeout(loadReferralData, 1000);
             return;
         }
@@ -115,7 +116,10 @@
                 window.contract.usersExtra(address)
             ]);
 
-            if (!user.registered) return;
+            if (!user.registered) {
+                console.log("User not registered");
+                return;
+            }
 
             // Stats Update
             document.getElementById('direct-count').innerText = extra.directsCount.toString();
@@ -128,6 +132,7 @@
             document.getElementById('ref-balance-display').innerText = `$ ${parseFloat(refBalance).toFixed(2)}`;
             window.currentRefBalance = extra.reserveNetwork;
 
+            // Fix Referral Link URL
             const baseUrl = window.location.origin + window.location.pathname.replace('referral.html', '');
             document.getElementById('refURL').value = `${baseUrl}register.html?ref=${user.username}`;
 
@@ -139,62 +144,87 @@
         }
     }
 
-    // 2. FETCH TEAM DATA (Updated Version)
+    // 2. FETCH TEAM DATA (FIXED & SECURE VERSION)
     async function loadLevelData(level) {
         const tableBody = document.getElementById('team-table-body');
+        if(!tableBody) return;
+        
         tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 orbitron animate-pulse text-xs">SCANNING BLOCKCHAIN LEVEL ${level}...</td></tr>`;
 
         try {
             const address = await window.signer.getAddress();
-            // Contract se data mangwana
-            const team = await window.contract.getLevelTeamDetails(address, level);
+            const res = await window.contract.getLevelTeamDetails(address, level);
+            
+            console.log("Contract Response:", res);
 
-            if (!team || team.length === 0) {
+            // Mapping Data Safely (Fix for the 'undefined' error)
+            const names = res.names || res[0] || [];
+            const wallets = res.wallets || res[1] || [];
+            const joinDates = res.joinDates || res[2] || [];
+            const activeDeps = res.activeDeps || res[3] || [];
+            const teamTotalDeps = res.teamTotalDeps || res[4] || [];
+
+            if (!wallets || wallets.length === 0) {
                 tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic">No users found in Level ${level}</td></tr>`;
                 return;
             }
 
             let html = '';
-            team.forEach(member => {
-                // Check if address is valid (not zero address)
-                if (member.uA !== "0x0000000000000000000000000000000000000000") {
-                    const totalD = ethers.utils.formatUnits(member.totalDeposited, 18);
-                    const activeD = ethers.utils.formatUnits(member.totalActiveDeposit, 18);
-                    const teamV = ethers.utils.formatUnits(member.teamTotalDeposit, 18);
-                    const joinDate = new Date(parseInt(member.joinDate) * 1000).toLocaleDateString();
-                    
-                    // Logic to check status
-                    const status = parseFloat(activeD) > 0 
-                        ? '<span class="text-green-400 font-bold">[ACTIVE]</span>' 
-                        : '<span class="text-red-500 font-bold">[INACTIVE]</span>';
+            // Using for loop instead of forEach for better compatibility with Ethers objects
+            for (let i = 0; i < wallets.length; i++) {
+                const uA = wallets[i];
+                if (!uA || uA === ethers.constants.AddressZero) continue;
 
-                    html += `
-                    <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="p-4 font-mono text-[10px] text-yellow-500">
-                           <div class="flex flex-col">
-                               <span>${member.uA.substring(0, 8)}...${member.uA.substring(36)}</span>
-                               <span class="text-[8px] text-gray-500 font-sans italic">${member.username || 'No Name'}</span>
-                           </div>
-                        </td>
-                        <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                        <td class="p-4 text-xs font-black text-white">$${parseFloat(totalD).toFixed(2)}</td>
-                        <td class="p-4 text-xs text-gray-400">$${parseFloat(teamV).toFixed(2)}</td>
-                        <td class="p-4 text-xs">
-                            <div class="flex flex-col">
-                                <span class="text-white font-bold">$${parseFloat(activeD).toFixed(2)}</span>
-                                ${status}
-                            </div>
-                        </td>
-                        <td class="p-4 text-xs font-black text-yellow-500 italic uppercase">TRACKING</td>
-                        <td class="p-4 text-[10px] text-gray-500">${joinDate}</td>
-                    </tr>`;
-                }
-            });
-            tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No data available for this level</td></tr>`;
+                // Safe formatting to prevent BigNumber errors
+                const getVal = (arr, idx) => {
+                    try {
+                        return (arr && arr[idx]) ? ethers.utils.formatUnits(arr[idx].toString(), 18) : "0.00";
+                    } catch(e) { return "0.00"; }
+                };
+
+                const uName = (names && names[i]) ? names[i] : "N/A";
+                const activeD = getVal(activeDeps, i);
+                const teamV = getVal(teamTotalDeps, i);
+                
+                let jDate = "N/A";
+                try {
+                    if (joinDates && joinDates[i]) {
+                        const ts = parseInt(joinDates[i].toString());
+                        if (ts > 0) jDate = new Date(ts * 1000).toLocaleDateString();
+                    }
+                } catch(e) {}
+                
+                const status = parseFloat(activeD) > 0 
+                    ? '<span class="text-green-400 font-bold">[ACTIVE]</span>' 
+                    : '<span class="text-red-500 font-bold">[INACTIVE]</span>';
+
+                html += `
+                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <td class="p-4 font-mono text-[10px] text-yellow-500">
+                        <div class="flex flex-col">
+                            <span>${uA.substring(0, 8)}...${uA.substring(34)}</span>
+                            <span class="text-[8px] text-gray-500 font-sans italic">${uName}</span>
+                        </div>
+                    </td>
+                    <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
+                    <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
+                    <td class="p-4 text-xs text-gray-400">$${parseFloat(teamV).toFixed(2)}</td>
+                    <td class="p-4 text-xs">
+                        <div class="flex flex-col">
+                            <span class="text-white font-bold">$${parseFloat(activeD).toFixed(2)}</span>
+                            ${status}
+                        </div>
+                    </td>
+                    <td class="p-4 text-xs font-black text-yellow-500 italic uppercase">ACTIVE</td>
+                    <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
+                </tr>`;
+            }
+
+            tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No data available</td></tr>`;
 
         } catch (err) {
             console.error("Level Fetch Error:", err);
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error: Verify Contract ABI</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error: ${err.message}</td></tr>`;
         }
     }
 
@@ -203,7 +233,6 @@
         if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No referral rewards to withdraw!");
         try {
             const tx = await window.contract.claimNetworkReward(window.currentRefBalance, { gasLimit: 500000 });
-            alert("Withdrawal submitted! Please wait...");
             await tx.wait();
             location.reload();
         } catch (err) { alert("Error: " + (err.reason || err.message)); }
@@ -214,7 +243,6 @@
         if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No referral rewards to compound!");
         try {
             const tx = await window.contract.compoundNetworkReward(window.currentRefBalance, { gasLimit: 800000 });
-            alert("Compounding referral rewards...");
             await tx.wait();
             location.reload();
         } catch (err) { alert("Error: " + (err.reason || err.message)); }
@@ -233,5 +261,6 @@
 </body>
 
 </html>
+
 
 
