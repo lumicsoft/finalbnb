@@ -14,7 +14,6 @@ const CONTRACT_ABI = [
     "function claimDailyReward(uint256 amount) external",
     "function compoundNetworkReward(uint256 amount) external",
     "function withdrawPrincipal() external",
-    // MODIFIED THIS LINE: Removed internal names to let ethers decode as raw array first
     "function getLevelTeamDetails(address _upline, uint256 _level) view returns (tuple(address, string, uint256, uint256, uint256, uint256)[])",
     "function getLiveBalance(address uA) view returns (uint256 pendingROI, uint256 pendingCap)",
     "function users(address) view returns (address referrer, string username, bool registered, uint256 joinDate, uint256 totalActiveDeposit, uint256 teamActiveDeposit, uint256 teamTotalDeposit, uint256 totalDeposited, uint256 totalWithdrawn, uint256 totalEarnings)",
@@ -33,7 +32,6 @@ const USDT_ABI = [
     "function balanceOf(address account) view returns (uint256)"
 ];
 
-// --- ROI TIER CALCULATOR ---
 const calculateGlobalROI = (amount) => {
     const amt = parseFloat(amount);
     if (amt >= 5000) return 6.00;
@@ -43,7 +41,6 @@ const calculateGlobalROI = (amount) => {
     return 5.00;
 };
 
-// --- INITIALIZATION ---
 async function init() {
     if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -52,19 +49,16 @@ async function init() {
         contract = window.contract;
         window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, tempSigner);
         usdtContract = window.usdtContract;
-
         const accounts = await provider.listAccounts();
         if (accounts.length > 0) setupApp(accounts[0]);
     }
 }
 
-// --- 1. DEPOSIT ACTION ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
     if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Please enter a valid USDT amount!");
-    const rawAmount = amountInput.value;
-    const amountInWei = ethers.utils.parseUnits(rawAmount.toString(), 18);
+    const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
     try {
         depositBtn.disabled = true;
         depositBtn.innerText = "CHECKING CAP...";
@@ -80,14 +74,12 @@ window.handleDeposit = async function() {
         await tx.wait();
         location.reload(); 
     } catch (err) {
-        console.error(err);
         alert("Error: " + (err.reason || err.message));
         depositBtn.innerText = "DEPOSIT NOW";
         depositBtn.disabled = false;
     }
 }
 
-// --- 2. WITHDRAW DAILY ROI ---
 window.handleClaim = async function() {
     try {
         const userAddress = await signer.getAddress();
@@ -100,7 +92,6 @@ window.handleClaim = async function() {
     } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
 }
 
-// --- 3. COMPOUND DAILY ROI ---
 window.handleCompoundDaily = async function() {
     try {
         const userAddress = await signer.getAddress();
@@ -113,7 +104,6 @@ window.handleCompoundDaily = async function() {
     } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
 }
 
-// --- NEW: CLAIM NETWORK REWARD ---
 window.claimNetworkReward = async function(amountInWei) {
     try {
         const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 500000 });
@@ -122,7 +112,6 @@ window.claimNetworkReward = async function(amountInWei) {
     } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
 }
 
-// --- NEW: COMPOUND NETWORK REWARD ---
 window.compoundNetworkReward = async function(amountInWei) {
     try {
         const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 500000 });
@@ -131,7 +120,6 @@ window.compoundNetworkReward = async function(amountInWei) {
     } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
 }
 
-// --- 4. CAPITAL WITHDRAWAL ---
 window.handleCapitalWithdraw = async function() {
     if (!confirm("Are you sure? This will stop your daily returns.")) return;
     try {
@@ -141,7 +129,6 @@ window.handleCapitalWithdraw = async function() {
     } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
 }
 
-// --- LOGIN & REGISTER ---
 window.handleLogin = async function() {
     try {
         const accounts = await provider.send("eth_requestAccounts", []);
@@ -181,7 +168,6 @@ async function setupApp(address) {
     start8HourCountdown(); 
 }
 
-// --- MAIN DATA FETCH ---
 async function fetchAllData(address) {
     try {
         const [user, extra, live] = await Promise.all([
@@ -203,33 +189,15 @@ async function fetchAllData(address) {
         updateText('direct-count', extra.directsCount.toString());
         updateText('level-earnings', `$ ${format(extra.rewardsReferral)}`);
         updateText('direct-earnings', `$ ${format(extra.rewardsOnboarding)}`);
-
-        // ROI Yield with Tiers
-        const dailyROI = (parseFloat(totalActive) * (roiPercent / 100)).toFixed(2);
-        updateText('projected-return', `$ ${dailyROI}`); 
         
-        // Referral Balance Display
         const networkBalance = format(extra.reserveNetwork);
         updateText('ref-balance-display', `$ ${parseFloat(networkBalance).toFixed(2)}`);
 
-        // Combined Withdrawable
         const dailyPending = parseFloat(format(live.pendingROI)) + parseFloat(format(live.pendingCap));
         const totalWithdrawable = (dailyPending + parseFloat(networkBalance)).toFixed(2);
         updateText('withdrawable-display', `$ ${totalWithdrawable}`);
-        updateText('compounding-balance', `$ ${totalWithdrawable}`);
 
-        updateText('capital-investment-display', `$ ${totalActive}`);
-        updateText('capital-withdrawn-display', `$ ${format(user.totalWithdrawn)}`);
         updateText('rank-display', getRankName(extra.rank));
-
-        const cpVal = Math.floor(parseFloat(totalActive) / 100);
-        updateText('cp-display', cpVal);
-
-        const badge = document.getElementById('status-badge');
-        if(badge && parseFloat(totalActive) > 0) {
-            badge.innerText = `● Active (${roiPercent.toFixed(2)}%)`;
-            badge.className = "px-4 py-1 rounded-full bg-green-500/20 text-green-400 text-[10px] font-black border border-green-500/30 uppercase";
-        }
 
         const baseUrl = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/');
         const refUrl = `${baseUrl}/register.html?ref=${user.username}`;
@@ -238,43 +206,41 @@ async function fetchAllData(address) {
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- TEAM DETAILS LOADER (FOR REFERRAL PAGE) ---
+// --- UPDATED TEAM LOADER WITH OVERFLOW FIX ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic orbitron animate-pulse">Scanning Blockchain...</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic">Scanning Blockchain...</td></tr>`;
     try {
         const address = await signer.getAddress();
-        
-        // Use raw call for stability
         const team = await contract.getLevelTeamDetails(address, level);
         
         if (!team || team.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic">No users in Level ${level}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users in Level ${level}</td></tr>`;
             return;
         }
         
         let html = '';
         for(let i=0; i<team.length; i++) {
             const m = team[i];
-            
-            // Accessing by index for safety when name-mapping fails in ethers
             const uA = m[0];
             const username = m[1];
-            const totalDeposited = m[2];
-            const teamTotalDeposit = m[3];
-            const totalActiveDeposit = m[4];
-            const joinDate = m[5];
+            
+            // FIX: explicitly use .toString() before formatting to prevent toNumber() overflow
+            const totalD = ethers.utils.formatUnits(m[2].toString(), 18);
+            const teamTD = ethers.utils.formatUnits(m[3].toString(), 18);
+            const activeD = ethers.utils.formatUnits(m[4].toString(), 18);
+            
+            // FIX: Timestamp protection
+            let jDate = "N/A";
+            try {
+                const ts = m[5].toString();
+                if (ts.length < 15) { // Simple sanity check for timestamp
+                    jDate = new Date(parseInt(ts) * 1000).toLocaleDateString();
+                }
+            } catch(e) {}
 
             if (uA && uA !== "0x0000000000000000000000000000000000000000") {
-                const totalD = ethers.utils.formatUnits(totalDeposited, 18);
-                const teamTD = ethers.utils.formatUnits(teamTotalDeposit, 18);
-                const activeD = ethers.utils.formatUnits(totalActiveDeposit, 18);
-                
-                // Final fix for timestamp overflow
-                const rawDateStr = joinDate.toString();
-                const jDate = new Date(parseInt(rawDateStr) * 1000).toLocaleDateString();
-                
                 html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                     <td class="p-4 font-mono text-yellow-500 text-[10px]">
                         <div class="flex flex-col">
@@ -291,10 +257,10 @@ window.loadLevelData = async function(level) {
                 </tr>`;
             }
         }
-        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No members found</td></tr>`;
+        tableBody.innerHTML = html;
     } catch (e) { 
-        console.error("Critical Sync Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500 italic text-xs">ABI Sync Error: Please Refresh and Clear Cache.</td></tr>`; 
+        console.error("Sync Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Data loading error. Please refresh.</td></tr>`; 
     }
 }
 
