@@ -5,6 +5,18 @@ const CONTRACT_ADDRESS = "0x33Ad74E9FB3aeA563baD0Bbe36D3E911c231200A";
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
+// --- NEW: RANK CONFIG FOR LEADERSHIP ---
+const RANK_DETAILS = [
+    { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
+    { name: "Inviter", roi: "0.50%", targetTeam: 50, targetVolume: 2500 },
+    { name: "Promoter", roi: "1.00%", targetTeam: 100, targetVolume: 5000 },
+    { name: "Leader", roi: "1.50%", targetTeam: 200, targetVolume: 10000 },
+    { name: "Partner", roi: "2.00%", targetTeam: 400, targetVolume: 15000 },
+    { name: "Star", roi: "3.00%", targetTeam: 800, targetVolume: 25000 },
+    { name: "Royal Star", roi: "4.00%", targetTeam: 1500, targetVolume: 50000 },
+    { name: "Crown Star", roi: "5.00%", targetTeam: 2500, targetVolume: 100000 }
+];
+
 // --- ABI UPDATED ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
@@ -55,7 +67,7 @@ async function init() {
     }
 }
 
-// --- CORE LOGIC ---
+// --- CORE LOGIC (DEPOSIT, CLAIM, COMPOUND) ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
@@ -161,13 +173,104 @@ async function setupApp(address) {
     window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
     usdtContract = window.usdtContract;
     
-    if (window.location.pathname.includes('index1.html')) {
-        const userData = await contract.users(address);
-        if (!userData.registered) { window.location.href = "register.html"; return; }
+    // Check registration
+    const userData = await contract.users(address);
+    if (!userData.registered && !window.location.pathname.includes('register.html') && !window.location.pathname.includes('login.html')) {
+        window.location.href = "register.html"; 
+        return; 
     }
+
     updateNavbar(address);
-    fetchAllData(address);
-    start8HourCountdown(); 
+
+    // --- PAGE SPECIFIC LOADERS ---
+    if (window.location.pathname.includes('index1.html')) {
+        fetchAllData(address);
+        start8HourCountdown(); 
+    }
+
+    if (window.location.pathname.includes('leadership.html')) {
+        fetchLeadershipData(address);
+    }
+}
+
+// --- NEW: LEADERSHIP PAGE DATA LOADER ---
+async function fetchLeadershipData(address) {
+    try {
+        const [user, extra] = await Promise.all([
+            contract.users(address),
+            contract.usersExtra(address)
+        ]);
+
+        const rIdx = extra.rank;
+        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
+        updateText('rank-bonus-display', `${RANK_DETAILS[rIdx].roi} Leadership ROI`);
+        updateText('rank-reward-available', `$ ${format(extra.rewardsRank)}`);
+        updateText('total-rank-earned', `$ ${format(user.totalEarnings)}`);
+        updateText('team-total-deposit', `$ ${format(user.teamTotalDeposit)}`);
+        updateText('team-active-deposit', `$ ${format(user.teamActiveDeposit)}`);
+
+        // Next Rank Progress logic
+        const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
+        const nextRank = RANK_DETAILS[nextIdx];
+        updateText('next-rank-display', nextRank.name.toUpperCase());
+        updateText('progress-next-rank', nextRank.name.toUpperCase());
+
+        const tCount = extra.teamCount;
+        const tVol = parseFloat(format(user.teamActiveDeposit));
+        const tPercent = Math.min((tCount / nextRank.targetTeam) * 100, 100) || 0;
+        const vPercent = Math.min((tVol / nextRank.targetVolume) * 100, 100) || 0;
+
+        updateText('current-team-count', tCount);
+        updateText('target-team-count', `/ ${nextRank.targetTeam}`);
+        if(document.getElementById('team-count-bar')) document.getElementById('team-count-bar').style.width = `${tPercent}%`;
+        updateText('team-count-percent', `${tPercent.toFixed(0)}%`);
+
+        updateText('current-team-volume', tVol.toFixed(2));
+        updateText('target-team-volume', `/ ${nextRank.targetVolume.toLocaleString()} USDT`);
+        if(document.getElementById('team-volume-bar')) document.getElementById('team-volume-bar').style.width = `${vPercent}%`;
+        updateText('team-volume-percent', `${vPercent.toFixed(0)}%`);
+
+        // Load Direct Downlines specifically for leadership page
+        loadLeadershipDownlines(address, rIdx);
+
+    } catch (err) { console.error("Leadership Fetch Error:", err); }
+}
+
+// Special Table Loader for Leadership (Differential ROI focus)
+async function loadLeadershipDownlines(address, myRankIdx) {
+    const tableBody = document.getElementById('direct-downline-body');
+    if(!tableBody) return;
+    try {
+        const res = await contract.getLevelTeamDetails(address, 1);
+        const wallets = res.wallets || res[1] || [];
+        const names = res.names || res[0] || [];
+        const activeDeps = res.activeDeps || res[3] || [];
+
+        if (wallets.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-500 italic">No direct members</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        for(let i=0; i < wallets.length; i++) {
+            const uA = wallets[i];
+            if (!uA || uA === ethers.constants.AddressZero) continue;
+            
+            const [dUser, dExtra] = await Promise.all([contract.users(uA), contract.usersExtra(uA)]);
+            const diff = Math.max(parseFloat(RANK_DETAILS[myRankIdx].roi) - parseFloat(RANK_DETAILS[dExtra.rank].roi), 0).toFixed(2);
+
+            html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
+                <td class="p-4 flex flex-col"><span class="text-white font-bold">${names[i] || 'N/A'}</span><span class="text-[9px] text-gray-400">${uA.substring(0,8)}...</span></td>
+                <td class="p-4 text-yellow-500 font-bold">${RANK_DETAILS[dExtra.rank].name}</td>
+                <td class="p-4">$${format(dUser.totalDeposited)}</td>
+                <td class="p-4 text-green-400">$${format(activeDeps[i])}</td>
+                <td class="p-4">${dExtra.teamCount}</td>
+                <td class="p-4 text-blue-400 font-bold">${diff}%</td>
+                <td class="p-4">$${format(dUser.teamActiveDeposit)}</td>
+            </tr>`;
+        }
+        tableBody.innerHTML = html;
+    } catch (e) { console.error(e); }
 }
 
 async function fetchAllData(address) {
@@ -205,7 +308,7 @@ async function fetchAllData(address) {
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- AAPKA FULL UPDATED TEAM LOADER ---
+// --- TEAM LOADER (PREVIOUSLY PROVIDED) ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
@@ -215,9 +318,6 @@ window.loadLevelData = async function(level) {
         const address = await signer.getAddress();
         const res = await contract.getLevelTeamDetails(address, level);
         
-        console.log("Raw Response Debug:", res);
-
-        // Sabse pehle arrays ko safely extract karein
         const names = res.names || res[0] || [];
         const wallets = res.wallets || res[1] || [];
         const joinDates = res.joinDates || res[2] || [];
@@ -234,16 +334,12 @@ window.loadLevelData = async function(level) {
             const uA = wallets[i];
             if (!uA || uA === ethers.constants.AddressZero) continue;
 
-            // HELPER: Kisi bhi value ko safely BigNumber se String mein badalne ke liye
             const safeFormat = (arr, index) => {
                 try {
-                    // Check if array exists and the value at index is NOT undefined/null
                     if (arr && arr[index] !== undefined && arr[index] !== null) {
                         return ethers.utils.formatUnits(arr[index].toString(), 18);
                     }
-                } catch (err) {
-                    console.error("Format Error at index " + index, err);
-                }
+                } catch (err) {}
                 return "0.00";
             };
 
@@ -277,10 +373,8 @@ window.loadLevelData = async function(level) {
             </tr>`;
         }
         tableBody.innerHTML = html;
-
     } catch (e) { 
-        console.error("Critical Fetch Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error: ${e.message}</td></tr>`; 
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error</td></tr>`; 
     }
 }
 
@@ -308,7 +402,7 @@ const format = (val) => {
 };
 
 const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
-const getRankName = (r) => ["Inviter", "Promoter", "Leader", "Partner", "Star", "Royal Star", "Crown Star"][r] || "NONE (-)";
+const getRankName = (r) => RANK_DETAILS[r]?.name || "NONE (-)";
 
 function updateNavbar(addr) {
     const btn = document.getElementById('connect-btn');
@@ -317,5 +411,3 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
-
-
