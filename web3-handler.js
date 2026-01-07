@@ -215,50 +215,41 @@ window.loadLevelData = async function(level) {
         const address = await signer.getAddress();
         const res = await contract.getLevelTeamDetails(address, level);
         
-        // --- ULTIMATE DEBUGGING ---
-        console.log("FULL_RESPONSE_OBJECT:", res);
+        console.log("Raw Response Debug:", res);
 
-        // Sabhi possible tarikon se data nikalne ki koshish
-        let names = res.names || res[0] || [];
-        let wallets = res.wallets || res[1] || [];
-        let joinDates = res.joinDates || res[2] || [];
-        let activeDeps = res.activeDeps || res[3] || [];
-        let teamTotalDeps = res.teamTotalDeps || res[4] || [];
+        // Sabse pehle arrays ko safely extract karein
+        const names = res.names || res[0] || [];
+        const wallets = res.wallets || res[1] || [];
+        const joinDates = res.joinDates || res[2] || [];
+        const activeDeps = res.activeDeps || res[3] || [];
+        const teamTotalDeps = res.teamTotalDeps || res[4] || [];
 
-        // Agar res ek Array-like object hai (jo Ethers bhejta hai)
-        if (wallets.length === 0 && res.length > 1) {
-            names = res[0];
-            wallets = res[1];
-            joinDates = res[2];
-            activeDeps = res[3];
-            teamTotalDeps = res[4];
-        }
-
-        if (!wallets || !wallets.length || wallets.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-400">No users found in Level ${level}</td></tr>`;
+        if (!wallets || wallets.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users found in Level ${level}</td></tr>`;
             return;
         }
         
         let html = '';
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            
-            // Skip invalid addresses safely
-            if (!uA || uA === "0x0000000000000000000000000000000000000000") continue;
+            if (!uA || uA === ethers.constants.AddressZero) continue;
 
-            const uName = (names && names[i]) ? names[i] : "N/A";
-            
-            // Safe Number Formatting Function
-            const toEth = (val) => {
+            // HELPER: Kisi bhi value ko safely BigNumber se String mein badalne ke liye
+            const safeFormat = (arr, index) => {
                 try {
-                    if (!val) return "0.00";
-                    // BigNumber ko string mein convert karke format karein
-                    return ethers.utils.formatUnits(val.toString(), 18);
-                } catch(e) { return "0.00"; }
+                    // Check if array exists and the value at index is NOT undefined/null
+                    if (arr && arr[index] !== undefined && arr[index] !== null) {
+                        return ethers.utils.formatUnits(arr[index].toString(), 18);
+                    }
+                } catch (err) {
+                    console.error("Format Error at index " + index, err);
+                }
+                return "0.00";
             };
 
-            const activeD = toEth(activeDeps[i]);
-            const teamTD = toEth(teamTotalDeps[i]);
+            const uName = (names && names[i]) ? names[i] : "N/A";
+            const activeD = safeFormat(activeDeps, i);
+            const teamTD = safeFormat(teamTotalDeps, i);
             
             let jDate = "N/A";
             try {
@@ -285,12 +276,11 @@ window.loadLevelData = async function(level) {
                 <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
             </tr>`;
         }
-        
-        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No active records.</td></tr>`;
+        tableBody.innerHTML = html;
 
     } catch (e) { 
-        console.error("CRITICAL_DISPLAY_ERROR:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error: ${e.message}</td></tr>`; 
+        console.error("Critical Fetch Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error: ${e.message}</td></tr>`; 
     }
 }
 
@@ -327,4 +317,5 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
