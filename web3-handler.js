@@ -193,16 +193,19 @@ async function setupApp(address) {
 window.fetchBlockchainHistory = async function(address) {
     const tableBody = document.getElementById('history-table-body');
     if(!tableBody) return;
-    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-yellow-500 italic">Syncing Transactions...</td></tr>`;
+    
+    tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-yellow-500 italic animate-pulse">Scanning Blockchain...</td></tr>`;
 
     try {
-        // Range badha diya hai taaki purane logs bhi dikhein
+        // Range: Last 50,000 blocks scan karega (Aap ise contract age ke hisab se badha sakte hain)
         const blockRange = 50000; 
 
+        // User specific filters: Sirf usi ka data aayega jo login hai
         const depFilter = contract.filters.Deposited(address);
         const claimFilter = contract.filters.RewardClaimed(address);
         const compFilter = contract.filters.Compounded(address);
 
+        // Sabhi logs ko ek saath fetch kar rha hai efficiency ke liye
         const [depLogs, claimLogs, compLogs] = await Promise.all([
             contract.queryFilter(depFilter, -blockRange),
             contract.queryFilter(claimFilter, -blockRange),
@@ -210,42 +213,66 @@ window.fetchBlockchainHistory = async function(address) {
         ]);
 
         let allEvents = [];
-        
+
+        // 1. Deposits process karein
         for(let log of depLogs) {
-            const block = await log.getBlock();
-            allEvents.push({ type: 'DEPOSIT', amount: format(log.args.amount), date: new Date(block.timestamp * 1000).toLocaleString(), ts: block.timestamp, color: 'text-blue-400' });
-        }
-        for(let log of claimLogs) {
-            const block = await log.getBlock();
-            allEvents.push({ type: log.args.rewardType.toUpperCase(), amount: format(log.args.amount), date: new Date(block.timestamp * 1000).toLocaleString(), ts: block.timestamp, color: 'text-green-400' });
-        }
-        for(let log of compLogs) {
-            const block = await log.getBlock();
-            allEvents.push({ type: 'COMPOUND', amount: format(log.args.amount), date: new Date(block.timestamp * 1000).toLocaleString(), ts: block.timestamp, color: 'text-yellow-500' });
+            const block = await provider.getBlock(log.blockNumber);
+            allEvents.push({ 
+                type: 'DEPOSIT', 
+                amount: format(log.args.amount), 
+                date: new Date(block.timestamp * 1000).toLocaleString(), 
+                ts: block.timestamp, 
+                color: 'text-blue-400' 
+            });
         }
 
+        // 2. Withdrawals / Income process karein
+        for(let log of claimLogs) {
+            const block = await provider.getBlock(log.blockNumber);
+            allEvents.push({ 
+                type: (log.args.rewardType || 'CLAIM').toUpperCase(), 
+                amount: format(log.args.amount), 
+                date: new Date(block.timestamp * 1000).toLocaleString(), 
+                ts: block.timestamp, 
+                color: 'text-green-400' 
+            });
+        }
+
+        // 3. Compounding process karein
+        for(let log of compLogs) {
+            const block = await provider.getBlock(log.blockNumber);
+            allEvents.push({ 
+                type: 'COMPOUND', 
+                amount: format(log.args.amount), 
+                date: new Date(block.timestamp * 1000).toLocaleString(), 
+                ts: block.timestamp, 
+                color: 'text-yellow-500' 
+            });
+        }
+
+        // Sabse naye transactions upar (Sorting)
         allEvents.sort((a,b) => b.ts - a.ts);
 
         if(allEvents.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-gray-500">No transactions found</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-gray-500 italic">No transaction history found for this account.</td></tr>`;
             return;
         }
 
+        // Final Table Rendering
         tableBody.innerHTML = allEvents.map(ev => `
             <tr class="border-b border-white/5 hover:bg-white/5 transition-all">
-                <td class="p-4 text-xs text-gray-400">${ev.date}</td>
+                <td class="p-4 text-[10px] text-gray-400 font-mono">${ev.date}</td>
                 <td class="p-4 text-xs font-bold ${ev.color}">${ev.type}</td>
-                <td class="p-4 text-xs font-bold text-white">$${parseFloat(ev.amount).toFixed(2)}</td>
-                <td class="p-4 text-xs text-green-500">COMPLETED</td>
+                <td class="p-4 text-xs font-bold text-white font-mono">$${parseFloat(ev.amount).toFixed(2)}</td>
+                <td class="p-4 text-[10px] text-green-500 uppercase font-black">Success</td>
             </tr>
         `).join('');
 
     } catch (e) {
-        console.error("History Sync Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500">History Sync Error</td></tr>`;
+        console.error("History Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">Sync Error: Please try refreshing.</td></tr>`;
     }
 }
-
 // --- LEADERSHIP DATA ---
 async function fetchLeadershipData(address) {
     try {
@@ -431,3 +458,4 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
