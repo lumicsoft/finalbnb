@@ -44,21 +44,18 @@ const calculateGlobalROI = (amount) => {
 async function init() {
     if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
-        // Correcting signer assignment to be global immediately
         window.signer = provider.getSigner();
         signer = window.signer;
-        
         window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         contract = window.contract;
         window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
         usdtContract = window.usdtContract;
-        
         const accounts = await provider.listAccounts();
         if (accounts.length > 0) setupApp(accounts[0]);
     }
 }
 
-// --- CORE LOGIC FUNCTIONS ---
+// --- CORE LOGIC ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
@@ -184,8 +181,6 @@ async function fetchAllData(address) {
         if (!user.registered) return;
 
         const totalActive = format(user.totalActiveDeposit);
-        const roiPercent = calculateGlobalROI(totalActive);
-
         updateText('total-deposit-display', `$ ${format(user.totalDeposited)}`);
         updateText('active-deposit', `$ ${totalActive}`);
         updateText('total-earned', `$ ${format(user.totalEarnings)}`);
@@ -201,7 +196,6 @@ async function fetchAllData(address) {
         const dailyPending = parseFloat(format(live.pendingROI)) + parseFloat(format(live.pendingCap));
         const totalWithdrawable = (dailyPending + parseFloat(networkBalance)).toFixed(2);
         updateText('withdrawable-display', `$ ${totalWithdrawable}`);
-
         updateText('rank-display', getRankName(extra.rank));
 
         const baseUrl = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/');
@@ -211,7 +205,7 @@ async function fetchAllData(address) {
     } catch (err) { console.error("Data Fetch Error:", err); }
 }
 
-// --- UPDATED TEAM LOADER WITH FAIL-SAFE LOGIC ---
+// --- AAPKA FULL UPDATED TEAM LOADER ---
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
@@ -219,66 +213,65 @@ window.loadLevelData = async function(level) {
     
     try {
         const address = await signer.getAddress();
-        const data = await contract.getLevelTeamDetails(address, level);
-        
-        // Anti-Undefined Logic: Accessing data safely
-        const names = data.names || data[0] || [];
-        const wallets = data.wallets || data[1] || [];
-        const joinDates = data.joinDates || data[2] || [];
-        const activeDeps = data.activeDeps || data[3] || [];
-        const teamTotalDeps = data.teamTotalDeps || data[4] || [];
+        const res = await contract.getLevelTeamDetails(address, level);
+        console.log("Raw Response Debug:", res);
+
+        // Mapping using your specific names logic
+        const names = res.names || res[0] || [];
+        const wallets = res.wallets || res[1] || [];
+        const joinDates = res.joinDates || res[2] || [];
+        const activeDeps = res.activeDeps || res[3] || [];
+        const teamTotalDeps = res.teamTotalDeps || res[4] || [];
 
         if (!wallets || wallets.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users in Level ${level}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-400">No users found in Level ${level}</td></tr>`;
             return;
         }
         
         let html = '';
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            const username = (names && names[i]) ? names[i] : 'N/A';
-            
-            // Fix: Check if BigNumber exists before toString/format
-            const getSafeUnits = (arr, index) => {
-                if (arr && arr[index] !== undefined && arr[index] !== null) {
-                    return ethers.utils.formatUnits(arr[index].toString(), 18);
-                }
-                return "0.0";
-            };
+            if (!uA || uA === ethers.constants.AddressZero) continue;
 
-            const activeD = getSafeUnits(activeDeps, i);
-            const teamTD = getSafeUnits(teamTotalDeps, i);
-            
+            const uName = (names && names[i]) ? names[i] : "N/A";
+            let activeD = "0.00";
+            let teamTD = "0.00";
             let jDate = "N/A";
-            try {
-                if (joinDates && joinDates[i] && joinDates[i].toString() !== "0") {
-                    jDate = new Date(parseInt(joinDates[i].toString()) * 1000).toLocaleDateString();
-                }
-            } catch(e) { jDate = "N/A"; }
 
-            if (uA && uA !== ethers.constants.AddressZero) {
-                html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
-                    <td class="p-4 font-mono text-yellow-500 text-[10px]">
-                        <div class="flex flex-col">
-                            <span>${uA.substring(0,8)}...${uA.substring(34)}</span>
-                            <span class="text-[8px] text-gray-400 font-sans uppercase">${username}</span>
-                        </div>
-                    </td>
-                    <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                    <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
-                    <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
-                    <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
-                    <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">
-                        ${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}
-                    </td>
-                    <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
-                </tr>`;
-            }
+            try {
+                if (activeDeps && activeDeps[i]) {
+                    activeD = ethers.utils.formatUnits(activeDeps[i].toString(), 18);
+                }
+                if (teamTotalDeps && teamTotalDeps[i]) {
+                    teamTD = ethers.utils.formatUnits(teamTotalDeps[i].toString(), 18);
+                }
+                if (joinDates && joinDates[i]) {
+                    const unixTime = parseInt(joinDates[i].toString());
+                    if (unixTime > 0) jDate = new Date(unixTime * 1000).toLocaleDateString();
+                }
+            } catch (err) { console.warn(`Row ${i} parsing issue:`, err); }
+
+            html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
+                <td class="p-4 font-mono text-yellow-500 text-[10px]">
+                    <div class="flex flex-col">
+                        <span>${uA.substring(0,8)}...${uA.substring(34)}</span>
+                        <span class="text-[8px] text-gray-400 font-sans uppercase">${uName}</span>
+                    </div>
+                </td>
+                <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
+                <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
+                <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
+                <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
+                <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">
+                    ${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}
+                </td>
+                <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
+            </tr>`;
         }
-        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No active records found.</td></tr>`;
+        tableBody.innerHTML = html;
     } catch (e) { 
-        console.error("Level Fetch Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error: ${e.message}</td></tr>`; 
+        console.error("Critical Fetch Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error: ${e.message}</td></tr>`; 
     }
 }
 
@@ -298,14 +291,11 @@ function start8HourCountdown() {
     }, 1000);
 }
 
-// SAFE FORMAT FUNCTION
 const format = (val) => {
     try {
         if (!val) return "0.00";
         return ethers.utils.formatUnits(val.toString(), 18);
-    } catch (e) {
-        return "0.00";
-    }
+    } catch (e) { return "0.00"; }
 };
 
 const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
