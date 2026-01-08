@@ -17,7 +17,7 @@ const RANK_DETAILS = [
     { name: "Crown Star", roi: "5.00%", targetTeam: 2500, targetVolume: 100000 }
 ];
 
-// --- ABI UPDATED ---
+// --- ABI UPDATED (Sirf 1 line add ki hai niche) ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -35,7 +35,8 @@ const CONTRACT_ABI = [
     "event Registered(address indexed user, address indexed referrer, string username)",
     "event Deposited(address indexed user, uint256 amount)",
     "event Compounded(address indexed user, uint256 amount)",
-    "event RewardClaimed(address indexed user, uint256 amount, string rewardType)"
+    "event RewardClaimed(address indexed user, uint256 amount, string rewardType)",
+    "event PrincipalWithdrawal(address indexed user, uint256 amount, uint256 fee, uint256 timestamp)" // <-- ADDED
 ];
 
 const USDT_ABI = [
@@ -185,12 +186,10 @@ async function setupApp(address) {
     }
     
     if (window.location.pathname.includes('history.html')) {
-        // --- ADDED: Auto-load Deposits on History page ---
         window.showHistory('deposit');
     }
 }
 
-// --- ADDED: NEW SHOW HISTORY LOGIC (BINA KUCH REMOVE KIYE) ---
 window.showHistory = async function(type) {
     const container = document.getElementById('history-container');
     if(!container) return;
@@ -219,11 +218,8 @@ window.showHistory = async function(type) {
     `).join('');
 }
 
-// --- YOUR ORIGINAL FETCH LOGIC (KEPT EXACTLY AS GIVEN) ---
+// --- UPDATED FETCH LOGIC (Added Principal Scan) ---
 window.fetchBlockchainHistory = async function(type) {
-    const container = document.getElementById('history-container');
-    if(!container) return;
-
     try {
         const address = await signer.getAddress();
         const blockRange = 50000; 
@@ -234,31 +230,41 @@ window.fetchBlockchainHistory = async function(type) {
         } else if (type === 'compounding') {
             rawLogs = await contract.queryFilter(contract.filters.Compounded(address), -blockRange);
         } else if (type === 'income' || type === 'withdrawal') {
-            rawLogs = await contract.queryFilter(contract.filters.RewardClaimed(address), -blockRange);
+            // Scan RewardClaimed
+            const rewardLogs = await contract.queryFilter(contract.filters.RewardClaimed(address), -blockRange);
+            // Scan PrincipalWithdrawal
+            const principalLogs = await contract.queryFilter(contract.filters.PrincipalWithdrawal(address), -blockRange);
+            
+            rawLogs = [...rewardLogs, ...principalLogs];
         }
 
         const processedLogs = await Promise.all(rawLogs.map(async (log) => {
-            const block = await provider.getBlock(log.blockNumber);
-            const dt = new Date(block.timestamp * 1000);
-            const rType = log.args.rewardType ? log.args.rewardType.toLowerCase() : "";
+            // Agar PrincipalWithdrawal hai toh contract timestamp lo
+            const ts = log.args.timestamp ? log.args.timestamp.toNumber() : (await provider.getBlock(log.blockNumber)).timestamp;
+            const dt = new Date(ts * 1000);
+            
+            const isPrincipal = log.event === 'PrincipalWithdrawal';
+            const rType = log.args.rewardType ? log.args.rewardType.toLowerCase() : (isPrincipal ? "principal" : "");
 
             const isIncome = rType.includes('referral') || rType.includes('network') || rType.includes('onboarding') || rType.includes('rank');
-            const isWithdraw = rType.includes('daily') || rType.includes('principal');
+            const isWithdraw = rType.includes('daily') || rType.includes('principal') || isPrincipal;
 
             if (type === 'income' && !isIncome) return null;
             if (type === 'withdrawal' && !isWithdraw) return null;
 
             let extraInfo = "";
-            if (rType.includes('principal')) {
+            if (isPrincipal) {
+                extraInfo = `Exit Fee: $${format(log.args.fee)}`;
+            } else if (rType.includes('principal')) {
                 extraInfo = "Includes Capital Exit Fee";
             }
 
             return {
-                type: (log.args.rewardType || (type === 'deposit' ? 'DEPOSIT' : 'COMPOUND')).toUpperCase(),
+                type: isPrincipal ? "CAPITAL WITHDRAW" : (log.args.rewardType || (type === 'deposit' ? 'DEPOSIT' : 'COMPOUND')).toUpperCase(),
                 amount: format(log.args.amount),
                 date: dt.toLocaleDateString(),
                 time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                ts: block.timestamp,
+                ts: ts,
                 extra: extraInfo,
                 color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-red-400'
             };
@@ -272,7 +278,7 @@ window.fetchBlockchainHistory = async function(type) {
     }
 }
 
-// --- LEADERSHIP DATA (KEPT EXACTLY AS GIVEN) ---
+// --- LEADERSHIP DATA ---
 async function fetchLeadershipData(address) {
     try {
         const [user, extra] = await Promise.all([
