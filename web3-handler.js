@@ -197,70 +197,50 @@ window.fetchBlockchainHistory = async function(type) {
 
     try {
         const address = await signer.getAddress();
-        const blockRange = 200000; // Pichle 2 lakh blocks scan karega
+        const blockRange = 50000; // 100k se kam karke 50k kiya speed ke liye
         let logs = [];
 
-        // --- DEPOSITS ---
+        let rawLogs = [];
         if (type === 'deposit') {
-            const filter = contract.filters.Deposited(address);
-            const rawLogs = await contract.queryFilter(filter, -blockRange);
-            for(let log of rawLogs) {
-                const block = await provider.getBlock(log.blockNumber);
-                logs.push({
-                    amount: format(log.args.amount),
-                    date: new Date(block.timestamp * 1000).toLocaleDateString(),
-                    time: new Date(block.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    ts: block.timestamp,
-                    type: 'DEPOSIT',
-                    color: 'text-green-400'
-                });
-            }
-        } 
-        // --- COMPOUNDING ---
-        else if (type === 'compounding') {
-            const filter = contract.filters.Compounded(address);
-            const rawLogs = await contract.queryFilter(filter, -blockRange);
-            for(let log of rawLogs) {
-                const block = await provider.getBlock(log.blockNumber);
-                logs.push({
-                    amount: format(log.args.amount),
-                    date: new Date(block.timestamp * 1000).toLocaleDateString(),
-                    time: new Date(block.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    ts: block.timestamp,
-                    type: 'COMPOUND',
-                    color: 'text-blue-400'
-                });
-            }
-        }
-        // --- INCOME & WITHDRAWALS ---
-        else if (type === 'income' || type === 'withdrawal') {
-            const filter = contract.filters.RewardClaimed(address);
-            const rawLogs = await contract.queryFilter(filter, -blockRange);
-            
-            for(let log of rawLogs) {
-                const rType = log.args.rewardType ? log.args.rewardType.toLowerCase() : "";
-                
-                // Income Categories: Referral, Network, Onboarding, Rank
-                const isIncome = rType.includes('referral') || rType.includes('network') || rType.includes('onboarding') || rType.includes('rank');
-                // Withdrawal Categories: Daily ROI, Principal
-                const isWithdraw = rType.includes('daily') || rType.includes('principal') || rType.includes('withdraw');
-
-                if ((type === 'income' && isIncome) || (type === 'withdrawal' && isWithdraw)) {
-                    const block = await provider.getBlock(log.blockNumber);
-                    logs.push({
-                        type: rType.toUpperCase(),
-                        amount: format(log.args.amount),
-                        date: new Date(block.timestamp * 1000).toLocaleDateString(),
-                        time: new Date(block.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                        ts: block.timestamp,
-                        color: type === 'income' ? 'text-cyan-400' : 'text-red-400'
-                    });
-                }
-            }
+            rawLogs = await contract.queryFilter(contract.filters.Deposited(address), -blockRange);
+        } else if (type === 'compounding') {
+            rawLogs = await contract.queryFilter(contract.filters.Compounded(address), -blockRange);
+        } else if (type === 'income' || type === 'withdrawal') {
+            rawLogs = await contract.queryFilter(contract.filters.RewardClaimed(address), -blockRange);
         }
 
-        // Sabse latest transaction upar dikhane ke liye sort karein
-        return logs.sort((a, b) => b.ts - a.ts);
+        // Processing logs with block timestamps
+        const processedLogs = await Promise.all(rawLogs.map(async (log) => {
+            const block = await provider.getBlock(log.blockNumber);
+            const dt = new Date(block.timestamp * 1000);
+            const rType = log.args.rewardType ? log.args.rewardType.toLowerCase() : "";
+
+            // Logic for Income vs Withdrawal
+            const isIncome = rType.includes('referral') || rType.includes('network') || rType.includes('onboarding') || rType.includes('rank');
+            const isWithdraw = rType.includes('daily') || rType.includes('principal');
+
+            if (type === 'income' && !isIncome) return null;
+            if (type === 'withdrawal' && !isWithdraw) return null;
+
+            // Extra Info for Principal Withdrawal (25% fee awareness)
+            let extraInfo = "";
+            if (rType.includes('principal')) {
+                extraInfo = "Includes Capital Exit Fee";
+            }
+
+            return {
+                type: (log.args.rewardType || (type === 'deposit' ? 'DEPOSIT' : 'COMPOUND')).toUpperCase(),
+                amount: format(log.args.amount),
+                date: dt.toLocaleDateString(),
+                time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                ts: block.timestamp,
+                extra: extraInfo,
+                color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-red-400'
+            };
+        }));
+
+        // Filter nulls and sort
+        return processedLogs.filter(l => l !== null).sort((a, b) => b.ts - a.ts);
 
     } catch (e) {
         console.error("Blockchain History Error:", e);
@@ -452,6 +432,7 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
 
 
