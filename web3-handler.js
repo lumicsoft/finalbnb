@@ -1,11 +1,11 @@
 let provider, signer, contract, usdtContract;
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "0x97e457b378B41bF5CbFCFaf219345694C3280282"; 
+const CONTRACT_ADDRESS = "0x8A12a3C6873cBD163493ae2e7dc2900F349C22C9"; 
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
-// --- NEW: RANK CONFIG FOR LEADERSHIP ---
+// --- RANK CONFIG FOR LEADERSHIP ---
 const RANK_DETAILS = [
     { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
     { name: "Inviter", roi: "0.50%", targetTeam: 50, targetVolume: 2500 },
@@ -17,7 +17,7 @@ const RANK_DETAILS = [
     { name: "Crown Star", roi: "5.00%", targetTeam: 2500, targetVolume: 100000 }
 ];
 
-// --- ABI UPDATED (Sirf 1 line add ki hai niche) ---
+// --- ABI (All your functions + fast history function) ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -32,11 +32,8 @@ const CONTRACT_ABI = [
     "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsOnboarding, uint256 rewardsRank, uint256 reserveDailyCapital, uint256 reserveDailyROI, uint256 reserveNetwork, uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
     "function getPosition(address uA, uint256 i) view returns (tuple(uint256 amount, uint256 startTime, uint256 lastCheckpoint, uint256 endTime, uint256 earned, uint256 expectedTotalEarn, uint8 source, bool active) v)",
     "function getUserTotalPositions(address uA) view returns (uint256)",
-    "event Registered(address indexed user, address indexed referrer, string username)",
-    "event Deposited(address indexed user, uint256 amount)",
-    "event Compounded(address indexed user, uint256 amount)",
-    "event RewardClaimed(address indexed user, uint256 amount, string rewardType)",
-    "event PrincipalWithdrawal(address indexed user, uint256 amount, uint256 fee, uint256 timestamp)" // <-- ADDED
+    // NEW FUNCTION FOR FAST HISTORY
+    "function getUserHistory(address _user) view returns (tuple(string txType, uint256 amount, uint256 timestamp, string detail)[])"
 ];
 
 const USDT_ABI = [
@@ -164,6 +161,7 @@ window.handleRegister = async function() {
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
 
+// --- APP SETUP ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
     if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Testnet!"); return; }
@@ -190,6 +188,7 @@ async function setupApp(address) {
     }
 }
 
+// --- OPTIMIZED HISTORY (Using getUserHistory function) ---
 window.showHistory = async function(type) {
     const container = document.getElementById('history-container');
     if(!container) return;
@@ -218,58 +217,37 @@ window.showHistory = async function(type) {
     `).join('');
 }
 
-// --- UPDATED FETCH LOGIC (Added Principal Scan) ---
 window.fetchBlockchainHistory = async function(type) {
     try {
         const address = await signer.getAddress();
-        const blockRange = 50000; 
-        let rawLogs = [];
-
-        if (type === 'deposit') {
-            rawLogs = await contract.queryFilter(contract.filters.Deposited(address), -blockRange);
-        } else if (type === 'compounding') {
-            rawLogs = await contract.queryFilter(contract.filters.Compounded(address), -blockRange);
-        } else if (type === 'income' || type === 'withdrawal') {
-            // Scan RewardClaimed
-            const rewardLogs = await contract.queryFilter(contract.filters.RewardClaimed(address), -blockRange);
-            // Scan PrincipalWithdrawal
-            const principalLogs = await contract.queryFilter(contract.filters.PrincipalWithdrawal(address), -blockRange);
+        // CALLING THE FAST FUNCTION INSTEAD OF SCANNING EVENTS
+        const rawHistory = await contract.getUserHistory(address);
+        
+        const processedLogs = rawHistory.map(item => {
+            const txType = item.txType.toLowerCase();
+            const dt = new Date(item.timestamp.toNumber() * 1000);
             
-            rawLogs = [...rewardLogs, ...principalLogs];
-        }
+            // Filtering logic based on type
+            let match = false;
+            if (type === 'deposit' && txType.includes('deposit')) match = true;
+            if (type === 'compounding' && txType.includes('compound')) match = true;
+            if (type === 'income' && (txType.includes('referral') || txType.includes('network') || txType.includes('rank') || txType.includes('onboarding'))) match = true;
+            if (type === 'withdrawal' && (txType.includes('daily') || txType.includes('principal') || txType.includes('capital'))) match = true;
 
-        const processedLogs = await Promise.all(rawLogs.map(async (log) => {
-            // Agar PrincipalWithdrawal hai toh contract timestamp lo
-            const ts = log.args.timestamp ? log.args.timestamp.toNumber() : (await provider.getBlock(log.blockNumber)).timestamp;
-            const dt = new Date(ts * 1000);
-            
-            const isPrincipal = log.event === 'PrincipalWithdrawal';
-            const rType = log.args.rewardType ? log.args.rewardType.toLowerCase() : (isPrincipal ? "principal" : "");
-
-            const isIncome = rType.includes('referral') || rType.includes('network') || rType.includes('onboarding') || rType.includes('rank');
-            const isWithdraw = rType.includes('daily') || rType.includes('principal') || isPrincipal;
-
-            if (type === 'income' && !isIncome) return null;
-            if (type === 'withdrawal' && !isWithdraw) return null;
-
-            let extraInfo = "";
-            if (isPrincipal) {
-                extraInfo = `Exit Fee: $${format(log.args.fee)}`;
-            } else if (rType.includes('principal')) {
-                extraInfo = "Includes Capital Exit Fee";
-            }
+            if (!match) return null;
 
             return {
-                type: isPrincipal ? "CAPITAL WITHDRAW" : (log.args.rewardType || (type === 'deposit' ? 'DEPOSIT' : 'COMPOUND')).toUpperCase(),
-                amount: format(log.args.amount),
+                type: item.txType.toUpperCase(),
+                amount: format(item.amount),
                 date: dt.toLocaleDateString(),
                 time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                ts: ts,
-                extra: extraInfo,
+                ts: item.timestamp.toNumber(),
+                extra: item.detail,
                 color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-red-400'
             };
-        }));
+        });
 
+        // Filter nulls and sort by timestamp
         return processedLogs.filter(l => l !== null).sort((a, b) => b.ts - a.ts);
 
     } catch (e) {
@@ -354,6 +332,7 @@ async function loadLeadershipDownlines(address, myRankIdx) {
     } catch (e) { console.error(e); }
 }
 
+// --- GLOBAL DATA FETCH ---
 async function fetchAllData(address) {
     try {
         const [user, extra, live] = await Promise.all([
@@ -449,6 +428,7 @@ function start8HourCountdown() {
     }, 1000);
 }
 
+// --- UTILS ---
 const format = (val) => {
     try { if (!val) return "0.00"; return ethers.utils.formatUnits(val.toString(), 18); } catch (e) { return "0.00"; }
 };
