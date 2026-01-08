@@ -220,42 +220,48 @@ window.showHistory = async function(type) {
 window.fetchBlockchainHistory = async function(type) {
     try {
         const address = await signer.getAddress();
-        // CALLING THE FAST FUNCTION INSTEAD OF SCANNING EVENTS
         const rawHistory = await contract.getUserHistory(address);
         
         const processedLogs = rawHistory.map(item => {
-            const txType = item.txType.toLowerCase();
+            const txType = item.txType.toUpperCase(); // Contract se: "DEPOSIT", "INCOME", "COMPOUND", "CAPITAL"
             const dt = new Date(item.timestamp.toNumber() * 1000);
             
-            // Filtering logic based on type
             let match = false;
-            if (type === 'deposit' && txType.includes('deposit')) match = true;
-            if (type === 'compounding' && txType.includes('compound')) match = true;
-            if (type === 'income' && (txType.includes('referral') || txType.includes('network') || txType.includes('rank') || txType.includes('onboarding'))) match = true;
-            if (type === 'withdrawal' && (txType.includes('daily') || txType.includes('principal') || txType.includes('capital'))) match = true;
+            
+            // 1. DEPOSIT: Jab user USDT dalta hai
+            if (type === 'deposit' && txType === 'DEPOSIT') match = true;
+            
+            // 2. COMPOUNDING: Jab rewards re-invest hote hain
+            if (type === 'compounding' && txType.includes('COMPOUND')) match = true;
+            
+            // 3. INCOME: Saare referral aur rewards types
+            const incomeTypes = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'NETWORK'];
+            if (type === 'income' && incomeTypes.some(it => txType.includes(it))) match = true;
+            
+            // 4. WITHDRAWAL: Jab wallet mein paisa nikaala jata hai
+            // Contract mein withdrawal aksar "INCOME" (for ROI) ya "CAPITAL" (for principal) naam se save hota hai
+            if (type === 'withdrawal' && (txType === 'CAPITAL' || (txType === 'INCOME' && item.detail.toLowerCase().includes('claim')))) match = true;
 
             if (!match) return null;
 
             return {
-                type: item.txType.toUpperCase(),
+                type: txType,
                 amount: format(item.amount),
                 date: dt.toLocaleDateString(),
                 time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                 ts: item.timestamp.toNumber(),
                 extra: item.detail,
-                color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-red-400'
+                color: (txType === 'DEPOSIT' || txType === 'INCOME') ? 'text-cyan-400' : 'text-red-400'
             };
         });
 
-        // Filter nulls and sort by timestamp
         return processedLogs.filter(l => l !== null).sort((a, b) => b.ts - a.ts);
 
     } catch (e) {
-        console.error("Blockchain History Error:", e);
+        console.error("History Error:", e);
         return [];
     }
 }
-
 // --- LEADERSHIP DATA ---
 async function fetchLeadershipData(address) {
     try {
@@ -443,4 +449,5 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
