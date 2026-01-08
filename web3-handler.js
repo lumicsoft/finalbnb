@@ -196,61 +196,62 @@ window.fetchBlockchainHistory = async function(type) {
     if(!container) return;
 
     try {
-        // Agar signer ready nahi hai to address khud nikal lein
         const address = await signer.getAddress();
-        
-        // Range: Pichle 100,000 blocks scan karega (isey aap badha bhi sakte hain)
-        const blockRange = 100000; 
+        const blockRange = 200000; // Pichle 2 lakh blocks scan karega
         let logs = [];
 
-        // 1. Logic based on Filter Button Type
+        // --- DEPOSITS ---
         if (type === 'deposit') {
             const filter = contract.filters.Deposited(address);
             const rawLogs = await contract.queryFilter(filter, -blockRange);
             for(let log of rawLogs) {
                 const block = await provider.getBlock(log.blockNumber);
-                const dt = new Date(block.timestamp * 1000);
                 logs.push({
                     amount: format(log.args.amount),
-                    date: dt.toLocaleDateString(),
-                    time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    ts: block.timestamp
+                    date: new Date(block.timestamp * 1000).toLocaleDateString(),
+                    time: new Date(block.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    ts: block.timestamp,
+                    type: 'DEPOSIT',
+                    color: 'text-green-400'
                 });
             }
         } 
+        // --- COMPOUNDING ---
         else if (type === 'compounding') {
             const filter = contract.filters.Compounded(address);
             const rawLogs = await contract.queryFilter(filter, -blockRange);
             for(let log of rawLogs) {
                 const block = await provider.getBlock(log.blockNumber);
-                const dt = new Date(block.timestamp * 1000);
                 logs.push({
                     amount: format(log.args.amount),
-                    date: dt.toLocaleDateString(),
-                    time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    ts: block.timestamp
+                    date: new Date(block.timestamp * 1000).toLocaleDateString(),
+                    time: new Date(block.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    ts: block.timestamp,
+                    type: 'COMPOUND',
+                    color: 'text-blue-400'
                 });
             }
         }
+        // --- INCOME & WITHDRAWALS ---
         else if (type === 'income' || type === 'withdrawal') {
             const filter = contract.filters.RewardClaimed(address);
             const rawLogs = await contract.queryFilter(filter, -blockRange);
+            
             for(let log of rawLogs) {
                 const rType = log.args.rewardType ? log.args.rewardType.toLowerCase() : "";
                 
-                // Income filter: Jo rewards team ya referral se aaye
-                const isIncome = rType.includes('referral') || rType.includes('network') || rType.includes('onboarding');
-                // Withdrawal filter: Jo ROI ya Principal withdrawal hai
+                // Income Categories: Referral, Network, Onboarding, Rank
+                const isIncome = rType.includes('referral') || rType.includes('network') || rType.includes('onboarding') || rType.includes('rank');
+                // Withdrawal Categories: Daily ROI, Principal
                 const isWithdraw = rType.includes('daily') || rType.includes('principal') || rType.includes('withdraw');
 
                 if ((type === 'income' && isIncome) || (type === 'withdrawal' && isWithdraw)) {
                     const block = await provider.getBlock(log.blockNumber);
-                    const dt = new Date(block.timestamp * 1000);
                     logs.push({
                         type: rType.toUpperCase(),
                         amount: format(log.args.amount),
-                        date: dt.toLocaleDateString(),
-                        time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                        date: new Date(block.timestamp * 1000).toLocaleDateString(),
+                        time: new Date(block.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                         ts: block.timestamp,
                         color: type === 'income' ? 'text-cyan-400' : 'text-red-400'
                     });
@@ -258,16 +259,12 @@ window.fetchBlockchainHistory = async function(type) {
             }
         }
 
-        // Transactions ko sorting (Latest first)
-        const sortedLogs = logs.sort((a, b) => b.ts - a.ts);
-        
-        // IMPORTANT: Hum yahan array return kar rahe hain kyunki aapka HTML script 
-        // logs.forEach(item => { ... }) chala raha hai.
-        return sortedLogs;
+        // Sabse latest transaction upar dikhane ke liye sort karein
+        return logs.sort((a, b) => b.ts - a.ts);
 
     } catch (e) {
         console.error("Blockchain History Error:", e);
-        return []; // Error par khali array bhejenge
+        return [];
     }
 }
 // --- LEADERSHIP DATA ---
@@ -455,6 +452,7 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
 
 
