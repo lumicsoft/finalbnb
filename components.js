@@ -1,9 +1,10 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // Check current page
-    const isAuthPage = window.location.pathname.includes('register.html') || 
+    // Sabse pehle check karein ki kya ye register ya login page hai
+    const isAuthPage = document.getElementById('auth-page') || 
+                       window.location.pathname.includes('register.html') || 
                        window.location.pathname.includes('login.html');
 
-    // 1. Inject Dots Background (Ye background har page par dikhega)
+    // 1. Inject Dots Background (Ye hamesha aayega)
     const dotsHTML = `
         <div class="dots-container">
             <div class="dots dots-white"></div>
@@ -12,13 +13,13 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', dotsHTML);
 
-    // Agar Auth Page (Register/Login) hai toh Navbar aur Mobile Nav inject mat karo
+    // AGAR REGISTER PAGE HAI TO NAVBAR AUR MOBILE NAV MAT DAALO
     if (isAuthPage) {
-        console.log("Navigation hidden on auth page.");
-        return; // Function yahi stop ho jayega
+        console.log("Auth page detected: Skipping Navigation Injection");
+        return; // Yahan se code aage nahi badhega
     }
 
-    // 2. Inject Navbar (Top) - Only for Dashboard pages
+    // 2. Inject Navbar (Sirf Dashboard pages ke liye)
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -29,7 +30,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     Earn <span class="text-gradient">BNB</span>
                 </span>
             </div>
-
             <div class="hidden md:flex gap-4">
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='index1.html'">Dashboard</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='deposits.html'">Mining</button>
@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 3. Inject Mobile Navigation - Only for Dashboard pages
+    // 3. Inject Mobile Navigation (Sirf Dashboard pages ke liye)
     const mobileNavHTML = `
         <div class="mobile-nav md:hidden px-2">
             <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
@@ -69,7 +69,6 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('beforeend', mobileNavHTML);
 
-    // Initialize Lucide Icons
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
