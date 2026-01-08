@@ -1,7 +1,7 @@
 let provider, signer, contract, usdtContract;
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "0x8A12a3C6873cBD163493ae2e7dc2900F349C22C9"; 
+const CONTRACT_ADDRESS = "x90d78687b4e3eda0954afd4f2c32cbea05478123"; 
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
@@ -454,6 +454,7 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
 
 
