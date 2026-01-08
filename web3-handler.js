@@ -82,7 +82,7 @@ window.handleDeposit = async function() {
             await approveTx.wait();
         }
         depositBtn.innerText = "DEPOSITING...";
-        const tx = await contract.deposit(amountInWei, { gasLimit: 500000 });
+        const tx = await contract.deposit(amountInWei, { gasLimit: 1000000 });
         await tx.wait();
         location.reload(); 
     } catch (err) {
@@ -443,3 +443,4 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
