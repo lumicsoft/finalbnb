@@ -1,5 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // 1. Inject Dots Background
+    // Check current page
+    const isAuthPage = window.location.pathname.includes('register.html') || 
+                       window.location.pathname.includes('login.html');
+
+    // 1. Inject Dots Background (Ye background har page par dikhega)
     const dotsHTML = `
         <div class="dots-container">
             <div class="dots dots-white"></div>
@@ -8,7 +12,13 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', dotsHTML);
 
-    // 2. Inject Navbar (Top) - NEW LOGO & BRAND ADDED
+    // Agar Auth Page (Register/Login) hai toh Navbar aur Mobile Nav inject mat karo
+    if (isAuthPage) {
+        console.log("Navigation hidden on auth page.");
+        return; // Function yahi stop ho jayega
+    }
+
+    // 2. Inject Navbar (Top) - Only for Dashboard pages
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -32,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 3. Inject Mobile Navigation
+    // 3. Inject Mobile Navigation - Only for Dashboard pages
     const mobileNavHTML = `
         <div class="mobile-nav md:hidden px-2">
             <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
