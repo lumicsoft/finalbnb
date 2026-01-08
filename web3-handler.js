@@ -1,7 +1,8 @@
 let provider, signer, contract, usdtContract;
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "x90d78687b4e3eda0954afd4f2c32cbea05478123"; 
+// Note: Fixed the address to include '0x' prefix for standard compatibility
+const CONTRACT_ADDRESS = "0x90d78687b4e3eda0954afd4f2c32cbea05478123"; 
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
@@ -17,7 +18,7 @@ const RANK_DETAILS = [
     { name: "Crown Star", roi: "10.00%", targetTeam: 2500, targetVolume: 100000 }
 ];
 
-// --- ABI (All your functions + fast history function) ---
+// --- ABI ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
     "function deposit(uint256 amount) external",
@@ -32,7 +33,6 @@ const CONTRACT_ABI = [
     "function usersExtra(address) view returns (uint256 rewardsReferral, uint256 rewardsOnboarding, uint256 rewardsRank, uint256 reserveDailyCapital, uint256 reserveDailyROI, uint256 reserveNetwork, uint32 teamCount, uint32 directsCount, uint32 directsQuali, uint8 rank)",
     "function getPosition(address uA, uint256 i) view returns (tuple(uint256 amount, uint256 startTime, uint256 lastCheckpoint, uint256 endTime, uint256 earned, uint256 expectedTotalEarn, uint8 source, bool active) v)",
     "function getUserTotalPositions(address uA) view returns (uint256)",
-    // NEW FUNCTION FOR FAST HISTORY
     "function getUserHistory(address _user) view returns (tuple(string txType, uint256 amount, uint256 timestamp, string detail)[])"
 ];
 
@@ -51,21 +51,35 @@ const calculateGlobalROI = (amount) => {
     return 5.00;
 };
 
+// --- INITIALIZATION ---
 async function init() {
     if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        window.signer = provider.getSigner();
-        signer = window.signer;
-        window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        contract = window.contract;
-        window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-        usdtContract = window.usdtContract;
-        const accounts = await provider.listAccounts();
-        if (accounts.length > 0) setupApp(accounts[0]);
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            // Request accounts if not already connected
+            const accounts = await provider.send("eth_requestAccounts", []);
+            
+            window.signer = provider.getSigner();
+            signer = window.signer;
+            
+            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            contract = window.contract;
+            
+            window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+            usdtContract = window.usdtContract;
+
+            if (accounts.length > 0) {
+                await setupApp(accounts[0]);
+            }
+        } catch (error) {
+            console.error("User rejected connection", error);
+        }
+    } else {
+        alert("Please install MetaMask to use this App.");
     }
 }
 
-// --- CORE LOGIC (DEPOSIT, CLAIM, COMPOUND) ---
+// --- CORE LOGIC ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
@@ -161,34 +175,46 @@ window.handleRegister = async function() {
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
 
-// --- APP SETUP ---
+// --- APP SETUP (REDIRECTION LOGIC INCLUDED) ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
     if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Testnet!"); return; }
     
     const userData = await contract.users(address);
-    if (!userData.registered && !window.location.pathname.includes('register.html') && !window.location.pathname.includes('login.html')) {
-        window.location.href = "register.html"; 
-        return; 
+    const path = window.location.pathname;
+
+    // --- SMART REDIRECTION ---
+    if (!userData.registered) {
+        // Agar registered nahi hai aur register ya login page par nahi hai
+        if (!path.includes('register.html') && !path.includes('login.html')) {
+            window.location.href = "register.html"; 
+            return; 
+        }
+    } else {
+        // Agar registered hai aur user register/login page par hai to use dashboard bhejo
+        if (path.includes('register.html') || path.includes('login.html') || path.endsWith('/') || path.endsWith('index.html')) {
+            window.location.href = "index1.html";
+            return;
+        }
     }
 
     updateNavbar(address);
 
-    if (window.location.pathname.includes('index1.html')) {
+    if (path.includes('index1.html')) {
         fetchAllData(address);
         start8HourCountdown(); 
     }
 
-    if (window.location.pathname.includes('leadership.html')) {
+    if (path.includes('leadership.html')) {
         fetchLeadershipData(address);
     }
     
-    if (window.location.pathname.includes('history.html')) {
+    if (path.includes('history.html')) {
         window.showHistory('deposit');
     }
 }
 
-// --- OPTIMIZED HISTORY (Using getUserHistory function) ---
+// --- HISTORY LOGIC ---
 window.showHistory = async function(type) {
     const container = document.getElementById('history-container');
     if(!container) return;
@@ -198,7 +224,7 @@ window.showHistory = async function(type) {
     const logs = await window.fetchBlockchainHistory(type);
     
     if (logs.length === 0) {
-        container.innerHTML = `<div class="p-10 text-center text-gray-500">No transactions found in this category.</div>`;
+        container.innerHTML = `<div class="p-10 text-center text-gray-500">No transactions found.</div>`;
         return;
     }
 
@@ -228,45 +254,34 @@ window.fetchBlockchainHistory = async function(type) {
             const dt = new Date(item.timestamp.toNumber() * 1000);
             
             let match = false;
-            
-            // 1. DEPOSIT
             if (type === 'deposit' && txType === 'DEPOSIT') match = true;
-            
-            // 2. COMPOUNDING
             if (type === 'compounding' && (txType.includes('COMPOUND') || detail.includes('COMPOUND'))) match = true;
-            
-            // 3. INCOME (Level, Onboarding, Rank) - Yahan sabse zyada issue tha
             if (type === 'income') {
-                // Agar txType ya detail mein inme se kuch bhi mile
                 const incomeKeywords = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'LEVEL', 'NETWORK', 'REWARD'];
-                if (incomeKeywords.some(k => txType.includes(k) || detail.includes(k))) {
-                    match = true;
-                }
+                if (incomeKeywords.some(k => txType.includes(k) || detail.includes(k))) match = true;
             }
-            
-            // 4. WITHDRAWAL
             if (type === 'withdrawal' && (txType === 'CAPITAL' || detail.includes('CLAIM') || detail.includes('WITHDRAW'))) match = true;
 
             if (!match) return null;
 
             return {
-                type: txType, // "INCOME", "DEPOSIT" etc.
+                type: txType,
                 amount: format(item.amount),
                 date: dt.toLocaleDateString(),
                 time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                 ts: item.timestamp.toNumber(),
-                extra: item.detail, // Isme "Level 1 reward" jaisa detail hota hai
+                extra: item.detail,
                 color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-red-400'
             };
         });
 
         return processedLogs.filter(l => l !== null).sort((a, b) => b.ts - a.ts);
-
     } catch (e) {
-        console.error("Blockchain History Error:", e);
+        console.error("History Error:", e);
         return [];
     }
 }
+
 // --- LEADERSHIP DATA ---
 async function fetchLeadershipData(address) {
     try {
@@ -452,10 +467,10 @@ function updateNavbar(addr) {
     if(btn) btn.innerText = addr.substring(0,6) + "..." + addr.substring(38);
 }
 
-if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
+// Listen for account changes
+if (window.ethereum) {
+    window.ethereum.on('accountsChanged', () => location.reload());
+    window.ethereum.on('chainChanged', () => location.reload());
+}
+
 window.addEventListener('load', init);
-
-
-
-
-
