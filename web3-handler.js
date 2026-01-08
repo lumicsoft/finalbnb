@@ -223,42 +223,47 @@ window.fetchBlockchainHistory = async function(type) {
         const rawHistory = await contract.getUserHistory(address);
         
         const processedLogs = rawHistory.map(item => {
-            const txType = item.txType.toUpperCase(); // Contract se: "DEPOSIT", "INCOME", "COMPOUND", "CAPITAL"
+            const txType = item.txType.toUpperCase(); 
+            const detail = (item.detail || "").toUpperCase();
             const dt = new Date(item.timestamp.toNumber() * 1000);
             
             let match = false;
             
-            // 1. DEPOSIT: Jab user USDT dalta hai
+            // 1. DEPOSIT
             if (type === 'deposit' && txType === 'DEPOSIT') match = true;
             
-            // 2. COMPOUNDING: Jab rewards re-invest hote hain
-            if (type === 'compounding' && txType.includes('COMPOUND')) match = true;
+            // 2. COMPOUNDING
+            if (type === 'compounding' && (txType.includes('COMPOUND') || detail.includes('COMPOUND'))) match = true;
             
-            // 3. INCOME: Saare referral aur rewards types
-            const incomeTypes = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'NETWORK'];
-            if (type === 'income' && incomeTypes.some(it => txType.includes(it))) match = true;
+            // 3. INCOME (Level, Onboarding, Rank) - Yahan sabse zyada issue tha
+            if (type === 'income') {
+                // Agar txType ya detail mein inme se kuch bhi mile
+                const incomeKeywords = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'LEVEL', 'NETWORK', 'REWARD'];
+                if (incomeKeywords.some(k => txType.includes(k) || detail.includes(k))) {
+                    match = true;
+                }
+            }
             
-            // 4. WITHDRAWAL: Jab wallet mein paisa nikaala jata hai
-            // Contract mein withdrawal aksar "INCOME" (for ROI) ya "CAPITAL" (for principal) naam se save hota hai
-            if (type === 'withdrawal' && (txType === 'CAPITAL' || (txType === 'INCOME' && item.detail.toLowerCase().includes('claim')))) match = true;
+            // 4. WITHDRAWAL
+            if (type === 'withdrawal' && (txType === 'CAPITAL' || detail.includes('CLAIM') || detail.includes('WITHDRAW'))) match = true;
 
             if (!match) return null;
 
             return {
-                type: txType,
+                type: txType, // "INCOME", "DEPOSIT" etc.
                 amount: format(item.amount),
                 date: dt.toLocaleDateString(),
                 time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                 ts: item.timestamp.toNumber(),
-                extra: item.detail,
-                color: (txType === 'DEPOSIT' || txType === 'INCOME') ? 'text-cyan-400' : 'text-red-400'
+                extra: item.detail, // Isme "Level 1 reward" jaisa detail hota hai
+                color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-red-400'
             };
         });
 
         return processedLogs.filter(l => l !== null).sort((a, b) => b.ts - a.ts);
 
     } catch (e) {
-        console.error("History Error:", e);
+        console.error("Blockchain History Error:", e);
         return [];
     }
 }
@@ -449,5 +454,6 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
 
