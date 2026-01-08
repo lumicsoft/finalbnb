@@ -8,13 +8,13 @@ const TESTNET_CHAIN_ID = 97;
 // --- RANK CONFIG FOR LEADERSHIP ---
 const RANK_DETAILS = [
     { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
-    { name: "Inviter", roi: "0.50%", targetTeam: 50, targetVolume: 2500 },
-    { name: "Promoter", roi: "1.00%", targetTeam: 100, targetVolume: 5000 },
-    { name: "Leader", roi: "1.50%", targetTeam: 200, targetVolume: 10000 },
-    { name: "Partner", roi: "2.00%", targetTeam: 400, targetVolume: 15000 },
-    { name: "Star", roi: "3.00%", targetTeam: 800, targetVolume: 25000 },
-    { name: "Royal Star", roi: "4.00%", targetTeam: 1500, targetVolume: 50000 },
-    { name: "Crown Star", roi: "5.00%", targetTeam: 2500, targetVolume: 100000 }
+    { name: "Inviter", roi: "1.00%", targetTeam: 50, targetVolume: 2500 },
+    { name: "Promoter", roi: "2.00%", targetTeam: 100, targetVolume: 5000 },
+    { name: "Leader", roi: "3.00%", targetTeam: 200, targetVolume: 10000 },
+    { name: "Partner", roi: "4.00%", targetTeam: 400, targetVolume: 15000 },
+    { name: "Star", roi: "6.00%", targetTeam: 800, targetVolume: 25000 },
+    { name: "Royal Star", roi: "8.00%", targetTeam: 1500, targetVolume: 50000 },
+    { name: "Crown Star", roi: "10.00%", targetTeam: 2500, targetVolume: 100000 }
 ];
 
 // --- ABI (All your functions + fast history function) ---
@@ -454,6 +454,7 @@ function updateNavbar(addr) {
 
 if (window.ethereum) window.ethereum.on('accountsChanged', () => location.reload());
 window.addEventListener('load', init);
+
 
 
 
