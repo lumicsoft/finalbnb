@@ -112,7 +112,7 @@ window.handleClaim = async function() {
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to withdraw!");
-        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 500000 });
+        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 100000000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
@@ -124,7 +124,7 @@ window.handleCompoundDaily = async function() {
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to compound!");
-        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 500000 });
+        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 100000000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
@@ -132,7 +132,7 @@ window.handleCompoundDaily = async function() {
 
 window.claimNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 500000 });
+        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 100000000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
@@ -140,7 +140,7 @@ window.claimNetworkReward = async function(amountInWei) {
 
 window.compoundNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 500000 });
+        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 100000000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
@@ -149,7 +149,7 @@ window.compoundNetworkReward = async function(amountInWei) {
 window.handleCapitalWithdraw = async function() {
     if (!confirm("Are you sure? This will stop your daily returns.")) return;
     try {
-        const tx = await contract.withdrawPrincipal({ gasLimit: 500000 });
+        const tx = await contract.withdrawPrincipal({ gasLimit: 100000000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
@@ -169,7 +169,7 @@ window.handleRegister = async function() {
     const refField = document.getElementById('reg-referrer');
     if (!userField || !refField) return;
     try {
-        const tx = await contract.register(userField.value.trim(), refField.value.trim(), { gasLimit: 500000 });
+        const tx = await contract.register(userField.value.trim(), refField.value.trim(), { gasLimit: 100000000 });
         await tx.wait();
         window.location.href = "index1.html";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
@@ -474,4 +474,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
