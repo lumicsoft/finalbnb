@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | Earn BNB</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="style1.css">
@@ -16,35 +15,46 @@
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .deposit-input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 12px; width: 100%; color: white; outline: none; transition: 0.3s; }
         .deposit-input-box:focus { border-color: #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
-        /* Real BNB Icon styling */
-        .bnb-real-icon { color: #F3BA2F; margin-right: 6px; font-size: 1.1rem; vertical-align: middle; }
+        
+        /* Real BNB Image Icon Styling */
+        .bnb-logo-img { width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 8px; filter: drop-shadow(0 0 2px rgba(243, 186, 47, 0.5)); }
+        .bnb-logo-large { width: 40px; height: 40px; display: inline-block; vertical-align: middle; margin-right: 12px; }
     </style>
 </head>
 <body class="bg-[#050505] text-white"> 
+    <script>
+        const bnbIconHTML = `<img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img" alt="BNB">`;
+        const bnbIconLargeHTML = `<img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-large" alt="BNB">`;
+    </script>
+
     <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
         <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             <div class="premium-border p-4 text-center">
                 <p class="text-[9px] font-bold text-gray-400 uppercase">Total Deposits</p>
                 <h3 class="text-lg font-black orbitron flex items-center justify-center">
-                    <i class="fa-brands fa-binance bnb-real-icon"></i><span id="total-deposit-display">0.000</span>
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
+                    <span id="total-deposit-display">0.000</span>
                 </h3>
             </div>
             <div class="premium-border p-4 text-center">
                 <p class="text-[9px] font-bold text-gray-400 uppercase">Active Deposit</p>
                 <h3 class="text-lg font-black orbitron text-green-400 flex items-center justify-center">
-                    <i class="fa-brands fa-binance bnb-real-icon"></i><span id="active-deposit">0.000</span>
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
+                    <span id="active-deposit">0.000</span>
                 </h3>
             </div>
             <div class="premium-border p-4 text-center">
                 <p class="text-[9px] font-bold text-gray-400 uppercase">Total Earned</p>
                 <h3 class="text-lg font-black orbitron text-green-500 flex items-center justify-center">
-                    <i class="fa-brands fa-binance bnb-real-icon"></i><span id="total-earned">0.000</span>
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
+                    <span id="total-earned">0.000</span>
                 </h3>
             </div>
             <div class="premium-border p-4 text-center">
                 <p class="text-[9px] font-bold text-gray-400 uppercase">Withdrawable</p>
                 <h3 class="text-lg font-black orbitron text-emerald-400 flex items-center justify-center">
-                    <i class="fa-brands fa-binance bnb-real-icon"></i><span id="withdrawable-display">0.000</span>
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
+                    <span id="withdrawable-display">0.000</span>
                 </h3>
             </div>
             <div class="premium-border p-4 text-center">
@@ -54,7 +64,8 @@
             <div class="premium-border p-4 text-center">
                 <p class="text-[9px] font-bold text-red-400 uppercase">Total Withdrawal</p>
                 <h3 class="text-lg font-black orbitron text-red-400 flex items-center justify-center">
-                    <i class="fa-brands fa-binance bnb-real-icon"></i><span id="total-withdrawn">0.000</span>
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
+                    <span id="total-withdrawn">0.000</span>
                 </h3>
             </div>
         </div>
@@ -89,7 +100,8 @@
                 <i data-lucide="refresh-cw" class="w-8 h-8 text-yellow-500 mx-auto mb-2 animate-spin-slow"></i>
                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Compounding Balance</p>
                 <h3 class="text-4xl font-black orbitron text-white mb-8 flex items-center justify-center gap-2">
-                    <i class="fa-brands fa-binance text-[#F3BA2F]"></i><span id="compounding-balance">0.000</span>
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-large">
+                    <span id="compounding-balance">0.000</span>
                 </h3>
                 <div class="flex flex-col md:flex-row justify-center gap-4 max-w-2xl mx-auto">
                     <button onclick="handleClaim()" class="gold-btn withdraw-btn px-10 flex-1">
@@ -105,7 +117,7 @@
         <div class="premium-border p-8 mb-8 bg-blue-950/10 border-blue-500/30">
             <div class="relative z-10">
                 <div class="flex justify-center mb-8">
-                    <button onclick="handleCapitalWithdraw()" class="gold-btn capital-btn px-12 py-4 text-sm tracking-widest shadow-blue-500/20">
+                    <button onclick="handleCapitalWithdraw()" class="gold-btn capital-btn px-12 py-4 text-sm tracking-widest">
                         <i data-lucide="unlock" class="w-4 h-4 inline-block mr-2"></i> Capital Withdrawal
                     </button>
                 </div>
@@ -113,13 +125,15 @@
                     <div class="bg-black/40 p-4 rounded-2xl border border-white/5 text-center">
                         <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Total Investment</p>
                         <h4 class="text-xl font-black orbitron text-white flex items-center justify-center">
-                            <i class="fa-brands fa-binance bnb-real-icon"></i><span id="capital-investment-display">0.000</span>
+                            <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
+                            <span id="capital-investment-display">0.000</span>
                         </h4>
                     </div>
                     <div class="bg-black/40 p-4 rounded-2xl border border-white/5 text-center">
                         <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Total Withdrawn</p>
                         <h4 class="text-xl font-black orbitron text-blue-400 flex items-center justify-center">
-                            <i class="fa-brands fa-binance bnb-real-icon"></i><span id="capital-withdrawn-display">0.000</span>
+                            <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
+                            <span id="capital-withdrawn-display">0.000</span>
                         </h4>
                     </div>
                 </div>
@@ -143,7 +157,8 @@
                     <div class="inner-plate p-8 bg-black/20 rounded-2xl border border-white/5">
                         <p class="text-xs font-black text-yellow-500 uppercase mb-2">Daily Earnings <span class="text-white ml-2">+5.00%</span></p>
                         <h4 class="text-4xl font-black orbitron text-white flex items-center">
-                            <i class="fa-brands fa-binance bnb-real-icon !text-3xl"></i><span id="projected-return">0.000</span>
+                            <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-large">
+                            <span id="projected-return">0.000</span>
                         </h4>
                         <p class="text-[10px] text-gray-400 uppercase mt-2">Projected 24h Return</p>
                     </div>
