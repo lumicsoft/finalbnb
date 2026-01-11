@@ -2,20 +2,20 @@ let provider, signer, contract, usdtContract;
 
 // --- CONFIGURATION ---
 // Note: Fixed the address to include '0x' prefix for standard compatibility
-const CONTRACT_ADDRESS = "0x90d78687b4e3eda0954afd4f2c32cbea05478123"; 
+const CONTRACT_ADDRESS = "0x7bABE51cA62EE53d86779D64e09432cda6259A46"; 
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
 // --- RANK CONFIG FOR LEADERSHIP ---
 const RANK_DETAILS = [
     { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
-    { name: "Inviter", roi: "1.00%", targetTeam: 50, targetVolume: 2500 },
-    { name: "Promoter", roi: "2.00%", targetTeam: 100, targetVolume: 5000 },
-    { name: "Leader", roi: "3.00%", targetTeam: 200, targetVolume: 10000 },
-    { name: "Partner", roi: "4.00%", targetTeam: 400, targetVolume: 15000 },
-    { name: "Star", roi: "6.00%", targetTeam: 800, targetVolume: 25000 },
-    { name: "Royal Star", roi: "8.00%", targetTeam: 1500, targetVolume: 50000 },
-    { name: "Crown Star", roi: "10.00%", targetTeam: 2500, targetVolume: 100000 }
+    { name: "V1", roi: "1.00%", targetTeam: 5, targetVolume: 250 },
+    { name: "V2", roi: "2.00%", targetTeam: 10, targetVolume: 500 },
+    { name: "V3", roi: "3.00%", targetTeam: 20, targetVolume: 1000 },
+    { name: "V4", roi: "4.00%", targetTeam: 40, targetVolume: 1500 },
+    { name: "V5", roi: "6.00%", targetTeam: 80, targetVolume: 2500 },
+    { name: "V6", roi: "8.00%", targetTeam: 150, targetVolume: 5000 },
+    { name: "V7", roi: "10.00%", targetTeam: 250, targetVolume: 10000 }
 ];
 
 // --- ABI ---
@@ -474,6 +474,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
