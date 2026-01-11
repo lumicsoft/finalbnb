@@ -393,8 +393,13 @@ async function fetchAllData(address) {
         updateText('compounding-balance', `$ ${totalDailyPending.toFixed(2)}`);
         updateText('withdrawable-display', `$ ${(totalDailyPending + parseFloat(networkBalance)).toFixed(2)}`);
         
-        // --- CP Display Fix ---
-        updateText('cp-display', Math.floor(parseFloat(format(user.totalActiveDeposit))));
+        // --- CP Display & Projected ROI Fix ---
+        const activeAmt = parseFloat(format(user.totalActiveDeposit));
+        updateText('cp-display', Math.floor(activeAmt));
+        
+        // ADDED: Projected Daily Earning (5%)
+        const projectedReturn = (activeAmt * 0.05).toFixed(2);
+        updateText('projected-return', `$ ${projectedReturn}`);
         
         updateText('rank-display', getRankName(extra.rank));
 
@@ -428,9 +433,13 @@ window.loadLevelData = async function(level) {
             const uA = wallets[i];
             if (!uA || uA === ethers.constants.AddressZero) continue;
             const uName = names[i] || "N/A";
-            const activeD = format(activeDeps[i]);
+            const activeD = parseFloat(format(activeDeps[i]));
             const teamTD = format(teamTotalDeps[i]);
             let jDate = joinDates[i] > 0 ? new Date(joinDates[i] * 1000).toLocaleDateString() : "N/A";
+
+            // UPDATED: Status is Active only if activeD > 0
+            const statusText = activeD > 0 ? 'ACTIVE' : 'INACTIVE';
+            const statusColor = activeD > 0 ? 'text-yellow-500' : 'text-red-500';
 
             html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                 <td class="p-4 font-mono text-yellow-500 text-[10px]">
@@ -440,10 +449,10 @@ window.loadLevelData = async function(level) {
                     </div>
                 </td>
                 <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
+                <td class="p-4 text-xs font-black text-white">$${activeD.toFixed(2)}</td>
                 <td class="p-4 text-xs text-gray-400">$${parseFloat(teamTD).toFixed(2)}</td>
-                <td class="p-4 text-xs text-green-400 font-bold">$${parseFloat(activeD).toFixed(2)}</td>
-                <td class="p-4 text-xs text-yellow-500 italic uppercase font-black">${parseFloat(activeD) > 0 ? 'ACTIVE' : 'INACTIVE'}</td>
+                <td class="p-4 text-xs text-green-400 font-bold">$${activeD.toFixed(2)}</td>
+                <td class="p-4 text-xs ${statusColor} italic uppercase font-black">${statusText}</td>
                 <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
             </tr>`;
         }
