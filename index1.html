@@ -16,46 +16,45 @@
         /* Naya Style for Deposit Input */
         .deposit-input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 12px; width: 100%; color: white; outline: none; transition: 0.3s; }
         .deposit-input-box:focus { border-color: #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
+        .bnb-icon { width: 1.2rem; height: 1.2rem; color: white; display: inline-block; vertical-align: middle; margin-right: 4px; }
     </style>
 </head>
 <body class="bg-[#050505] text-white"> 
     <main class="max-w-7xl mx-auto px-6 relative z-10">
         <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             <div class="premium-border p-4 text-center">
-                <div>
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Total Deposits</p>
-                    <h3 id="total-deposit-display" class="text-lg font-black orbitron">$ 0</h3>
-                </div>
+                <p class="text-[9px] font-bold text-gray-400 uppercase">Total Deposits</p>
+                <h3 class="text-lg font-black orbitron flex items-center justify-center">
+                    <i data-lucide="coins" class="bnb-icon"></i><span id="total-deposit-display">0.000</span>
+                </h3>
             </div>
             <div class="premium-border p-4 text-center">
-                <div>
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Active Deposit</p>
-                    <h3 id="active-deposit" class="text-lg font-black orbitron text-green-400">$ 0</h3>
-                </div>
+                <p class="text-[9px] font-bold text-gray-400 uppercase">Active Deposit</p>
+                <h3 class="text-lg font-black orbitron text-green-400 flex items-center justify-center">
+                    <i data-lucide="coins" class="bnb-icon"></i><span id="active-deposit">0.000</span>
+                </h3>
             </div>
             <div class="premium-border p-4 text-center">
-                <div>
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Total Earned</p>
-                    <h3 id="total-earned" class="text-lg font-black orbitron text-green-500">$ 0</h3>
-                </div>
+                <p class="text-[9px] font-bold text-gray-400 uppercase">Total Earned</p>
+                <h3 class="text-lg font-black orbitron text-green-500 flex items-center justify-center">
+                    <i data-lucide="coins" class="bnb-icon"></i><span id="total-earned">0.000</span>
+                </h3>
             </div>
             <div class="premium-border p-4 text-center">
-                <div>
-                    <p class="text-[9px] font-bold text-gray-400 uppercase">Withdrawable</p>
-                    <h3 id="withdrawable-display" class="text-lg font-black orbitron text-emerald-400">$ 0</h3>
-                </div>
+                <p class="text-[9px] font-bold text-gray-400 uppercase">Withdrawable</p>
+                <h3 class="text-lg font-black orbitron text-emerald-400 flex items-center justify-center">
+                    <i data-lucide="coins" class="bnb-icon"></i><span id="withdrawable-display">0.000</span>
+                </h3>
             </div>
             <div class="premium-border p-4 text-center">
-                <div>
-                    <p class="text-[9px] font-bold text-yellow-500 uppercase">Rank</p> 
-                    <h3 id="rank-display" class="text-lg font-black orbitron text-yellow-500">...</h3>
-                </div>
+                <p class="text-[9px] font-bold text-yellow-500 uppercase">Rank</p> 
+                <h3 id="rank-display" class="text-lg font-black orbitron text-yellow-500 uppercase">...</h3>
             </div>
             <div class="premium-border p-4 text-center">
-                <div>
-                    <p class="text-[9px] font-bold text-red-400 uppercase">Total Withdrawal</p>
-                    <h3 id="total-withdrawn" class="text-lg font-black orbitron text-red-400">$ 0</h3>
-                </div>
+                <p class="text-[9px] font-bold text-red-400 uppercase">Total Withdrawal</p>
+                <h3 class="text-lg font-black orbitron text-red-400 flex items-center justify-center">
+                    <i data-lucide="coins" class="bnb-icon"></i><span id="total-withdrawn">0.000</span>
+                </h3>
             </div>
         </div>
 
@@ -66,15 +65,15 @@
                 <button onclick="copyLink()" class="gold-btn !py-2">COPY</button>
             </div>
             <p id="ref-error" class="text-[10px] text-red-500 font-bold uppercase mt-3 hidden italic">
-                ⚠️ Min $10 self investment required to activate referral link
+                ⚠️ Min 0.05 BNB self investment required to activate referral link
             </p>
         </div>
 
         <div class="premium-border p-6 mb-8 bg-yellow-500/5 border-yellow-500/20">
             <div class="flex flex-col md:flex-row items-center gap-4">
                 <div class="w-full md:w-1/2">
-                    <p class="text-[10px] font-black orbitron text-yellow-500 uppercase mb-2 ml-1">Deposit Amount (USDT)</p>
-                    <input type="number" id="deposit-amount" placeholder="Min 10 USDT" class="deposit-input-box font-black orbitron text-lg">
+                    <p class="text-[10px] font-black orbitron text-yellow-500 uppercase mb-2 ml-1">Deposit Amount (BNB)</p>
+                    <input type="number" id="deposit-amount" placeholder="Min 0.05 BNB" class="deposit-input-box font-black orbitron text-lg">
                 </div>
                 <div class="w-full md:w-1/2 md:pt-6">
                     <button onclick="handleDeposit()" id="deposit-btn" class="gold-btn w-full !py-4 orbitron font-black tracking-widest bg-gradient-to-r from-yellow-500 to-yellow-700">
@@ -88,7 +87,9 @@
             <div class="relative z-10">
                 <i data-lucide="refresh-cw" class="w-8 h-8 text-yellow-500 mx-auto mb-2 animate-spin-slow"></i>
                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Compounding Balance</p>
-                <h3 id="compounding-balance" class="text-4xl font-black orbitron text-white mb-8">$ 0.00</h3>
+                <h3 class="text-4xl font-black orbitron text-white mb-8 flex items-center justify-center gap-2">
+                    <i data-lucide="coins" class="w-10 h-10"></i><span id="compounding-balance">0.000</span>
+                </h3>
                 <div class="flex flex-col md:flex-row justify-center gap-4 max-w-2xl mx-auto">
                     <button onclick="handleClaim()" class="gold-btn withdraw-btn px-10 flex-1">
                         <i data-lucide="arrow-down-to-line" class="w-4 h-4 inline-block mr-2"></i> Withdraw Now
@@ -110,11 +111,15 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-black/40 p-4 rounded-2xl border border-white/5 text-center">
                         <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Total Investment</p>
-                        <h4 id="capital-investment-display" class="text-xl font-black orbitron text-white">$ 0.00</h4>
+                        <h4 class="text-xl font-black orbitron text-white flex items-center justify-center">
+                            <i data-lucide="coins" class="bnb-icon"></i><span id="capital-investment-display">0.000</span>
+                        </h4>
                     </div>
                     <div class="bg-black/40 p-4 rounded-2xl border border-white/5 text-center">
                         <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Total Withdrawn</p>
-                        <h4 id="capital-withdrawn-display" class="text-xl font-black orbitron text-blue-400">$ 0.00</h4>
+                        <h4 class="text-xl font-black orbitron text-blue-400 flex items-center justify-center">
+                            <i data-lucide="coins" class="bnb-icon"></i><span id="capital-withdrawn-display">0.000</span>
+                        </h4>
                     </div>
                 </div>
                 <p class="text-[8px] text-blue-300/60 uppercase mt-4 text-center tracking-widest font-bold">Note: Capital withdrawal may be subject to a lock-up period</p>
@@ -137,7 +142,9 @@
                 <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="inner-plate p-8 bg-black/20 rounded-2xl border border-white/5">
                         <p class="text-xs font-black text-yellow-500 uppercase mb-2">Daily Earnings <span class="text-white ml-2">+5.00%</span></p>
-                        <h4 id="projected-return" class="text-5xl font-black orbitron text-white">$0.00</h4>
+                        <h4 class="text-4xl font-black orbitron text-white flex items-center">
+                            <i data-lucide="coins" class="bnb-icon !w-8 !h-8"></i><span id="projected-return">0.000</span>
+                        </h4>
                         <p class="text-[10px] text-gray-400 uppercase mt-2">Projected 24h Return</p>
                     </div>
                     <div class="inner-plate p-8 bg-black/20 rounded-2xl border border-white/5">
@@ -163,12 +170,14 @@
     <script>
         lucide.createIcons();
         function copyLink() {
-            const totalDepText = document.getElementById('total-deposit-display').innerText;
-            const totalDepositValue = parseFloat(totalDepText.replace('$', '').trim()) || 0;
+            // Get value from active deposit (without icon/unit)
+            const activeDepText = document.getElementById('active-deposit').innerText;
+            const activeDepositValue = parseFloat(activeDepText) || 0;
             const errorElement = document.getElementById('ref-error');
             const refInput = document.getElementById('refURL');
 
-            if (totalDepositValue >= 10) {
+            // Requirement: 0.05 BNB (approximately $10-$20)
+            if (activeDepositValue >= 0.05) {
                 refInput.select();
                 navigator.clipboard.writeText(refInput.value);
                 errorElement.classList.add('hidden');
