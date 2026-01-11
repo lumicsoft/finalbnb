@@ -2,7 +2,7 @@ let provider, signer, contract, usdtContract;
 
 // --- CONFIGURATION ---
 // Note: Fixed the address to include '0x' prefix for standard compatibility
-const CONTRACT_ADDRESS = "0x7bABE51cA62EE53d86779D64e09432cda6259A46"; 
+const CONTRACT_ADDRESS = "0xc5037561f7A268ae262A6d86747A743FA23C0Eb1"; 
 const USDT_ADDRESS = "0x3b66b1e08f55af26c8ea14a73da64b6bc8d799de"; 
 const TESTNET_CHAIN_ID = 97; 
 
@@ -474,6 +474,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
