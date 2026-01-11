@@ -167,17 +167,33 @@
 
             if (!user.registered) return;
 
+            // Stats Update
             document.getElementById('direct-count').innerText = extra.directsCount.toString();
             document.getElementById('team-count').innerText = extra.teamCount.toString();
             
+            // Decimal format fix (Contract uses USDT/Standard 18 decimals)
             document.getElementById('total-earned').innerText = parseFloat(ethers.utils.formatUnits(user.totalEarnings, 18)).toFixed(3);
             document.getElementById('level-earnings').innerText = parseFloat(ethers.utils.formatUnits(extra.rewardsReferral, 18)).toFixed(3);
             document.getElementById('direct-earnings').innerText = parseFloat(ethers.utils.formatUnits(extra.rewardsOnboarding, 18)).toFixed(3);
 
-            const refBalance = ethers.utils.formatUnits(extra.reserveNetwork, 18);
-            document.getElementById('ref-balance-display').innerText = parseFloat(refBalance).toFixed(3);
-            window.currentRefBalance = extra.reserveNetwork;
+            // --- NETWORK INCOME CALCULATION ---
+            // Aapke contract me income in 4 chizo se banti hai:
+            const referralInc = extra.rewardsReferral;
+            const onboardingInc = extra.rewardsOnboarding;
+            const rankInc = extra.rewardsRank;
+            const reserveInc = extra.reserveNetwork;
 
+            // Sabka Total
+            const totalNetworkIncomeRaw = referralInc.add(onboardingInc).add(rankInc).add(reserveInc);
+            
+            // Display Total Balance
+            const formattedTotal = ethers.utils.formatUnits(totalNetworkIncomeRaw, 18);
+            document.getElementById('ref-balance-display').innerText = parseFloat(formattedTotal).toFixed(3);
+            
+            // Important: Withdrawal function ke liye total value store karein
+            window.currentRefBalance = totalNetworkIncomeRaw;
+
+            // Referral Link Generation
             const baseUrl = window.location.origin + window.location.pathname.replace('referral.html', '');
             document.getElementById('refURL').value = `${baseUrl}register.html?ref=${user.username}`;
 
@@ -185,6 +201,7 @@
         } catch (err) { console.error("Referral Load Error:", err); }
     }
 
+    // Team Table Data Load Karega
     async function loadLevelData(level) {
         const tableBody = document.getElementById('team-table-body');
         if(!tableBody) return;
@@ -195,11 +212,11 @@
             const address = await window.signer.getAddress();
             const res = await window.contract.getLevelTeamDetails(address, level);
             
-            const names = res.names || res[0] || [];
-            const wallets = res.wallets || res[1] || [];
-            const joinDates = res.joinDates || res[2] || [];
-            const activeDeps = res.activeDeps || res[3] || [];
-            const teamTotalDeps = res.teamTotalDeps || res[4] || [];
+            const names = res[0] || [];
+            const wallets = res[1] || [];
+            const joinDates = res[2] || [];
+            const activeDeps = res[3] || [];
+            const teamTotalDeps = res[4] || [];
 
             if (!wallets || wallets.length === 0) {
                 tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic">No users found in Level ${level}</td></tr>`;
@@ -211,16 +228,9 @@
                 const uA = wallets[i];
                 if (!uA || uA === ethers.constants.AddressZero) continue;
 
-                const getVal = (arr, idx) => {
-                    try {
-                        return (arr && arr[idx]) ? ethers.utils.formatUnits(arr[idx].toString(), 18) : "0.000";
-                    } catch(e) { return "0.000"; }
-                };
-
-                const uName = (names && names[i]) ? names[i] : "N/A";
-                const activeD = getVal(activeDeps, i);
-                const teamV = getVal(teamTotalDeps, i);
-                let jDate = (joinDates && joinDates[i]) ? new Date(parseInt(joinDates[i]) * 1000).toLocaleDateString() : "N/A";
+                const activeD = ethers.utils.formatUnits(activeDeps[i], 18);
+                const teamV = ethers.utils.formatUnits(teamTotalDeps[i], 18);
+                let jDate = new Date(parseInt(joinDates[i]) * 1000).toLocaleDateString();
                 
                 const status = parseFloat(activeD) > 0 
                     ? '<span class="text-green-400 font-bold text-[10px]">[ACTIVE]</span>' 
@@ -231,15 +241,15 @@
                     <td class="p-4 font-mono text-[10px] text-yellow-500">
                         <div class="flex flex-col">
                             <span>${uA.substring(0, 8)}...${uA.substring(34)}</span>
-                            <span class="text-[8px] text-gray-500 font-sans italic">${uName}</span>
+                            <span class="text-[8px] text-gray-500 font-sans italic">${names[i]}</span>
                         </div>
                     </td>
                     <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
                     <td class="p-4 text-xs font-black text-white">
-                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm"> ${parseFloat(activeD).toFixed(3)}
+                         ${parseFloat(activeD).toFixed(3)}
                     </td>
                     <td class="p-4 text-xs text-gray-400">
-                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm opacity-60"> ${parseFloat(teamV).toFixed(3)}
+                         ${parseFloat(teamV).toFixed(3)}
                     </td>
                     <td class="p-4 text-xs">
                         <div class="flex flex-col">
@@ -252,25 +262,28 @@
                 </tr>`;
             }
             tableBody.innerHTML = html;
-
         } catch (err) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error: ${err.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error loading level data</td></tr>`;
         }
     }
 
+    // --- WITHDRAWAL FUNCTION ---
     window.handleClaim = async function() {
-        if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No network income available to withdraw!");
+        if (!window.currentRefBalance || window.currentRefBalance.eq(0)) return alert("No network income to withdraw!");
         try {
-            const tx = await window.contract.claimNetworkReward(window.currentRefBalance, { gasLimit: 500000 });
+            // Contract function: claimNetworkReward(amount)
+            const tx = await window.contract.claimNetworkReward(window.currentRefBalance);
             await tx.wait();
             location.reload();
         } catch (err) { alert("Error: " + (err.reason || err.message)); }
     }
 
+    // --- COMPOUND FUNCTION ---
     window.handleCompoundDaily = async function() {
-        if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No network income available to compound!");
+        if (!window.currentRefBalance || window.currentRefBalance.eq(0)) return alert("No network income to compound!");
         try {
-            const tx = await window.contract.compoundNetworkReward(window.currentRefBalance, { gasLimit: 800000 });
+            // Contract function: compoundNetworkReward(amount)
+            const tx = await window.contract.compoundNetworkReward(window.currentRefBalance);
             await tx.wait();
             location.reload();
         } catch (err) { alert("Error: " + (err.reason || err.message)); }
@@ -287,3 +300,4 @@
 </script>
 </body>
 </html>
+
