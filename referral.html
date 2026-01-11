@@ -149,10 +149,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="components.js"></script>
     <script src="web3-handler.js"></script>
-    <script>
+   <script>
     lucide.createIcons();
 
+    // --- DATA LOADING LOGIC ---
     async function loadReferralData() {
+        // Wait for web3-handler.js to initialize contract and signer
         if (typeof window.contract === 'undefined' || !window.signer) {
             setTimeout(loadReferralData, 1000);
             return;
@@ -167,56 +169,57 @@
 
             if (!user.registered) return;
 
-            // Stats Update
+            // Stats Update using global format() from web3-handler
             document.getElementById('direct-count').innerText = extra.directsCount.toString();
             document.getElementById('team-count').innerText = extra.teamCount.toString();
             
-            // Decimal format fix (Contract uses USDT/Standard 18 decimals)
-            document.getElementById('total-earned').innerText = parseFloat(ethers.utils.formatUnits(user.totalEarnings, 18)).toFixed(3);
-            document.getElementById('level-earnings').innerText = parseFloat(ethers.utils.formatUnits(extra.rewardsReferral, 18)).toFixed(3);
-            document.getElementById('direct-earnings').innerText = parseFloat(ethers.utils.formatUnits(extra.rewardsOnboarding, 18)).toFixed(3);
+            document.getElementById('total-earned').innerText = format(user.totalEarnings);
+            document.getElementById('level-earnings').innerText = format(extra.rewardsReferral);
+            document.getElementById('direct-earnings').innerText = format(extra.rewardsOnboarding);
 
-            // --- NETWORK INCOME CALCULATION ---
-            // Aapke contract me income in 4 chizo se banti hai:
+            // --- NETWORK INCOME CALCULATION (Total of 4 rewards) ---
             const referralInc = extra.rewardsReferral;
             const onboardingInc = extra.rewardsOnboarding;
             const rankInc = extra.rewardsRank;
             const reserveInc = extra.reserveNetwork;
 
-            // Sabka Total
-            const totalNetworkIncomeRaw = referralInc.add(onboardingInc).add(rankInc).add(reserveInc);
+            // Summing up all network-related incomes
+            const totalNetworkRaw = referralInc.add(onboardingInc).add(rankInc).add(reserveInc);
             
-            // Display Total Balance
-            const formattedTotal = ethers.utils.formatUnits(totalNetworkIncomeRaw, 18);
-            document.getElementById('ref-balance-display').innerText = parseFloat(formattedTotal).toFixed(3);
+            // Display Total Balance using format()
+            document.getElementById('ref-balance-display').innerText = format(totalNetworkRaw);
             
-            // Important: Withdrawal function ke liye total value store karein
-            window.currentRefBalance = totalNetworkIncomeRaw;
+            // Storing raw BigNumber for contract calls
+            window.currentRefBalance = totalNetworkRaw;
 
             // Referral Link Generation
             const baseUrl = window.location.origin + window.location.pathname.replace('referral.html', '');
             document.getElementById('refURL').value = `${baseUrl}register.html?ref=${user.username}`;
 
+            // Load Team Data for Level 1 by default
             loadLevelData(1);
-        } catch (err) { console.error("Referral Load Error:", err); }
+        } catch (err) { 
+            console.error("Referral Page Load Error:", err); 
+        }
     }
 
-    // Team Table Data Load Karega
+    // --- TEAM TABLE LOGIC ---
     async function loadLevelData(level) {
         const tableBody = document.getElementById('team-table-body');
         if(!tableBody) return;
         
-        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 orbitron animate-pulse text-xs">SCANNING BLOCKCHAIN LEVEL ${level}...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 orbitron animate-pulse text-xs">SCANNING LEVEL ${level}...</td></tr>`;
 
         try {
             const address = await window.signer.getAddress();
             const res = await window.contract.getLevelTeamDetails(address, level);
             
-            const names = res[0] || [];
-            const wallets = res[1] || [];
-            const joinDates = res[2] || [];
-            const activeDeps = res[3] || [];
-            const teamTotalDeps = res[4] || [];
+            // Handle different ABI return formats (named vs indexed)
+            const names = res.names || res[0] || [];
+            const wallets = res.wallets || res[1] || [];
+            const joinDates = res.joinDates || res[2] || [];
+            const activeDeps = res.activeDeps || res[3] || [];
+            const teamTotalDeps = res.teamTotalDeps || res[4] || [];
 
             if (!wallets || wallets.length === 0) {
                 tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic">No users found in Level ${level}</td></tr>`;
@@ -228,76 +231,73 @@
                 const uA = wallets[i];
                 if (!uA || uA === ethers.constants.AddressZero) continue;
 
-                const activeD = ethers.utils.formatUnits(activeDeps[i], 18);
-                const teamV = ethers.utils.formatUnits(teamTotalDeps[i], 18);
-                let jDate = new Date(parseInt(joinDates[i]) * 1000).toLocaleDateString();
+                const activeAmt = format(activeDeps[i]);
+                const teamVol = format(teamTotalDeps[i]);
+                const joinDate = new Date(joinDates[i].toNumber() * 1000).toLocaleDateString();
                 
-                const status = parseFloat(activeD) > 0 
+                const statusLabel = parseFloat(activeAmt) > 0 
                     ? '<span class="text-green-400 font-bold text-[10px]">[ACTIVE]</span>' 
                     : '<span class="text-red-500 font-bold text-[10px]">[INACTIVE]</span>';
 
                 html += `
-                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td class="p-4 font-mono text-[10px] text-yellow-500">
+                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors text-[11px]">
+                    <td class="p-4 font-mono text-yellow-500">
                         <div class="flex flex-col">
                             <span>${uA.substring(0, 8)}...${uA.substring(34)}</span>
-                            <span class="text-[8px] text-gray-500 font-sans italic">${names[i]}</span>
+                            <span class="text-[9px] text-gray-500 font-sans italic">${names[i] || 'N/A'}</span>
                         </div>
                     </td>
-                    <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                    <td class="p-4 text-xs font-black text-white">
-                         ${parseFloat(activeD).toFixed(3)}
-                    </td>
-                    <td class="p-4 text-xs text-gray-400">
-                         ${parseFloat(teamV).toFixed(3)}
-                    </td>
-                    <td class="p-4 text-xs">
+                    <td class="p-4 font-bold text-gray-400">Lvl ${level}</td>
+                    <td class="p-4 font-black text-white">${activeAmt}</td>
+                    <td class="p-4 text-gray-400">${teamVol}</td>
+                    <td class="p-4">
                         <div class="flex flex-col">
-                            <span class="text-white font-bold">${parseFloat(activeD).toFixed(3)}</span>
-                            ${status}
+                            <span class="text-white font-bold">${activeAmt}</span>
+                            ${statusLabel}
                         </div>
                     </td>
-                    <td class="p-4 text-[10px] font-black text-yellow-500 italic uppercase">REWARDED</td>
-                    <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
+                    <td class="p-4 text-yellow-500 italic font-black uppercase">RECORDED</td>
+                    <td class="p-4 text-gray-500 font-mono">${joinDate}</td>
                 </tr>`;
             }
             tableBody.innerHTML = html;
         } catch (err) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error loading level data</td></tr>`;
+            console.error("Team Table Error:", err);
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Blockchain Sync Error</td></tr>`;
         }
     }
 
-    // --- WITHDRAWAL FUNCTION ---
+    // --- ACTIONS (Connecting to web3-handler.js) ---
+
+    // Updated handleClaim to call handler's global function
     window.handleClaim = async function() {
-        if (!window.currentRefBalance || window.currentRefBalance.eq(0)) return alert("No network income to withdraw!");
-        try {
-            // Contract function: claimNetworkReward(amount)
-            const tx = await window.contract.claimNetworkReward(window.currentRefBalance);
-            await tx.wait();
-            location.reload();
-        } catch (err) { alert("Error: " + (err.reason || err.message)); }
+        if (!window.currentRefBalance || window.currentRefBalance.eq(0)) {
+            return alert("No network income to withdraw!");
+        }
+        // Direct call to web3-handler global function
+        await window.claimNetworkReward(window.currentRefBalance);
     }
 
-    // --- COMPOUND FUNCTION ---
+    // Updated handleCompound to call handler's global function
     window.handleCompoundDaily = async function() {
-        if (!window.currentRefBalance || window.currentRefBalance.eq(0)) return alert("No network income to compound!");
-        try {
-            // Contract function: compoundNetworkReward(amount)
-            const tx = await window.contract.compoundNetworkReward(window.currentRefBalance);
-            await tx.wait();
-            location.reload();
-        } catch (err) { alert("Error: " + (err.reason || err.message)); }
+        if (!window.currentRefBalance || window.currentRefBalance.eq(0)) {
+            return alert("No network income to compound!");
+        }
+        // Direct call to web3-handler global function
+        await window.compoundNetworkReward(window.currentRefBalance);
     }
 
     window.copyLink = function() {
         const copyText = document.getElementById("refURL");
         copyText.select();
-        document.execCommand("copy");
-        alert("Link Copied!");
+        navigator.clipboard.writeText(copyText.value);
+        alert("Referral Link Copied!");
     }
 
-    window.addEventListener('load', () => setTimeout(loadReferralData, 1500));
+    // Initialize after a short delay to ensure Ethers is ready
+    window.addEventListener('load', () => setTimeout(loadReferralData, 1200));
 </script>
 </body>
 </html>
+
 
