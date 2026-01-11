@@ -378,11 +378,24 @@ async function fetchAllData(address) {
         updateText('level-earnings', `$ ${format(extra.rewardsReferral)}`);
         updateText('direct-earnings', `$ ${format(extra.rewardsOnboarding)}`);
         
+        // --- Capital Box Fixes ---
+        updateText('capital-investment-display', `$ ${format(user.totalDeposited)}`);
+        updateText('capital-withdrawn-display', `$ ${format(user.totalWithdrawn)}`);
+
+        // --- Live Balance Fixes ---
         const networkBalance = format(extra.reserveNetwork);
         updateText('ref-balance-display', `$ ${parseFloat(networkBalance).toFixed(2)}`);
 
-        const dailyPending = parseFloat(format(live.pendingROI)) + parseFloat(format(live.pendingCap));
-        updateText('withdrawable-display', `$ ${(dailyPending + parseFloat(networkBalance)).toFixed(2)}`);
+        const dailyROI = parseFloat(format(live.pendingROI));
+        const dailyCap = parseFloat(format(live.pendingCap));
+        const totalDailyPending = dailyROI + dailyCap;
+        
+        updateText('compounding-balance', `$ ${totalDailyPending.toFixed(2)}`);
+        updateText('withdrawable-display', `$ ${(totalDailyPending + parseFloat(networkBalance)).toFixed(2)}`);
+        
+        // --- CP Display Fix ---
+        updateText('cp-display', Math.floor(parseFloat(format(user.totalActiveDeposit))));
+        
         updateText('rank-display', getRankName(extra.rank));
 
         const refUrl = `${window.location.origin}/register.html?ref=${user.username}`;
@@ -474,8 +487,3 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
-
-
-
-
-
