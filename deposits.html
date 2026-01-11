@@ -13,6 +13,9 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         .progress-container { background: rgba(255,255,255,0.05); height: 6px; border-radius: 10px; overflow: hidden; }
         .progress-bar { background: linear-gradient(90deg, #f59e0b, #fbbf24); height: 100%; box-shadow: 0 0 10px rgba(245, 158, 11, 0.5); transition: width 1s ease-in-out; }
+        /* BNB Logo Styling */
+        .bnb-icon { width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 6px; filter: drop-shadow(0 0 2px rgba(243, 186, 47, 0.4)); }
+        .bnb-icon-sm { width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px; }
     </style>
 </head>
 <body class="bg-[#050505] text-white">
@@ -33,11 +36,17 @@
         <div class="grid grid-cols-2 gap-6 mb-10">
             <div class="premium-border p-6 text-center">
                 <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Total Active Capital</p>
-                <h3 id="total-active-capital" class="text-2xl font-black orbitron text-white">$ 0.00</h3>
+                <h3 class="text-2xl font-black orbitron text-white flex items-center justify-center">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="total-active-capital">0.000</span>
+                </h3>
             </div>
             <div class="premium-border p-6 text-center">
                 <p class="text-[10px] font-black text-yellow-500 uppercase mb-1">Estimated Daily Profit</p>
-                <h3 id="total-daily-profit" class="text-2xl font-black orbitron text-green-400">$ 0.00</h3>
+                <h3 class="text-2xl font-black orbitron text-green-400 flex items-center justify-center">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="total-daily-profit">0.000</span>
+                </h3>
             </div>
         </div>
 
@@ -57,7 +66,7 @@
     <script src="components.js"></script>
     <script src="web3-handler.js"></script>
     <script>
-    // 1. ROI Calculation based on TOTAL amount
+    // 1. ROI Calculation (Thresholds logic remains same)
     function getGlobalROI(totalAmount) {
         if (totalAmount >= 5000) return 6.00;
         if (totalAmount >= 2500) return 5.75;
@@ -78,20 +87,18 @@
             const address = await window.signer.getAddress();
             const userData = await window.contract.users(address);
             
-            // Sabse pehle Total Active Deposit nikalenge
             const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
-            document.getElementById('total-active-capital').innerText = `$ ${totalActive.toFixed(2)}`;
+            document.getElementById('total-active-capital').innerText = totalActive.toFixed(3);
 
             if (totalActive <= 0) {
-                document.getElementById('total-daily-profit').innerText = `$ 0.00`;
+                document.getElementById('total-daily-profit').innerText = `0.000`;
                 grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
                 return;
             }
 
-            // 2. Pure account ke liye ek hi ROI rate decide hoga
             const globalROIRate = getGlobalROI(totalActive);
             const totalDailyProfit = (totalActive * (globalROIRate / 100));
-            document.getElementById('total-daily-profit').innerText = `$ ${totalDailyProfit.toFixed(2)}`;
+            document.getElementById('total-daily-profit').innerText = totalDailyProfit.toFixed(3);
 
             let html = '';
             let foundAny = false;
@@ -105,10 +112,7 @@
 
                     if (pos.active) {
                         foundAny = true;
-                        
-                        // Har card ab usi Global Rate se calculate hoga
                         const cardDailyYield = (amount * (globalROIRate / 100));
-
                         const startTime = parseInt(pos.startTime);
                         const endTime = parseInt(pos.endTime);
                         const currentTime = Math.floor(Date.now() / 1000);
@@ -120,13 +124,14 @@
                         if (progress > 100) progress = 100;
                         if (progress < 0) progress = 0;
 
-                        const daysPassed = (elapsed / 86400).toFixed(1);
-
                         html += `
                         <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
                             <div class="flex justify-between items-start mb-6">
                                 <div>
-                                    <h3 class="text-xl font-black orbitron italic text-white">$${amount.toFixed(2)} Node</h3>
+                                    <h3 class="text-xl font-black orbitron italic text-white flex items-center">
+                                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm">
+                                        ${amount.toFixed(3)} Node
+                                    </h3>
                                     <p class="text-[9px] text-yellow-500 font-bold uppercase tracking-widest mt-1 italic">Account Tier: ${globalROIRate.toFixed(2)}% Daily</p>
                                 </div>
                                 <span class="status-badge">Active</span>
@@ -139,7 +144,10 @@
                                 </div>
                                 <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
                                     <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Yield at ${globalROIRate.toFixed(2)}%</p>
-                                    <p class="text-lg font-black orbitron text-green-400">$${cardDailyYield.toFixed(2)}</p>
+                                    <p class="text-lg font-black orbitron text-green-400 flex items-center justify-center">
+                                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm">
+                                        ${cardDailyYield.toFixed(3)}
+                                    </p>
                                 </div>
                             </div>
 
@@ -154,9 +162,7 @@
                             </div>
                         </div>`;
                     }
-                } catch (e) {
-                    break; 
-                }
+                } catch (e) { break; }
             }
 
             grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-500">NO ACTIVE POSITIONS</div>`;
@@ -172,4 +178,3 @@
 </script>
 </body>
 </html>
-
