@@ -8,8 +8,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="style1.css">
+    <style>
+        /* BNB Logo Styling */
+        .bnb-icon { width: 18px; height: 18px; display: inline-block; vertical-align: middle; margin-right: 4px; filter: drop-shadow(0 0 2px rgba(243, 186, 47, 0.4)); }
+        .bnb-icon-lg { width: 30px; height: 30px; display: inline-block; vertical-align: middle; margin-right: 8px; }
+        .bnb-icon-sm { width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 2px; }
+    </style>
 </head>
-<body>
+<body class="bg-[#050505] text-white">
 
     <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
         
@@ -35,23 +41,35 @@
             <div class="premium-border p-5 text-center flex flex-col items-center">
                 <i data-lucide="banknote" class="w-6 h-6 text-yellow-500 mb-2"></i>
                 <p class="text-[8px] font-bold text-gray-400 uppercase">Total Earnings</p>
-                <h3 id="total-earned" class="text-xl font-black orbitron">$ 0.00</h3>
+                <h3 class="text-xl font-black orbitron flex items-center">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="total-earned">0.00</span>
+                </h3>
             </div>
             <div class="premium-border p-5 text-center flex flex-col items-center">
                 <i data-lucide="user-plus" class="w-6 h-6 text-yellow-600 mb-2"></i>
                 <p class="text-[8px] font-bold text-gray-400 uppercase">Direct Earnings</p>
-                <h3 id="direct-earnings" class="text-xl font-black orbitron">$ 0.00</h3>
+                <h3 class="text-xl font-black orbitron flex items-center">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="direct-earnings">0.00</span>
+                </h3>
             </div>
             <div class="premium-border p-5 text-center flex flex-col items-center col-span-2 lg:col-span-1">
                 <i data-lucide="layers" class="w-6 h-6 text-green-500 mb-2"></i>
                 <p class="text-[8px] font-bold text-gray-400 uppercase">Level Earnings</p>
-                <h3 id="level-earnings" class="text-xl font-black orbitron">$ 0.00</h3>
+                <h3 class="text-xl font-black orbitron flex items-center">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="level-earnings">0.00</span>
+                </h3>
             </div>
         </div>
 
         <div class="premium-border p-6 mb-8 text-center">
             <p class="text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-widest">Referral Balance</p>
-            <h2 id="ref-balance-display" class="text-3xl font-black orbitron text-white italic mb-6">$ 0.00</h2>
+            <h2 class="text-3xl font-black orbitron text-white italic mb-6 flex items-center justify-center">
+                <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-lg">
+                <span id="ref-balance-display">0.00</span>
+            </h2>
             <div class="flex flex-col md:flex-row gap-3">
                 <button onclick="handleClaim()" class="gold-btn flex-1 !py-3 flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-4 h-4"></i> Withdraw BNB
@@ -101,7 +119,7 @@
                 <table class="luxury-table w-full text-left">
                     <thead>
                         <tr class="border-b border-white/10">
-                            <th class="p-4">User Address</th><th>Level</th><th>Total Deposit</th><th>Team Volume</th><th>Active Volume</th><th>Your Earnings</th><th>Join Date</th>
+                            <th class="p-4">User Address</th><th>Level</th><th>Total Deposit</th><th>Team Volume</th><th>Active Volume</th><th>Status</th><th>Join Date</th>
                         </tr>
                     </thead>
                     <tbody id="team-table-body" class="text-gray-300">
@@ -118,12 +136,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="components.js"></script>
     <script src="web3-handler.js"></script>
-  <script>
-    // 1. Initial Setup
+    <script>
     lucide.createIcons();
 
     async function loadReferralData() {
-        // Wait for contract to be ready from web3-handler.js
         if (typeof window.contract === 'undefined' || !window.signer) {
             setTimeout(loadReferralData, 1000);
             return;
@@ -136,35 +152,27 @@
                 window.contract.usersExtra(address)
             ]);
 
-            if (!user.registered) {
-                console.log("User not registered");
-                return;
-            }
+            if (!user.registered) return;
 
-            // Stats Update
             document.getElementById('direct-count').innerText = extra.directsCount.toString();
             document.getElementById('team-count').innerText = extra.teamCount.toString();
-            document.getElementById('total-earned').innerText = `$ ${parseFloat(ethers.utils.formatUnits(user.totalEarnings, 18)).toFixed(2)}`;
-            document.getElementById('level-earnings').innerText = `$ ${parseFloat(ethers.utils.formatUnits(extra.rewardsReferral, 18)).toFixed(2)}`;
-            document.getElementById('direct-earnings').innerText = `$ ${parseFloat(ethers.utils.formatUnits(extra.rewardsOnboarding, 18)).toFixed(2)}`;
+            
+            // Format to 3 decimal places for BNB
+            document.getElementById('total-earned').innerText = parseFloat(ethers.utils.formatUnits(user.totalEarnings, 18)).toFixed(3);
+            document.getElementById('level-earnings').innerText = parseFloat(ethers.utils.formatUnits(extra.rewardsReferral, 18)).toFixed(3);
+            document.getElementById('direct-earnings').innerText = parseFloat(ethers.utils.formatUnits(extra.rewardsOnboarding, 18)).toFixed(3);
 
             const refBalance = ethers.utils.formatUnits(extra.reserveNetwork, 18);
-            document.getElementById('ref-balance-display').innerText = `$ ${parseFloat(refBalance).toFixed(2)}`;
+            document.getElementById('ref-balance-display').innerText = parseFloat(refBalance).toFixed(3);
             window.currentRefBalance = extra.reserveNetwork;
 
-            // Fix Referral Link URL
             const baseUrl = window.location.origin + window.location.pathname.replace('referral.html', '');
             document.getElementById('refURL').value = `${baseUrl}register.html?ref=${user.username}`;
 
-            // --- Auto Load Level 1 ---
             loadLevelData(1);
-
-        } catch (err) {
-            console.error("Referral Load Error:", err);
-        }
+        } catch (err) { console.error("Referral Load Error:", err); }
     }
 
-    // 2. FETCH TEAM DATA (FIXED & SECURE VERSION)
     async function loadLevelData(level) {
         const tableBody = document.getElementById('team-table-body');
         if(!tableBody) return;
@@ -175,9 +183,6 @@
             const address = await window.signer.getAddress();
             const res = await window.contract.getLevelTeamDetails(address, level);
             
-            console.log("Contract Response:", res);
-
-            // Mapping Data Safely (Fix for the 'undefined' error)
             const names = res.names || res[0] || [];
             const wallets = res.wallets || res[1] || [];
             const joinDates = res.joinDates || res[2] || [];
@@ -190,33 +195,24 @@
             }
 
             let html = '';
-            // Using for loop instead of forEach for better compatibility with Ethers objects
             for (let i = 0; i < wallets.length; i++) {
                 const uA = wallets[i];
                 if (!uA || uA === ethers.constants.AddressZero) continue;
 
-                // Safe formatting to prevent BigNumber errors
                 const getVal = (arr, idx) => {
                     try {
-                        return (arr && arr[idx]) ? ethers.utils.formatUnits(arr[idx].toString(), 18) : "0.00";
-                    } catch(e) { return "0.00"; }
+                        return (arr && arr[idx]) ? ethers.utils.formatUnits(arr[idx].toString(), 18) : "0.000";
+                    } catch(e) { return "0.000"; }
                 };
 
                 const uName = (names && names[i]) ? names[i] : "N/A";
                 const activeD = getVal(activeDeps, i);
                 const teamV = getVal(teamTotalDeps, i);
-                
-                let jDate = "N/A";
-                try {
-                    if (joinDates && joinDates[i]) {
-                        const ts = parseInt(joinDates[i].toString());
-                        if (ts > 0) jDate = new Date(ts * 1000).toLocaleDateString();
-                    }
-                } catch(e) {}
+                let jDate = (joinDates && joinDates[i]) ? new Date(parseInt(joinDates[i]) * 1000).toLocaleDateString() : "N/A";
                 
                 const status = parseFloat(activeD) > 0 
-                    ? '<span class="text-green-400 font-bold">[ACTIVE]</span>' 
-                    : '<span class="text-red-500 font-bold">[INACTIVE]</span>';
+                    ? '<span class="text-green-400 font-bold text-[10px]">[ACTIVE]</span>' 
+                    : '<span class="text-red-500 font-bold text-[10px]">[INACTIVE]</span>';
 
                 html += `
                 <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -227,28 +223,29 @@
                         </div>
                     </td>
                     <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                    <td class="p-4 text-xs font-black text-white">$${parseFloat(activeD).toFixed(2)}</td>
-                    <td class="p-4 text-xs text-gray-400">$${parseFloat(teamV).toFixed(2)}</td>
+                    <td class="p-4 text-xs font-black text-white">
+                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm"> ${parseFloat(activeD).toFixed(3)}
+                    </td>
+                    <td class="p-4 text-xs text-gray-400">
+                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm opacity-60"> ${parseFloat(teamV).toFixed(3)}
+                    </td>
                     <td class="p-4 text-xs">
                         <div class="flex flex-col">
-                            <span class="text-white font-bold">$${parseFloat(activeD).toFixed(2)}</span>
+                            <span class="text-white font-bold">${parseFloat(activeD).toFixed(3)}</span>
                             ${status}
                         </div>
                     </td>
-                    <td class="p-4 text-xs font-black text-yellow-500 italic uppercase">ACTIVE</td>
+                    <td class="p-4 text-[10px] font-black text-yellow-500 italic uppercase">REWARDED</td>
                     <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
                 </tr>`;
             }
-
-            tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">No data available</td></tr>`;
+            tableBody.innerHTML = html;
 
         } catch (err) {
-            console.error("Level Fetch Error:", err);
             tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Error: ${err.message}</td></tr>`;
         }
     }
 
-    // 3. Withdrawal Logic
     window.handleClaim = async function() {
         if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No referral rewards to withdraw!");
         try {
@@ -258,7 +255,6 @@
         } catch (err) { alert("Error: " + (err.reason || err.message)); }
     }
 
-    // 4. Compounding Logic
     window.handleCompoundDaily = async function() {
         if (!window.currentRefBalance || window.currentRefBalance.lte(0)) return alert("No referral rewards to compound!");
         try {
@@ -268,7 +264,6 @@
         } catch (err) { alert("Error: " + (err.reason || err.message)); }
     }
 
-    // Copy Function
     window.copyLink = function() {
         const copyText = document.getElementById("refURL");
         copyText.select();
@@ -279,9 +274,4 @@
     window.addEventListener('load', () => setTimeout(loadReferralData, 1500));
 </script>
 </body>
-
 </html>
-
-
-
-
