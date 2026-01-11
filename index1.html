@@ -13,14 +13,14 @@
         .capital-btn { background: linear-gradient(135deg, #00f2ff, #0066ff) !important; color: white !important; }
         .animate-spin-slow { animation: spin 8s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        /* Naya Style for Deposit Input */
         .deposit-input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 12px; width: 100%; color: white; outline: none; transition: 0.3s; }
         .deposit-input-box:focus { border-color: #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
-        .bnb-icon { width: 1.2rem; height: 1.2rem; color: white; display: inline-block; vertical-align: middle; margin-right: 4px; }
+        /* Icon styling */
+        .bnb-icon { width: 1.2rem; height: 1.2rem; color: #eab308; display: inline-block; vertical-align: middle; margin-right: 6px; }
     </style>
 </head>
 <body class="bg-[#050505] text-white"> 
-    <main class="max-w-7xl mx-auto px-6 relative z-10">
+    <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10">
         <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
             <div class="premium-border p-4 text-center">
                 <p class="text-[9px] font-bold text-gray-400 uppercase">Total Deposits</p>
@@ -88,7 +88,7 @@
                 <i data-lucide="refresh-cw" class="w-8 h-8 text-yellow-500 mx-auto mb-2 animate-spin-slow"></i>
                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Compounding Balance</p>
                 <h3 class="text-4xl font-black orbitron text-white mb-8 flex items-center justify-center gap-2">
-                    <i data-lucide="coins" class="w-10 h-10"></i><span id="compounding-balance">0.000</span>
+                    <i data-lucide="coins" class="w-10 h-10 text-yellow-500"></i><span id="compounding-balance">0.000</span>
                 </h3>
                 <div class="flex flex-col md:flex-row justify-center gap-4 max-w-2xl mx-auto">
                     <button onclick="handleClaim()" class="gold-btn withdraw-btn px-10 flex-1">
@@ -122,7 +122,6 @@
                         </h4>
                     </div>
                 </div>
-                <p class="text-[8px] text-blue-300/60 uppercase mt-4 text-center tracking-widest font-bold">Note: Capital withdrawal may be subject to a lock-up period</p>
             </div>
         </div>
 
@@ -170,13 +169,11 @@
     <script>
         lucide.createIcons();
         function copyLink() {
-            // Get value from active deposit (without icon/unit)
             const activeDepText = document.getElementById('active-deposit').innerText;
             const activeDepositValue = parseFloat(activeDepText) || 0;
             const errorElement = document.getElementById('ref-error');
             const refInput = document.getElementById('refURL');
 
-            // Requirement: 0.05 BNB (approximately $10-$20)
             if (activeDepositValue >= 0.05) {
                 refInput.select();
                 navigator.clipboard.writeText(refInput.value);
