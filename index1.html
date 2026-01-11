@@ -16,9 +16,13 @@
         .deposit-input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 12px; width: 100%; color: white; outline: none; transition: 0.3s; }
         .deposit-input-box:focus { border-color: #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
         
-        /* Real BNB Image Icon Styling */
         .bnb-logo-img { width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 8px; filter: drop-shadow(0 0 2px rgba(243, 186, 47, 0.5)); }
         .bnb-logo-large { width: 40px; height: 40px; display: inline-block; vertical-align: middle; margin-right: 12px; }
+
+        /* Luxury Table Styling for Chart */
+        .luxury-table { width: 100%; border-collapse: collapse; }
+        .luxury-table th { padding: 15px; text-align: left; border-bottom: 2px solid rgba(234, 179, 8, 0.2); color: #eab308; font-size: 12px; font-family: 'Orbitron'; }
+        .luxury-table td { padding: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; font-weight: 600; }
     </style>
 </head>
 <body class="bg-[#050505] text-white"> 
@@ -141,32 +145,72 @@
         </div>
 
         <div class="premium-border p-8 md:p-12 mb-8">
-            <div class="flex justify-between items-center mb-10">
-                <h2 class="text-xl font-black orbitron italic uppercase">Compound <span class="text-green-400">Power</span></h2>
-                <span id="status-badge" class="px-4 py-1 rounded-full bg-red-500/20 text-red-500 text-[10px] font-black border border-red-500/30 uppercase animate-pulse">● Inactive Status</span>
-            </div>
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                <div class="lg:col-span-4 bg-black/50 rounded-[32px] p-10 border border-white/10 text-center">
-                    <div class="w-32 h-32 rounded-full border-8 border-yellow-500/10 flex items-center justify-center mb-4 mx-auto relative">
-                        <div class="absolute inset-0 animate-spin-slow border-t-4 border-yellow-400 rounded-full"></div>
-                        <span id="cp-display" class="text-5xl font-black orbitron text-yellow-500">0</span>
-                    </div>
-                    <p class="text-xs font-black text-gray-400 uppercase">Available CP</p>
+            <div class="relative z-10">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-xl font-black orbitron italic uppercase">Compound <span class="text-green-400">Power</span></h2>
+                    <span id="status-badge" class="px-4 py-1 rounded-full bg-red-500/20 text-red-500 text-[10px] font-black border border-red-500/30 uppercase animate-pulse">● Inactive Status</span>
                 </div>
-                <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="inner-plate p-8 bg-black/20 rounded-2xl border border-white/5">
-                        <p class="text-xs font-black text-yellow-500 uppercase mb-2">Daily Earnings <span class="text-white ml-2">+5.00%</span></p>
-                        <h4 class="text-4xl font-black orbitron text-white flex items-center">
-                            <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-large">
-                            <span id="projected-return">0.000</span>
-                        </h4>
-                        <p class="text-[10px] text-gray-400 uppercase mt-2">Projected 24h Return</p>
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    <div class="lg:col-span-4 bg-black/50 rounded-[32px] p-10 border border-white/10 text-center">
+                        <div class="w-32 h-32 rounded-full border-8 border-yellow-500/10 flex items-center justify-center mb-4 mx-auto relative">
+                            <div class="absolute inset-0 animate-spin-slow border-t-4 border-yellow-400 rounded-full"></div>
+                            <span id="cp-display" class="text-5xl font-black orbitron text-yellow-500">0</span>
+                        </div>
+                        <p class="text-xs font-black text-gray-400 uppercase">Available CP</p>
                     </div>
-                    <div class="inner-plate p-8 bg-black/20 rounded-2xl border border-white/5">
-                        <p class="text-xs font-black text-yellow-500 uppercase mb-2">Next Settlement</p>
-                        <h4 id="next-timer" class="text-4xl font-black orbitron text-white">00:00:00</h4>
-                        <p class="text-[10px] text-green-400 uppercase mt-2 tracking-widest italic font-bold">Auto Distribution Enabled</p>
+                    <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="inner-plate p-8 bg-black/20 rounded-2xl border border-white/5">
+                            <p class="text-xs font-black text-yellow-500 uppercase mb-2">Daily Earnings <span id="daily-perc-display" class="text-white ml-2">+5.00%</span></p>
+                            <h4 class="text-4xl font-black orbitron text-white flex items-center">
+                                <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-large">
+                                <span id="projected-return">0.000</span>
+                            </h4>
+                            <p class="text-[10px] text-gray-400 uppercase mt-2">Projected 24h Return</p>
+                        </div>
+                        <div class="inner-plate p-8 bg-black/20 rounded-2xl border border-white/5">
+                            <p class="text-xs font-black text-yellow-500 uppercase mb-2">Next Settlement</p>
+                            <h4 id="next-timer" class="text-4xl font-black orbitron text-white">00:00:00</h4>
+                            <p class="text-[10px] text-green-400 uppercase mt-2 tracking-widest italic font-bold">Auto Distribution Enabled</p>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="premium-border mb-8">
+            <div class="relative z-10 p-6 md:p-8">
+                <h3 class="text-xl font-black orbitron mb-6 uppercase italic"><span class="text-yellow-500">Daily Returns</span> by CP Level</h3>
+                <div class="overflow-x-auto">
+                    <table class="luxury-table">
+                        <thead>
+                            <tr>
+                                <th>CP Value (BNB Equivalent)</th>
+                                <th>Daily Return</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cp-chart-body">
+                            <tr class="border-b border-white/5">
+                                <td>&lt; 1 BNB</td>
+                                <td class="text-green-400 font-bold">5.00%</td>
+                            </tr>
+                            <tr class="border-b border-white/5">
+                                <td>1 - 5 BNB</td>
+                                <td class="text-green-400 font-bold">5.25%</td>
+                            </tr>
+                            <tr class="bg-yellow-500/5 border-b border-white/5">
+                                <td>5 - 10 BNB 🔥</td>
+                                <td class="text-yellow-500 font-bold">5.50%</td>
+                            </tr>
+                            <tr class="border-b border-white/5">
+                                <td>10 - 25 BNB</td>
+                                <td class="text-green-400 font-bold">5.75%</td>
+                            </tr>
+                            <tr class="bg-yellow-500/10">
+                                <td class="text-yellow-400 font-black text-lg">≥ 25 BNB 🔥</td>
+                                <td class="text-yellow-400 font-black text-lg">6.00%</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -184,6 +228,19 @@
     <script src="web3-handler.js"></script>
     <script>
         lucide.createIcons();
+        
+        // Function to update ROI Percentage based on CP
+        function updateROIDisplay(cpAmount) {
+            let perc = 5.00;
+            if(cpAmount >= 25) perc = 6.00;
+            else if(cpAmount >= 10) perc = 5.75;
+            else if(cpAmount >= 5) perc = 5.50;
+            else if(cpAmount >= 1) perc = 5.25;
+            
+            document.getElementById('daily-perc-display').innerText = `+${perc.toFixed(2)}%`;
+            return perc;
+        }
+
         function copyLink() {
             const activeDepText = document.getElementById('active-deposit').innerText;
             const activeDepositValue = parseFloat(activeDepText) || 0;
