@@ -53,32 +53,34 @@ const calculateGlobalROI = (amount) => {
 
 // --- INITIALIZATION ---
 async function init() {
-    if (window.ethereum) {
-        try {
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            // Request accounts if not already connected
-            const accounts = await provider.send("eth_requestAccounts", []);
-            
-            window.signer = provider.getSigner();
-            signer = window.signer;
-            
-            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-            contract = window.contract;
-            
-            window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-            usdtContract = window.usdtContract;
+    if (window.ethereum) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // Sirf check karo agar wallet pehle se connected hai (No popup here)
+        const accounts = await provider.listAccounts();
+        const path = window.location.pathname;
+        const isLandingPage = path.endsWith('/') || path.endsWith('index.html');
 
-            if (accounts.length > 0) {
-                await setupApp(accounts[0]);
-            }
-        } catch (error) {
-            console.error("User rejected connection", error);
-        }
-    } else {
-        alert("Please install MetaMask to use this App.");
-    }
+        if (accounts.length > 0) {
+            setupInstances(accounts[0]);
+            // Agar dashboard par hai toh data load karo
+            if (path.includes('index1.html')) await setupApp(accounts[0]);
+        } else {
+            // Agar user dashboard par hai aur connected nahi hai, toh home bhej do
+            if (!isLandingPage && !path.includes('register.html')) {
+                window.location.href = "index.html";
+            }
+        }
+    }
 }
 
+// Helper to setup contracts
+function setupInstances(address) {
+    signer = provider.getSigner();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    updateNavbar(address);
+}
 // --- CORE LOGIC ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
@@ -533,4 +535,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
