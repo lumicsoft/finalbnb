@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     if (isAuthPage) return;
 
-    // 3. Check Wallet Status Right Now
+    // 3. Check Wallet Status
     let walletAddress = "";
     let isConnected = false;
     if (window.ethereum) {
@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // 4. Inject Navbar (Yahan hum condition check kar rahe hain)
+    // 4. Inject Navbar (UPDATE: Logout icon exactly below connect button)
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     Earn <span class="text-gradient">BNB</span>
                 </span>
             </div>
+            
             <div class="hidden md:flex gap-4">
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='index1.html'">Dashboard</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='deposits.html'">Mining</button>
@@ -40,22 +41,23 @@ document.addEventListener("DOMContentLoaded", async function () {
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='history.html'">History</button>
             </div>
             
-            <div class="flex flex-col items-end">
+            <div class="flex flex-col items-center gap-1">
                 <button id="connect-btn" onclick="handleLogin()" class="gold-btn">
                     ${isConnected ? walletAddress.substring(0, 6) + "..." + walletAddress.substring(38) : "Connect Wallet"}
                 </button>
                 
                 <button id="logout-icon-btn" onclick="handleLogout()" 
-                    style="display: ${isConnected ? 'block' : 'none'};" 
-                    class="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-tighter cursor-pointer hover:text-white transition-all">
-                    ✖ Disconnect
+                    style="display: ${isConnected ? 'flex' : 'none'};" 
+                    class="p-1 text-red-500 hover:text-white transition-all cursor-pointer"
+                    title="Logout">
+                    <i data-lucide="power" class="w-5 h-5"></i>
                 </button>
             </div>
         </nav>
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 5. Inject Mobile Navigation
+    // 5. Inject Mobile Navigation (Bottom Bar)
     const mobileNavHTML = `
         <div class="mobile-nav md:hidden px-2">
             <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
