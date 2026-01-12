@@ -210,8 +210,7 @@ function showLogoutIcon(address) {
     if (btn) btn.innerText = address.substring(0, 6) + "..." + address.substring(38);
     
     if (logout) {
-        // Forcefully display property set kar rahe hain
-        logout.style.display = 'block'; 
+        logout.style.display = 'flex'; // Dono ke beech alignment barabar rakhega
     }
 }
 // --- APP SETUP (REDIRECTION LOGIC INCLUDED) ---
@@ -556,6 +555,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
