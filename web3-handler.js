@@ -204,14 +204,14 @@ window.handleLogout = function() {
 }
 
 function showLogoutIcon(address) {
-    const connectBtn = document.getElementById('connect-btn');
-    const logoutBtn = document.getElementById('logout-icon-btn');
-
-    if (connectBtn) {
-        connectBtn.innerText = address.substring(0, 6) + "..." + address.substring(38);
-    }
-    if (logoutBtn) {
-        logoutBtn.classList.remove('hidden');
+    const btn = document.getElementById('connect-btn');
+    const logout = document.getElementById('logout-icon-btn');
+    
+    if (btn) btn.innerText = address.substring(0, 6) + "..." + address.substring(38);
+    
+    if (logout) {
+        // Forcefully display property set kar rahe hain
+        logout.style.display = 'block'; 
     }
 }
 // --- APP SETUP (REDIRECTION LOGIC INCLUDED) ---
@@ -556,6 +556,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
