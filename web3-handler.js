@@ -156,12 +156,24 @@ window.handleCapitalWithdraw = async function() {
 }
 
 window.handleLogin = async function() {
-    try {
-        const accounts = await provider.send("eth_requestAccounts", []);
-        const userData = await contract.users(accounts[0]);
-        if (userData.registered) window.location.href = "index1.html";
-        else { alert("Not registered!"); window.location.href = "register.html"; }
-    } catch (err) { console.error(err); }
+    try {
+        if (!window.ethereum) return alert("Please install MetaMask!");
+        
+        const accounts = await provider.send("eth_requestAccounts", []);
+        const userAddress = accounts[0];
+        
+        setupInstances(userAddress);
+        const userData = await contract.users(userAddress);
+
+        if (userData.registered) {
+            window.location.href = "index1.html";
+        } else {
+            alert("Not registered!");
+            window.location.href = "register.html";
+        }
+    } catch (err) {
+        console.error("Login Error:", err);
+    }
 }
 
 window.handleRegister = async function() {
@@ -179,15 +191,12 @@ window.handleLogout = function() {
     if (confirm("Do you want to disconnect?")) {
         signer = null;
         contract = null;
-        
-        // UI Reset
         const connectBtn = document.getElementById('connect-btn');
         const logoutBtn = document.getElementById('logout-icon-btn');
         
         if (connectBtn) connectBtn.innerText = "Connect Wallet";
         if (logoutBtn) logoutBtn.classList.add('hidden');
         
-        // Go to Home
         window.location.href = "index.html";
     }
 }
@@ -199,7 +208,6 @@ function showLogoutIcon(address) {
     if (connectBtn) {
         connectBtn.innerText = address.substring(0, 6) + "..." + address.substring(38);
     }
-    // Dashboard par agar element hai toh icon dikhao
     if (logoutBtn) {
         logoutBtn.classList.remove('hidden');
     }
@@ -546,4 +554,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
