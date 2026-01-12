@@ -1,24 +1,27 @@
-document.addEventListener("DOMContentLoaded", function () {
-    // 1. Check if Auth Page
+document.addEventListener("DOMContentLoaded", async function () {
+    // 1. Auth Page Check
     const isAuthPage = document.getElementById('auth-page') || 
                        window.location.pathname.includes('register.html') || 
                        window.location.pathname.includes('login.html');
 
     // 2. Inject Dots Background
-    const dotsHTML = `
-        <div class="dots-container">
-            <div class="dots dots-white"></div>
-            <div class="dots dots-cyan"></div>
-        </div>
-    `;
+    const dotsHTML = `<div class="dots-container"><div class="dots dots-white"></div><div class="dots dots-cyan"></div></div>`;
     document.body.insertAdjacentHTML('afterbegin', dotsHTML);
 
-    if (isAuthPage) {
-        console.log("Auth page detected: Skipping Navigation Injection");
-        return; 
+    if (isAuthPage) return;
+
+    // 3. Check Wallet Status Right Now
+    let walletAddress = "";
+    let isConnected = false;
+    if (window.ethereum) {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+            walletAddress = accounts[0];
+            isConnected = true;
+        }
     }
 
-    // 3. Inject Navbar (UPDATE: Changed 'hidden' to inline style for better JS control)
+    // 4. Inject Navbar (Yahan hum condition check kar rahe hain)
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -38,8 +41,13 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
             
             <div class="flex flex-col items-end">
-                <button id="connect-btn" onclick="handleLogin()" class="gold-btn">Connect Wallet</button>
-                <button id="logout-icon-btn" onclick="handleLogout()" style="display: none;" class="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-tighter cursor-pointer hover:text-white transition-all">
+                <button id="connect-btn" onclick="handleLogin()" class="gold-btn">
+                    ${isConnected ? walletAddress.substring(0, 6) + "..." + walletAddress.substring(38) : "Connect Wallet"}
+                </button>
+                
+                <button id="logout-icon-btn" onclick="handleLogout()" 
+                    style="display: ${isConnected ? 'block' : 'none'};" 
+                    class="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-tighter cursor-pointer hover:text-white transition-all">
                     ✖ Disconnect
                 </button>
             </div>
@@ -47,7 +55,7 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 4. Inject Mobile Navigation
+    // 5. Inject Mobile Navigation
     const mobileNavHTML = `
         <div class="mobile-nav md:hidden px-2">
             <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
@@ -74,7 +82,5 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('beforeend', mobileNavHTML);
 
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 });
