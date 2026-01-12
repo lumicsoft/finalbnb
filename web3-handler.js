@@ -160,10 +160,13 @@ window.handleLogin = async function() {
         if (!window.ethereum) return alert("Please install MetaMask!");
         
         const accounts = await provider.send("eth_requestAccounts", []);
-        const userAddress = accounts[0];
+        const userAddress = accounts[0]; // Yahan sirf ek baar address liya
         
-        setupInstances(userAddress);
+        signer = provider.getSigner();
+        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        
         const userData = await contract.users(userAddress);
+        showLogoutIcon(userAddress);
 
         if (userData.registered) {
             window.location.href = "index1.html";
@@ -175,7 +178,6 @@ window.handleLogin = async function() {
         console.error("Login Error:", err);
     }
 }
-
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
@@ -554,5 +556,6 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
