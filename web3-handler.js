@@ -157,34 +157,37 @@ window.handleCapitalWithdraw = async function() {
 
 window.handleLogin = async function() {
     try {
-        // Agar provider abhi tak init nahi hua hai
         if (!window.ethereum) {
             alert("Please install MetaMask!");
             return;
         }
 
-        // Web3 Provider aur Accounts fetch karein
         const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
         const accounts = await tempProvider.send("eth_requestAccounts", []);
         const userAddress = accounts[0];
 
-        // Contract instance check
-        if (!contract) {
-            // Agar init() nahi chala to manually contract banayein login ke liye
+        // UI Update: Button par address dikhane ke liye
+        const loginBtn = document.getElementById('login-btn-main');
+        if (loginBtn) {
+            loginBtn.innerText = userAddress.substring(0, 6) + "..." + userAddress.substring(38);
+        }
+
+        if (!window.contract) {
             const tempSigner = tempProvider.getSigner();
             window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
             contract = window.contract;
         }
 
-        // User registration status check karein
         const userData = await contract.users(userAddress);
 
         if (userData.registered) {
-            console.log("User registered, redirecting to Dashboard...");
-            window.location.href = "index1.html"; // Dashboard page
+            // Thoda delay taaki user address dekh sake
+            setTimeout(() => {
+                window.location.href = "index1.html";
+            }, 1000);
         } else {
             alert("Account not found! Redirecting to Registration...");
-            window.location.href = "register.html"; // Registration page
+            window.location.href = "register.html";
         }
     } catch (err) {
         console.error("Login Error:", err);
@@ -548,4 +551,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
