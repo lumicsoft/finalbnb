@@ -163,32 +163,46 @@ window.handleLogin = async function() {
         }
 
         const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // 1. Network Check (BSC Testnet ID: 97)
+        const { chainId } = await tempProvider.getNetwork();
+        if (chainId !== 97) {
+            alert("Please switch your MetaMask to BSC Testnet!");
+            // Yahan switch network ka prompt bhi dal sakte hain
+            return;
+        }
+
+        // 2. Account Fetch
         const accounts = await tempProvider.send("eth_requestAccounts", []);
         const userAddress = accounts[0];
 
-        // UI Update: Button par address dikhane ke liye
-        const loginBtn = document.getElementById('login-btn-main');
+        // 3. UI Update (Button par address dikhane ke liye)
+        const loginBtn = document.querySelector('.btn-glow'); // Aapka button class
         if (loginBtn) {
             loginBtn.innerText = userAddress.substring(0, 6) + "..." + userAddress.substring(38);
         }
 
+        // 4. Contract Initialization
         if (!window.contract) {
             const tempSigner = tempProvider.getSigner();
             window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
             contract = window.contract;
         }
 
+        // 5. Registration Status Check
         const userData = await contract.users(userAddress);
 
         if (userData.registered) {
-            // Thoda delay taaki user address dekh sake
+            console.log("User registered, redirecting...");
+            // Chhota sa delay taaki user address dekh sake
             setTimeout(() => {
-                window.location.href = "index1.html";
-            }, 1000);
+                window.location.href = "index1.html"; 
+            }, 800);
         } else {
             alert("Account not found! Redirecting to Registration...");
-            window.location.href = "register.html";
+            window.location.href = "register.html"; 
         }
+
     } catch (err) {
         console.error("Login Error:", err);
         if (err.code === 4001) {
@@ -551,5 +565,6 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
