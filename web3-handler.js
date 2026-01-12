@@ -53,34 +53,32 @@ const calculateGlobalROI = (amount) => {
 
 // --- INITIALIZATION ---
 async function init() {
-    if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        
-        // Sirf check karo agar wallet pehle se connected hai (No popup here)
-        const accounts = await provider.listAccounts();
-        const path = window.location.pathname;
-        const isLandingPage = path.endsWith('/') || path.endsWith('index.html');
+    if (window.ethereum) {
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            // Request accounts if not already connected
+            const accounts = await provider.send("eth_requestAccounts", []);
+            
+            window.signer = provider.getSigner();
+            signer = window.signer;
+            
+            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            contract = window.contract;
+            
+            window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+            usdtContract = window.usdtContract;
 
-        if (accounts.length > 0) {
-            setupInstances(accounts[0]);
-            // Agar dashboard par hai toh data load karo
-            if (path.includes('index1.html')) await setupApp(accounts[0]);
-        } else {
-            // Agar user dashboard par hai aur connected nahi hai, toh home bhej do
-            if (!isLandingPage && !path.includes('register.html')) {
-                window.location.href = "index.html";
-            }
-        }
-    }
+            if (accounts.length > 0) {
+                await setupApp(accounts[0]);
+            }
+        } catch (error) {
+            console.error("User rejected connection", error);
+        }
+    } else {
+        alert("Please install MetaMask to use this App.");
+    }
 }
 
-// Helper to setup contracts
-function setupInstances(address) {
-    signer = provider.getSigner();
-    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-    updateNavbar(address);
-}
 // --- CORE LOGIC ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
@@ -158,30 +156,14 @@ window.handleCapitalWithdraw = async function() {
 }
 
 window.handleLogin = async function() {
-    try {
-        if (!window.ethereum) return alert("Please install MetaMask!");
-
-        // 1. Connection sirf ab maangega (Click hone par)
-        const accounts = await provider.send("eth_requestAccounts", []);
-        const userAddress = accounts[0];
-        
-        setupInstances(userAddress);
-
-        // 2. Blockchain se user ka data check karo
-        const userData = await contract.users(userAddress);
-
-        if (userData.registered) {
-            // Agar user registered hai -> Dashboard
-            window.location.href = "index1.html";
-        } else {
-            // Agar registered nahi hai -> Register Page
-            alert("Account not found. Please register first.");
-            window.location.href = "register.html";
-        }
-    } catch (err) {
-        console.error("User denied or error:", err);
-    }
+    try {
+        const accounts = await provider.send("eth_requestAccounts", []);
+        const userData = await contract.users(accounts[0]);
+        if (userData.registered) window.location.href = "index1.html";
+        else { alert("Not registered!"); window.location.href = "register.html"; }
+    } catch (err) { console.error(err); }
 }
+
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
@@ -192,39 +174,7 @@ window.handleRegister = async function() {
         window.location.href = "index1.html";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
-// --- LOGOUT LOGIC ---
-window.handleLogout = function() {
-    if (confirm("Do you want to disconnect?")) {
-        // Clear references
-        signer = null;
-        contract = null;
-        
-        // UI Reset
-        const connectBtn = document.getElementById('connect-btn');
-        const logoutBtn = document.getElementById('logout-icon-btn');
-        
-        if (connectBtn) connectBtn.innerText = "Connect Wallet";
-        if (logoutBtn) logoutBtn.classList.add('hidden'); // Hide logout icon
-        
-        // Redirect to landing page
-        window.location.href = "index.html";
-    }
-}
 
-// --- UPDATE UI AFTER LOGIN ---
-// Ise apne setupApp ya login function ke andar call karein
-function showLogoutIcon(address) {
-    const connectBtn = document.getElementById('connect-btn');
-    const logoutBtn = document.getElementById('logout-icon-btn');
-
-    if (connectBtn) {
-        connectBtn.innerText = address.substring(0, 6) + "..." + address.substring(38);
-    }
-    
-    if (logoutBtn) {
-        logoutBtn.classList.remove('hidden'); // Show logout icon
-    }
-}
 // --- APP SETUP (REDIRECTION LOGIC INCLUDED) ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
@@ -567,6 +517,3 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
-
-
-
