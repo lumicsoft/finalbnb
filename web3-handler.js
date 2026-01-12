@@ -156,14 +156,30 @@ window.handleCapitalWithdraw = async function() {
 }
 
 window.handleLogin = async function() {
-    try {
-        const accounts = await provider.send("eth_requestAccounts", []);
-        const userData = await contract.users(accounts[0]);
-        if (userData.registered) window.location.href = "index1.html";
-        else { alert("Not registered!"); window.location.href = "register.html"; }
-    } catch (err) { console.error(err); }
-}
+    try {
+        if (!window.ethereum) return alert("Please install MetaMask!");
 
+        // 1. Connection sirf ab maangega (Click hone par)
+        const accounts = await provider.send("eth_requestAccounts", []);
+        const userAddress = accounts[0];
+        
+        setupInstances(userAddress);
+
+        // 2. Blockchain se user ka data check karo
+        const userData = await contract.users(userAddress);
+
+        if (userData.registered) {
+            // Agar user registered hai -> Dashboard
+            window.location.href = "index1.html";
+        } else {
+            // Agar registered nahi hai -> Register Page
+            alert("Account not found. Please register first.");
+            window.location.href = "register.html";
+        }
+    } catch (err) {
+        console.error("User denied or error:", err);
+    }
+}
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
@@ -517,3 +533,4 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
