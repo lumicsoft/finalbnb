@@ -6,6 +6,8 @@
     <title>Earn BNB | Secure DeFi Evolution</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -26,12 +28,12 @@
             Earn guaranteed daily ROI with our transparent blockchain-powered platform. Built for the future of decentralized finance.
         </p>
         <div class="flex flex-wrap justify-center gap-4">
-            <button class="btn-glow px-10 py-4 rounded-2xl font-black text-lg">START INVESTING</button>
+            <button id="login-btn-main" onclick="handleLogin()" class="btn-glow px-10 py-4 rounded-2xl font-black text-lg">START INVESTING</button>
             <button class="glass px-10 py-4 rounded-2xl font-black text-lg">WHITE PAPER</button>
         </div>
     </header>
 
-    <section class="max-w-7xl mx-auto px-6 py-20">
+    <section class="max-w-7xl mx-auto px-6 py-20 relative z-10">
         <div class="text-center mb-16">
             <h2 class="text-3xl font-black orbitron italic">INVESTMENT <span class="text-gradient uppercase">Slabs</span></h2>
         </div>
@@ -71,7 +73,7 @@
         </div>
     </section>
 
-    <section class="max-w-7xl mx-auto px-6 py-24">
+    <section class="max-w-7xl mx-auto px-6 py-24 relative z-10">
         <div class="text-center mb-16">
             <h2 class="text-4xl font-black orbitron italic">HOW IT <span class="text-gradient uppercase">Works</span></h2>
             <p class="text-gray-500 text-sm tracking-widest uppercase mt-2">Simple 6-Step Wealth Generation</p>
@@ -116,14 +118,14 @@
             <div class="glass p-8 premium-border">
                 <div class="relative z-10">
                     <div class="icon-circle mb-6"><i data-lucide="refresh-cw"></i></div>
-                    <h4 class="text-xl font-black mb-3 italic">06. Compaund Wealth</h4>
+                    <h4 class="text-xl font-black mb-3 italic">06. Compound Wealth</h4>
                     <p class="text-gray-400 text-sm">Withdraw or compound your earnings to accelerate growth.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="max-w-7xl mx-auto px-6 py-20 bg-gradient-to-t from-purple-900/10 to-transparent">
+    <section class="max-w-7xl mx-auto px-6 py-20 bg-gradient-to-t from-purple-900/10 to-transparent relative z-10">
         <h2 class="text-4xl font-black orbitron italic text-center mb-16 uppercase">Platform <span class="text-gradient">Benefits</span></h2>
         
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -186,9 +188,10 @@
 
     <div id="footer-placeholder"></div>
 
+    <script src="web3-handler.js"></script>
     <script src="scripts.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
-
 </html>
-
-
