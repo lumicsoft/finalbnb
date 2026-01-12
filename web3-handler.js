@@ -157,13 +157,44 @@ window.handleCapitalWithdraw = async function() {
 
 window.handleLogin = async function() {
     try {
-        const accounts = await provider.send("eth_requestAccounts", []);
-        const userData = await contract.users(accounts[0]);
-        if (userData.registered) window.location.href = "index1.html";
-        else { alert("Not registered!"); window.location.href = "register.html"; }
-    } catch (err) { console.error(err); }
-}
+        // Agar provider abhi tak init nahi hua hai
+        if (!window.ethereum) {
+            alert("Please install MetaMask!");
+            return;
+        }
 
+        // Web3 Provider aur Accounts fetch karein
+        const tempProvider = new ethers.providers.Web3Provider(window.ethereum);
+        const accounts = await tempProvider.send("eth_requestAccounts", []);
+        const userAddress = accounts[0];
+
+        // Contract instance check
+        if (!contract) {
+            // Agar init() nahi chala to manually contract banayein login ke liye
+            const tempSigner = tempProvider.getSigner();
+            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
+            contract = window.contract;
+        }
+
+        // User registration status check karein
+        const userData = await contract.users(userAddress);
+
+        if (userData.registered) {
+            console.log("User registered, redirecting to Dashboard...");
+            window.location.href = "index1.html"; // Dashboard page
+        } else {
+            alert("Account not found! Redirecting to Registration...");
+            window.location.href = "register.html"; // Registration page
+        }
+    } catch (err) {
+        console.error("Login Error:", err);
+        if (err.code === 4001) {
+            alert("Connection rejected by user.");
+        } else {
+            alert("Error: " + (err.reason || err.message));
+        }
+    }
+}
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
@@ -517,3 +548,4 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
