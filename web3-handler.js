@@ -206,11 +206,9 @@ window.handleLogout = function() {
 function showLogoutIcon(address) {
     const btn = document.getElementById('connect-btn');
     const logout = document.getElementById('logout-icon-btn');
-    
     if (btn) btn.innerText = address.substring(0, 6) + "..." + address.substring(38);
-    
     if (logout) {
-        logout.style.display = 'flex'; // Dono ke beech alignment barabar rakhega
+        logout.style.display = 'flex'; // Display on connect
     }
 }
 // --- APP SETUP (REDIRECTION LOGIC INCLUDED) ---
@@ -555,6 +553,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
