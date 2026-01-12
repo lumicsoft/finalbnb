@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     if (isAuthPage) return;
 
-    // 3. Check Wallet Status
+    // 3. Check Wallet Status Right Now
     let walletAddress = "";
     let isConnected = false;
     if (window.ethereum) {
@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // 4. Inject Navbar (UPDATE: Logout icon exactly below connect button)
+    // 4. Inject Navbar (UPDATE: Absolute Positioning for centered icon below button)
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -41,16 +41,16 @@ document.addEventListener("DOMContentLoaded", async function () {
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='history.html'">History</button>
             </div>
             
-            <div class="flex flex-col items-center gap-1">
+            <div class="relative flex flex-col items-center">
                 <button id="connect-btn" onclick="handleLogin()" class="gold-btn">
                     ${isConnected ? walletAddress.substring(0, 6) + "..." + walletAddress.substring(38) : "Connect Wallet"}
                 </button>
                 
                 <button id="logout-icon-btn" onclick="handleLogout()" 
-                    style="display: ${isConnected ? 'flex' : 'none'};" 
-                    class="p-1 text-red-500 hover:text-white transition-all cursor-pointer"
+                    style="display: ${isConnected ? 'flex' : 'none'}; position: absolute; top: 100%; margin-top: 4px;" 
+                    class="p-1 text-red-500 hover:text-red-400 transition-all cursor-pointer items-center justify-center"
                     title="Logout">
-                    <i data-lucide="power" class="w-5 h-5"></i>
+                    <i data-lucide="power" class="w-4 h-4"></i>
                 </button>
             </div>
         </nav>
