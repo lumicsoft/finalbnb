@@ -174,7 +174,36 @@ window.handleRegister = async function() {
         window.location.href = "index1.html";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
+// --- LOGOUT LOGIC (Small Icon) ---
+window.handleLogout = function() {
+    if (confirm("Do you want to disconnect?")) {
+        signer = null;
+        contract = null;
+        
+        // UI Reset
+        const connectBtn = document.getElementById('connect-btn');
+        const logoutBtn = document.getElementById('logout-icon-btn');
+        
+        if (connectBtn) connectBtn.innerText = "Connect Wallet";
+        if (logoutBtn) logoutBtn.classList.add('hidden');
+        
+        // Go to Home
+        window.location.href = "index.html";
+    }
+}
 
+function showLogoutIcon(address) {
+    const connectBtn = document.getElementById('connect-btn');
+    const logoutBtn = document.getElementById('logout-icon-btn');
+
+    if (connectBtn) {
+        connectBtn.innerText = address.substring(0, 6) + "..." + address.substring(38);
+    }
+    // Dashboard par agar element hai toh icon dikhao
+    if (logoutBtn) {
+        logoutBtn.classList.remove('hidden');
+    }
+}
 // --- APP SETUP (REDIRECTION LOGIC INCLUDED) ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
@@ -517,3 +546,4 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
