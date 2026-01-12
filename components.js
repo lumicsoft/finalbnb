@@ -1,10 +1,10 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // Sabse pehle check karein ki kya ye register ya login page hai
+    // 1. Check if Auth Page
     const isAuthPage = document.getElementById('auth-page') || 
                        window.location.pathname.includes('register.html') || 
                        window.location.pathname.includes('login.html');
 
-    // 1. Inject Dots Background (Ye hamesha aayega)
+    // 2. Inject Dots Background
     const dotsHTML = `
         <div class="dots-container">
             <div class="dots dots-white"></div>
@@ -13,14 +13,12 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', dotsHTML);
 
-    // AGAR REGISTER PAGE HAI TO NAVBAR AUR MOBILE NAV MAT DAALO
     if (isAuthPage) {
         console.log("Auth page detected: Skipping Navigation Injection");
         return; 
     }
 
-    // 2. Inject Navbar (Sirf Dashboard pages ke liye)
-    // UPDATE: Added Logout Button and fixed function call to handleLogin()
+    // 3. Inject Navbar (UPDATE: Changed 'hidden' to inline style for better JS control)
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -41,7 +39,7 @@ document.addEventListener("DOMContentLoaded", function () {
             
             <div class="flex flex-col items-end">
                 <button id="connect-btn" onclick="handleLogin()" class="gold-btn">Connect Wallet</button>
-                <button id="logout-icon-btn" onclick="handleLogout()" class="hidden text-[10px] text-red-500 font-bold mt-1 uppercase tracking-tighter cursor-pointer hover:text-white transition-all">
+                <button id="logout-icon-btn" onclick="handleLogout()" style="display: none;" class="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-tighter cursor-pointer hover:text-white transition-all">
                     ✖ Disconnect
                 </button>
             </div>
@@ -49,7 +47,7 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 3. Inject Mobile Navigation
+    // 4. Inject Mobile Navigation
     const mobileNavHTML = `
         <div class="mobile-nav md:hidden px-2">
             <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
