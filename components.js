@@ -16,10 +16,11 @@ document.addEventListener("DOMContentLoaded", function () {
     // AGAR REGISTER PAGE HAI TO NAVBAR AUR MOBILE NAV MAT DAALO
     if (isAuthPage) {
         console.log("Auth page detected: Skipping Navigation Injection");
-        return; // Yahan se code aage nahi badhega
+        return; 
     }
 
     // 2. Inject Navbar (Sirf Dashboard pages ke liye)
+    // UPDATE: Added Logout Button and fixed function call to handleLogin()
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -37,12 +38,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='leadership.html'">Leadership</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='history.html'">History</button>
             </div>
-            <button id="connect-btn" onclick="connectWallet()" class="gold-btn">Connect Wallet</button>
+            
+            <div class="flex flex-col items-end">
+                <button id="connect-btn" onclick="handleLogin()" class="gold-btn">Connect Wallet</button>
+                <button id="logout-icon-btn" onclick="handleLogout()" class="hidden text-[10px] text-red-500 font-bold mt-1 uppercase tracking-tighter cursor-pointer hover:text-white transition-all">
+                    ✖ Disconnect
+                </button>
+            </div>
         </nav>
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 3. Inject Mobile Navigation (Sirf Dashboard pages ke liye)
+    // 3. Inject Mobile Navigation
     const mobileNavHTML = `
         <div class="mobile-nav md:hidden px-2">
             <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
