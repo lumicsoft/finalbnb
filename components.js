@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // 4. Inject Navbar (UPDATE: Absolute Positioning for centered icon below button)
+    // 4. Inject Navbar
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 5. Inject Mobile Navigation (Bottom Bar)
+    // 5. Inject Mobile Navigation
     const mobileNavHTML = `
         <div class="mobile-nav md:hidden px-2">
             <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
@@ -84,6 +84,21 @@ document.addEventListener("DOMContentLoaded", async function () {
     `;
     document.body.insertAdjacentHTML('beforeend', mobileNavHTML);
 
+    // --- 6. ADDED: Footer Logic ---
+    const footerHTML = `
+        <footer class="p-20 text-center border-t border-white/5 relative z-10">
+            <p class="orbitron font-bold text-2xl mb-4 italic">Earn <span class="text-gradient uppercase">BNB</span></p>
+            <p class="text-gray-600 text-[10px] tracking-[1em] uppercase">Decentralized Finance Future © 2026</p>
+        </footer>
+    `;
+    
+    const footerPlaceholder = document.getElementById('footer-placeholder');
+    if (footerPlaceholder) {
+        footerPlaceholder.innerHTML = footerHTML;
+    } else {
+        // Agar placeholder nahi mila, toh body ke aakhir mein daal do
+        document.body.insertAdjacentHTML('beforeend', footerHTML);
+    }
+
     if (typeof lucide !== 'undefined') lucide.createIcons();
 });
-
