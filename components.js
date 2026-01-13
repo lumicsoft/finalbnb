@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     if (isAuthPage) return;
 
-    // 3. Check Wallet Status Right Now
+    // 3. Check Wallet Status
     let walletAddress = "";
     let isConnected = false;
     if (window.ethereum) {
@@ -21,12 +21,12 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // 4. Inject Navbar
+    // 4. Inject Navbar (Desktop)
     const navHTML = `
         <nav class="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center relative z-50">
             <div class="flex items-center gap-2 cursor-pointer" onclick="location.href='index1.html'">
-                <div class="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                    <i data-lucide="component" class="text-white w-6 h-6"></i>
+                <div class="w-10 h-10 bg-gradient-to-tr from-yellow-400 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                    <i data-lucide="component" class="text-black w-6 h-6"></i>
                 </div>
                 <span class="text-xl font-black orbitron tracking-tighter uppercase">
                     Earn <span class="text-gradient">BNB</span>
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             <div class="hidden md:flex gap-4">
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='index1.html'">Dashboard</button>
-                <button class="gold-btn !py-2 !px-5" onclick="location.href='deposits.html'">position</button>
+                <button class="gold-btn !py-2 !px-5" onclick="location.href='deposits.html'">Position</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='referral.html'">Referral</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='leadership.html'">Leadership</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='history.html'">History</button>
@@ -57,36 +57,48 @@ document.addEventListener("DOMContentLoaded", async function () {
     `;
     document.body.insertAdjacentHTML('afterbegin', navHTML);
 
-    // 5. Inject Mobile Navigation
+    // 5. Inject Premium Floating Mobile Navigation
     const mobileNavHTML = `
-        <div class="mobile-nav md:hidden px-2">
-            <a href="index1.html" class="mobile-nav-item ${window.location.pathname.includes('index1.html') ? 'active' : ''}">
-                <i data-lucide="layout-dashboard" class="w-4 h-4 mb-1"></i>
-                <span class="text-[8px]">Home</span>
-            </a>
-            <a href="deposits.html" class="mobile-nav-item ${window.location.pathname.includes('deposits.html') ? 'active' : ''}">
-                <i data-lucide="hard-drive" class="w-4 h-4 mb-1"></i>
-                <span class="text-[8px]">position</span>
-            </a>
-            <a href="referral.html" class="mobile-nav-item ${window.location.pathname.includes('referral.html') ? 'active' : ''}">
-                <i data-lucide="users" class="w-4 h-4 mb-1"></i>
-                <span class="text-[8px]">Team</span>
-            </a>
-            <a href="leadership.html" class="mobile-nav-item ${window.location.pathname.includes('leadership.html') ? 'active' : ''}">
-                <i data-lucide="trophy" class="w-4 h-4 mb-1"></i>
-                <span class="text-[8px]">Reward</span>
-            </a>
-            <a href="history.html" class="mobile-nav-item ${window.location.pathname.includes('history.html') ? 'active' : ''}">
-                <i data-lucide="clock" class="w-4 h-4 mb-1"></i>
-                <span class="text-[8px]">History</span>
-            </a>
+        <div class="fixed bottom-6 left-4 right-4 md:hidden z-[9999]">
+            <div class="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl flex justify-around items-center p-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                <a href="index1.html" class="flex flex-col items-center gap-1 transition-all ${window.location.pathname.includes('index1.html') ? 'text-yellow-500 scale-110' : 'text-gray-400'}">
+                    <div class="p-2 rounded-xl ${window.location.pathname.includes('index1.html') ? 'bg-yellow-500/10' : ''}">
+                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-[9px] font-bold orbitron">HOME</span>
+                </a>
+                <a href="deposits.html" class="flex flex-col items-center gap-1 transition-all ${window.location.pathname.includes('deposits.html') ? 'text-yellow-500 scale-110' : 'text-gray-400'}">
+                    <div class="p-2 rounded-xl ${window.location.pathname.includes('deposits.html') ? 'bg-yellow-500/10' : ''}">
+                        <i data-lucide="gem" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-[9px] font-bold orbitron">EARN</span>
+                </a>
+                <a href="referral.html" class="flex flex-col items-center gap-1 transition-all ${window.location.pathname.includes('referral.html') ? 'text-yellow-500 scale-110' : 'text-gray-400'}">
+                    <div class="p-2 rounded-xl ${window.location.pathname.includes('referral.html') ? 'bg-yellow-500/10' : ''}">
+                        <i data-lucide="users-2" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-[9px] font-bold orbitron">TEAM</span>
+                </a>
+                <a href="leadership.html" class="flex flex-col items-center gap-1 transition-all ${window.location.pathname.includes('leadership.html') ? 'text-yellow-500 scale-110' : 'text-gray-400'}">
+                    <div class="p-2 rounded-xl ${window.location.pathname.includes('leadership.html') ? 'bg-yellow-500/10' : ''}">
+                        <i data-lucide="award" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-[9px] font-bold orbitron">RANK</span>
+                </a>
+                <a href="history.html" class="flex flex-col items-center gap-1 transition-all ${window.location.pathname.includes('history.html') ? 'text-yellow-500 scale-110' : 'text-gray-400'}">
+                    <div class="p-2 rounded-xl ${window.location.pathname.includes('history.html') ? 'bg-yellow-500/10' : ''}">
+                        <i data-lucide="history" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-[9px] font-bold orbitron">LOGS</span>
+                </a>
+            </div>
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', mobileNavHTML);
 
-    // --- 6. ADDED: Footer Logic ---
+    // 6. Inject Luxury Footer
     const footerHTML = `
-        <footer class="p-20 text-center border-t border-white/5 relative z-10">
+        <footer class="p-20 text-center border-t border-white/5 relative z-10 mb-20 md:mb-0">
             <p class="orbitron font-bold text-2xl mb-4 italic">Earn <span class="text-gradient uppercase">BNB</span></p>
             <p class="text-gray-600 text-[10px] tracking-[1em] uppercase">Decentralized Finance Future © 2026</p>
         </footer>
@@ -96,9 +108,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (footerPlaceholder) {
         footerPlaceholder.innerHTML = footerHTML;
     } else {
-        // Agar placeholder nahi mila, toh body ke aakhir mein daal do
         document.body.insertAdjacentHTML('beforeend', footerHTML);
     }
 
+    // Initialize Lucide Icons
     if (typeof lucide !== 'undefined') lucide.createIcons();
 });
