@@ -570,3 +570,4 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
