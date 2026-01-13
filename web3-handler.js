@@ -8,13 +8,13 @@ const TESTNET_CHAIN_ID = 97; 
 // --- RANK CONFIG FOR LEADERSHIP ---
 const RANK_DETAILS = [
     { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
-    { name: "V1", roi: "1.00%", targetTeam: 5, targetVolume: 250 },
-    { name: "V2", roi: "2.00%", targetTeam: 10, targetVolume: 500 },
-    { name: "V3", roi: "3.00%", targetTeam: 20, targetVolume: 1000 },
-    { name: "V4", roi: "4.00%", targetTeam: 40, targetVolume: 1500 },
-    { name: "V5", roi: "6.00%", targetTeam: 80, targetVolume: 2500 },
-    { name: "V6", roi: "8.00%", targetTeam: 150, targetVolume: 5000 },
-    { name: "V7", roi: "10.00%", targetTeam: 250, targetVolume: 10000 }
+    { name: "V1", roi: "1.00%", targetTeam: 50, targetVolume: 2.83 },
+    { name: "V2", roi: "2.00%", targetTeam: 100, targetVolume:  5.66 },
+    { name: "V3", roi: "3.00%", targetTeam: 200, targetVolume: 11.33 },
+    { name: "V4", roi: "4.00%", targetTeam: 400, targetVolume: 16.99 },
+    { name: "V5", roi: "6.00%", targetTeam: 800, targetVolume: 28.32 },
+    { name: "V6", roi: "8.00%", targetTeam: 1500, targetVolume: 56.64  },
+    { name: "V7", roi: "10.00%", targetTeam: 2500, targetVolume: 113.29  }
 ];
 
 // --- ABI ---
@@ -570,4 +570,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
