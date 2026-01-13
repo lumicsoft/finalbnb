@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             
             <div class="hidden md:flex gap-4">
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='index1.html'">Dashboard</button>
-                <button class="gold-btn !py-2 !px-5" onclick="location.href='deposits.html'">Mining</button>
+                <button class="gold-btn !py-2 !px-5" onclick="location.href='deposits.html'">position</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='referral.html'">Referral</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='leadership.html'">Leadership</button>
                 <button class="gold-btn !py-2 !px-5" onclick="location.href='history.html'">History</button>
@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             </a>
             <a href="deposits.html" class="mobile-nav-item ${window.location.pathname.includes('deposits.html') ? 'active' : ''}">
                 <i data-lucide="hard-drive" class="w-4 h-4 mb-1"></i>
-                <span class="text-[8px]">Mining</span>
+                <span class="text-[8px]">position</span>
             </a>
             <a href="referral.html" class="mobile-nav-item ${window.location.pathname.includes('referral.html') ? 'active' : ''}">
                 <i data-lucide="users" class="w-4 h-4 mb-1"></i>
@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             </a>
             <a href="leadership.html" class="mobile-nav-item ${window.location.pathname.includes('leadership.html') ? 'active' : ''}">
                 <i data-lucide="trophy" class="w-4 h-4 mb-1"></i>
-                <span class="text-[8px]">Rewards</span>
+                <span class="text-[8px]">Reward</span>
             </a>
             <a href="history.html" class="mobile-nav-item ${window.location.pathname.includes('history.html') ? 'active' : ''}">
                 <i data-lucide="clock" class="w-4 h-4 mb-1"></i>
@@ -86,3 +86,4 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
 });
+
