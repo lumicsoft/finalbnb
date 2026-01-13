@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     const footerHTML = `
         <footer class="p-20 text-center border-t border-white/5 relative z-10 mb-20 md:mb-0">
             <p class="orbitron font-bold text-2xl mb-4 italic">Earn <span class="text-gradient uppercase">BNB</span></p>
-            <p class="text-gray-600 text-[10px] tracking-[1em] uppercase">Decentralized Finance Future © 2026</p>
+            <p class="text-gray-600 text-[10px] tracking-[1em] uppercase">Decentralized Finance © 2026</p>
         </footer>
     `;
     
@@ -114,3 +114,4 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Initialize Lucide Icons
     if (typeof lucide !== 'undefined') lucide.createIcons();
 });
+
