@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <div class="p-2 rounded-xl ${window.location.pathname.includes('deposits.html') ? 'bg-yellow-500/10' : ''}">
                         <i data-lucide="gem" class="w-5 h-5"></i>
                     </div>
-                    <span class="text-[9px] font-bold orbitron">EARN</span>
+                    <span class="text-[9px] font-bold orbitron">position</span>
                 </a>
                 <a href="referral.html" class="flex flex-col items-center gap-1 transition-all ${window.location.pathname.includes('referral.html') ? 'text-yellow-500 scale-110' : 'text-gray-400'}">
                     <div class="p-2 rounded-xl ${window.location.pathname.includes('referral.html') ? 'bg-yellow-500/10' : ''}">
@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                     <div class="p-2 rounded-xl ${window.location.pathname.includes('history.html') ? 'bg-yellow-500/10' : ''}">
                         <i data-lucide="history" class="w-5 h-5"></i>
                     </div>
-                    <span class="text-[9px] font-bold orbitron">LOGS</span>
+                    <span class="text-[9px] font-bold orbitron">Transection</span>
                 </a>
             </div>
         </div>
@@ -114,4 +114,5 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Initialize Lucide Icons
     if (typeof lucide !== 'undefined') lucide.createIcons();
 });
+
 
