@@ -470,7 +470,11 @@ updateText('cp-display', activeAmt.toFixed(3));
         
         updateText('rank-display', getRankName(extra.rank));
 
-        const refUrl = `${window.location.origin}/register.html?ref=${user.username}`;
+        // --- FIXED REFERRAL LINK LOGIC ---
+        const currentUrl = window.location.href.split('?')[0];
+        const pageName = currentUrl.substring(currentUrl.lastIndexOf('/') + 1);
+        const baseUrl = currentUrl.replace(pageName, 'register.html');
+        const refUrl = `${baseUrl}?ref=${user.username}`;
         if(document.getElementById('refURL')) document.getElementById('refURL').value = refUrl;
 
     } catch (err) { console.error("Data Fetch Error:", err); }
@@ -569,6 +573,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
