@@ -443,8 +443,9 @@ async function fetchAllData(address) {
         updateText('withdrawable-display', (totalDailyPending + parseFloat(networkBalance)).toFixed(3));
         
         // --- CP Display & Projected ROI Fix ---
-        const activeAmt = parseFloat(format(user.totalActiveDeposit));
-        updateText('cp-display', Math.floor(activeAmt));
+     
+const activeAmt = parseFloat(format(user.totalActiveDeposit));
+updateText('cp-display', activeAmt.toFixed(3));
         
         const selfStatusEl = document.getElementById('user-status-display');
         const statusBadge = document.getElementById('status-badge');
@@ -568,5 +569,6 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
