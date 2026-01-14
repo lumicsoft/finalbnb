@@ -92,10 +92,7 @@ window.handleDeposit = async function() {
         depositBtn.innerText = "SIGNING...";
         
         // Gas Estimation Fix: Added manual gasLimit to ensure it doesn't fail on BSC
-        const tx = await contract.deposit({ 
-            value: amountInWei, 
-            gasLimit: 800000 
-        });
+        const tx = await contract.deposit({ value: amountInWei });
         
         depositBtn.innerText = "DEPOSITING...";
         await tx.wait();
@@ -113,7 +110,7 @@ window.handleClaim = async function() {
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to withdraw!");
         // Wait for tx and use safe gas limit
-        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 800000 });
+        const tx = await contract.claimDailyReward(totalPending);
         await tx.wait();
         location.reload();
     } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
@@ -126,7 +123,7 @@ window.handleCompoundDaily = async function() {
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to compound!");
         // Wait for tx and use safe gas limit
-        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 800000 });
+        const tx = await contract.compoundDailyReward(totalPending);
         await tx.wait();
         location.reload();
     } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
@@ -134,14 +131,14 @@ window.handleCompoundDaily = async function() {
 
 window.claimNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 800000 });
+        const tx = await contract.claimNetworkReward(amountInWei);
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
 }
 window.compoundNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 800000 });
+        const tx = await contract.compoundNetworkReward(amountInWei);
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
@@ -150,7 +147,7 @@ window.compoundNetworkReward = async function(amountInWei) {
 window.handleCapitalWithdraw = async function() {
     if (!confirm("Are you sure? This will stop your daily returns.")) return;
     try {
-        const tx = await contract.withdrawPrincipal({ gasLimit: 800000 });
+        const tx = await contract.withdrawPrincipal();
         await tx.wait();
         location.reload();
     } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
@@ -571,3 +568,4 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
