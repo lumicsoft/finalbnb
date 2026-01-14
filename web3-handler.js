@@ -89,14 +89,15 @@ window.handleDeposit = async function() {
     
     try {
         depositBtn.disabled = true;
-        depositBtn.innerText = "DEPOSITING...";
+        depositBtn.innerText = "SIGNING...";
         
-        // FIX: Native BNB transfer mein amount sirf 'value' field mein jati hai
+        // Gas Estimation Fix: Added manual gasLimit to ensure it doesn't fail on BSC
         const tx = await contract.deposit({ 
             value: amountInWei, 
-            gasLimit: 500000 
+            gasLimit: 800000 
         });
         
+        depositBtn.innerText = "DEPOSITING...";
         await tx.wait();
         location.reload(); 
     } catch (err) {
@@ -111,7 +112,8 @@ window.handleClaim = async function() {
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to withdraw!");
-        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 500000 });
+        // Wait for tx and use safe gas limit
+        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 800000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
@@ -123,7 +125,8 @@ window.handleCompoundDaily = async function() {
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to compound!");
-        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 500000 });
+        // Wait for tx and use safe gas limit
+        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 800000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
@@ -131,14 +134,14 @@ window.handleCompoundDaily = async function() {
 
 window.claimNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 500000 });
+        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 800000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
 }
 window.compoundNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 500000 });
+        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 800000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
@@ -147,7 +150,7 @@ window.compoundNetworkReward = async function(amountInWei) {
 window.handleCapitalWithdraw = async function() {
     if (!confirm("Are you sure? This will stop your daily returns.")) return;
     try {
-        const tx = await contract.withdrawPrincipal({ gasLimit: 500000 });
+        const tx = await contract.withdrawPrincipal({ gasLimit: 800000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
@@ -171,15 +174,11 @@ window.handleLogin = async function() {
         localStorage.removeItem('manualLogout');
         
         // 3. Contract se user data fetch karein
-        // Note: Mapping se data fetch karte waqt await lagana zaruri hai
         const userData = await contract.users(userAddress);
 
-        // 4. Registration Check (BNB Native version mein bhi logic yahi rahega)
-        // userData.registered ya userData[2] (depend karta hai ABI par)
+        // 4. Registration Check
         if (userData.registered === true) {
-            // Agar dashboard par icon dikhana hai redirection se pehle
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
-            
             window.location.href = "index1.html";
         } else {
             alert("This wallet is not registered in EarnBNB!");
@@ -198,7 +197,7 @@ window.handleRegister = async function() {
     try {
         const tx = await contract.register(userField.value.trim(), refField.value.trim(), { gasLimit: 2000000 });
         await tx.wait();
-        localStorage.removeItem('manualLogout'); // Clear logout flag on register
+        localStorage.removeItem('manualLogout'); 
         window.location.href = "index1.html";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
@@ -206,7 +205,6 @@ window.handleRegister = async function() {
 // --- LOGOUT LOGIC (Optimized) ---
 window.handleLogout = function() {
     if (confirm("Do you want to disconnect?")) {
-        // Set flag to prevent auto-redirection back to dashboard
         localStorage.setItem('manualLogout', 'true');
         
         signer = null;
@@ -230,7 +228,7 @@ function showLogoutIcon(address) {
     }
 }
 
-// --- APP SETUP (REDIRECTION LOGIC INCLUDED) ---
+// --- APP SETUP ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
     if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
@@ -252,7 +250,7 @@ async function setupApp(address) {
     }
 
     updateNavbar(address);
-    showLogoutIcon(address); // Ensure logout icon shows if connected
+    showLogoutIcon(address); 
 
     if (path.includes('index1.html')) {
         fetchAllData(address);
@@ -566,7 +564,6 @@ function updateNavbar(addr) {
 // Listen for account changes
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', () => {
-        // Clear logout flag on account change to allow re-login
         localStorage.removeItem('manualLogout');
         location.reload();
     });
