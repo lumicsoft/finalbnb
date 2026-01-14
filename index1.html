@@ -15,11 +15,8 @@
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .deposit-input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px; border-radius: 12px; width: 100%; color: white; outline: none; transition: 0.3s; }
         .deposit-input-box:focus { border-color: #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.2); }
-        
         .bnb-logo-img { width: 20px; height: 20px; display: inline-block; vertical-align: middle; margin-right: 8px; filter: drop-shadow(0 0 2px rgba(243, 186, 47, 0.5)); }
         .bnb-logo-large { width: 40px; height: 40px; display: inline-block; vertical-align: middle; margin-right: 12px; }
-
-        /* Luxury Table Styling for Chart */
         .luxury-table { width: 100%; border-collapse: collapse; }
         .luxury-table th { padding: 15px; text-align: left; border-bottom: 2px solid rgba(234, 179, 8, 0.2); color: #eab308; font-size: 12px; font-family: 'Orbitron'; }
         .luxury-table td { padding: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; font-weight: 600; }
@@ -80,9 +77,6 @@
                 <input id="refURL" type="text" readonly value="Connect wallet to see link..." class="bg-transparent border-none outline-none w-full text-xs text-gray-300 font-mono">
                 <button onclick="copyLink()" class="gold-btn !py-2">COPY</button>
             </div>
-            <p id="ref-error" class="text-[10px] text-red-500 font-bold uppercase mt-3 hidden italic">
-                ⚠️ Min 0.011 BNB self investment required to activate referral link
-            </p>
         </div>
 
         <div class="premium-border p-6 mb-8 bg-yellow-500/5 border-yellow-500/20">
@@ -154,7 +148,7 @@
                     <div class="lg:col-span-4 bg-black/50 rounded-[32px] p-10 border border-white/10 text-center">
                         <div class="w-32 h-32 rounded-full border-8 border-yellow-500/10 flex items-center justify-center mb-4 mx-auto relative">
                             <div class="absolute inset-0 animate-spin-slow border-t-4 border-yellow-400 rounded-full"></div>
-                            <span id="cp-display" class="text-5xl font-black orbitron text-yellow-500">0</span>
+                            <span id="cp-display" class="text-5xl font-black orbitron text-yellow-500">0.000</span>
                         </div>
                         <p class="text-xs font-black text-gray-400 uppercase">Available CP</p>
                     </div>
@@ -190,12 +184,11 @@
                         </thead>
                         <tbody id="cp-chart-body">
                             <tr class="border-b border-white/5">
-                                <td>&lt; < 0.566 BNB</td>
+                                <td>< 0.566 BNB</td>
                                 <td class="text-green-400 font-bold">5.00%</td>
                             </tr>
                             <tr class="border-b border-white/5">
-                                <td> 0.566 - 1.132 BNB
-</td>
+                                <td> 0.566 - 1.132 BNB</td>
                                 <td class="text-green-400 font-bold">5.25%</td>
                             </tr>
                             <tr class="bg-yellow-500/5 border-b border-white/5">
@@ -215,8 +208,6 @@
                 </div>
             </div>
         </div>
-
-
     </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -225,7 +216,6 @@
     <script>
         lucide.createIcons();
         
-        // Function to update ROI Percentage based on CP
         function updateROIDisplay(cpAmount) {
             let perc = 5.00;
             if(cpAmount >= 25) perc = 6.00;
@@ -237,28 +227,29 @@
             return perc;
         }
 
+        // Updated Copy Function (No restrictions)
         function copyLink() {
-            const activeDepText = document.getElementById('active-deposit').innerText;
-            const activeDepositValue = parseFloat(activeDepText) || 0;
-            const errorElement = document.getElementById('ref-error');
             const refInput = document.getElementById('refURL');
+            
+            // Link tabhi copy hoga jab wo 'Connect wallet' na ho
+            if (refInput.value === "Connect wallet to see link...") {
+                alert("Please connect your wallet first to generate your referral link.");
+                return;
+            }
 
-            if (activeDepositValue >= 0.05) {
-                refInput.select();
+            // Text copy logic
+            refInput.select();
+            refInput.setSelectionRange(0, 99999); // Mobile ke liye
+            
+            try {
                 navigator.clipboard.writeText(refInput.value);
-                errorElement.classList.add('hidden');
                 alert("Referral link copied successfully!");
-            } else {
-                errorElement.classList.remove('hidden');
-                errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (err) {
+                // Fallback agar clipboard API kaam na kare
+                document.execCommand('copy');
+                alert("Referral link copied!");
             }
         }
     </script>
 </body>
 </html>
-
-
-
-
-
-
