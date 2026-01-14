@@ -1,4 +1,4 @@
-let provider, signer, contract, usdtContract;
+let provider, signer, contract, Contract;
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0x34FF4680A9A659C0ef4edF7776648472101205a4"; 
@@ -19,7 +19,7 @@ const RANK_DETAILS = [
 // --- ABI ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
-    "function deposit(uint256 amount) external payable",
+    "function deposit() external payable", // FIX: No argument here
     "function claimNetworkReward(uint256 amount) external",
     "function compoundDailyReward(uint256 amount) external",
     "function claimDailyReward(uint256 amount) external",
@@ -35,7 +35,6 @@ const CONTRACT_ABI = [
 ];
 
 
-
 const calculateGlobalROI = (amount) => {
     const amt = parseFloat(amount);
     if (amt >= 5000) return 6.00;
@@ -44,39 +43,40 @@ const calculateGlobalROI = (amount) => {
     if (amt >= 500) return 5.25;
     return 5.00;
 };
+// --- 1. NEW: AUTO-FILL LOGIC ---
+function checkReferralURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refName = urlParams.get('ref'); // URL mein ?ref=NAME hona chahiye
+    const refField = document.getElementById('reg-referrer');
 
+    if (refName && refField) {
+        refField.value = refName.trim();
+        console.log("Referral auto-filled from URL:", refName);
+    }
+}
 // --- INITIALIZATION ---
 async function init() {
+    // Check for referral parameter on every load
+    checkReferralURL();
+
     if (window.ethereum) {
         try {
             provider = new ethers.providers.Web3Provider(window.ethereum);
-            
-            // Fixed Auto-Login: Sirf accounts check karo, login force nahi
             const accounts = await provider.listAccounts();
-            
             window.signer = provider.getSigner();
             signer = window.signer;
-            
             window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
             contract = window.contract;
-            
-            window.usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-            usdtContract = window.usdtContract;
 
             if (accounts.length > 0) {
-                // Agar user ne khud logout nahi kiya hai, tabhi setupApp chalaye
                 if (localStorage.getItem('manualLogout') !== 'true') {
                     await setupApp(accounts[0]);
                 } else {
                     updateNavbar(accounts[0]);
                 }
             }
-        } catch (error) {
-            console.error("User rejected connection", error);
-        }
-    } else {
-        alert("Please install MetaMask to use this App.");
-    }
+        } catch (error) { console.error("Init Error", error); }
+    } else { alert("Please install MetaMask!"); }
 }
 
 // --- CORE LOGIC ---
@@ -85,17 +85,16 @@ window.handleDeposit = async function() {
     const depositBtn = document.getElementById('deposit-btn');
     if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Please enter a valid amount!");
     
-    // Yahan BNB ke liye 18 decimals use hote hain
     const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
     
     try {
         depositBtn.disabled = true;
         depositBtn.innerText = "DEPOSITING...";
         
-        // BNB Deposit ke liye 'value' property pass karni hoti hai aur Approve ki zarurat nahi hoti
-        const tx = await contract.deposit(amountInWei, { 
+        // FIX: Native BNB transfer mein amount sirf 'value' field mein jati hai
+        const tx = await contract.deposit({ 
             value: amountInWei, 
-            gasLimit: 2000000 
+            gasLimit: 500000 
         });
         
         await tx.wait();
@@ -106,14 +105,13 @@ window.handleDeposit = async function() {
         depositBtn.disabled = false;
     }
 }
-
 window.handleClaim = async function() {
     try {
         const userAddress = await signer.getAddress();
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to withdraw!");
-        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 2000000 });
+        const tx = await contract.claimDailyReward(totalPending, { gasLimit: 500000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
@@ -125,7 +123,7 @@ window.handleCompoundDaily = async function() {
         const live = await contract.getLiveBalance(userAddress);
         const totalPending = live.pendingROI.add(live.pendingCap);
         if (totalPending.lte(0)) return alert("No rewards to compound!");
-        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 2000000 });
+        const tx = await contract.compoundDailyReward(totalPending, { gasLimit: 500000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
@@ -133,15 +131,14 @@ window.handleCompoundDaily = async function() {
 
 window.claimNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 2000000 });
+        const tx = await contract.claimNetworkReward(amountInWei, { gasLimit: 500000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
 }
-
 window.compoundNetworkReward = async function(amountInWei) {
     try {
-        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 2000000 });
+        const tx = await contract.compoundNetworkReward(amountInWei, { gasLimit: 500000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
@@ -150,7 +147,7 @@ window.compoundNetworkReward = async function(amountInWei) {
 window.handleCapitalWithdraw = async function() {
     if (!confirm("Are you sure? This will stop your daily returns.")) return;
     try {
-        const tx = await contract.withdrawPrincipal({ gasLimit: 2000000 });
+        const tx = await contract.withdrawPrincipal({ gasLimit: 500000 });
         await tx.wait();
         location.reload();
     } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
@@ -160,26 +157,37 @@ window.handleLogin = async function() {
     try {
         if (!window.ethereum) return alert("Please install MetaMask!");
         
+        // 1. Accounts request karein
         const accounts = await provider.send("eth_requestAccounts", []);
+        if (accounts.length === 0) return;
+        
         const userAddress = accounts[0]; 
         
+        // 2. Signer aur Contract ko re-initialize karein
         signer = provider.getSigner();
         contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         
-        // Reset manual logout flag when user clicks login
+        // Logout flag clear karein
         localStorage.removeItem('manualLogout');
         
+        // 3. Contract se user data fetch karein
+        // Note: Mapping se data fetch karte waqt await lagana zaruri hai
         const userData = await contract.users(userAddress);
-        showLogoutIcon(userAddress);
 
-        if (userData.registered) {
+        // 4. Registration Check (BNB Native version mein bhi logic yahi rahega)
+        // userData.registered ya userData[2] (depend karta hai ABI par)
+        if (userData.registered === true) {
+            // Agar dashboard par icon dikhana hai redirection se pehle
+            if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
+            
             window.location.href = "index1.html";
         } else {
-            alert("Not registered!");
+            alert("This wallet is not registered in EarnBNB!");
             window.location.href = "register.html";
         }
     } catch (err) {
         console.error("Login Error:", err);
+        alert("Login failed! Make sure you are on BSC Mainnet.");
     }
 }
 
@@ -566,4 +574,3 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
-
