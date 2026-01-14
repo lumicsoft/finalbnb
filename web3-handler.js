@@ -192,7 +192,7 @@ window.handleRegister = async function() {
     const refField = document.getElementById('reg-referrer');
     if (!userField || !refField) return;
     try {
-        const tx = await contract.register(userField.value.trim(), refField.value.trim(), { gasLimit: 2000000 });
+       const tx = await contract.register(userField.value.trim(), refField.value.trim());
         await tx.wait();
         localStorage.removeItem('manualLogout'); 
         window.location.href = "index1.html";
@@ -568,4 +568,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
