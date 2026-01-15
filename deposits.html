@@ -38,14 +38,14 @@
                 <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Total Active Capital</p>
                 <h3 class="text-2xl font-black orbitron text-white flex items-center justify-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
-                    <span id="total-active-capital">0.000</span>
+                    <span id="total-active-capital">0.0000</span>
                 </h3>
             </div>
             <div class="premium-border p-6 text-center">
                 <p class="text-[10px] font-black text-yellow-500 uppercase mb-1">Estimated Daily Profit</p>
                 <h3 class="text-2xl font-black orbitron text-green-400 flex items-center justify-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
-                    <span id="total-daily-profit">0.000</span>
+                    <span id="total-daily-profit">0.0000</span>
                 </h3>
             </div>
         </div>
@@ -66,12 +66,13 @@
     <script src="components.js"></script>
     <script src="web3-handler.js"></script>
     <script>
-    // 1. ROI Calculation (Thresholds logic remains same)
+    // 1. Updated ROI Calculation (Matching contract BNB values)
     function getGlobalROI(totalAmount) {
-        if (totalAmount >= 5000) return 6.00;
-        if (totalAmount >= 2500) return 5.75;
-        if (totalAmount >= 1000) return 5.50;
-        if (totalAmount >= 500) return 5.25;
+        const amt = parseFloat(totalAmount);
+        if (amt >= 5.665) return 6.00;
+        if (amt >= 2.832) return 5.75;
+        if (amt >= 1.133) return 5.50;
+        if (amt >= 0.566) return 5.25;
         return 5.00;
     }
 
@@ -88,17 +89,17 @@
             const userData = await window.contract.users(address);
             
             const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
-            document.getElementById('total-active-capital').innerText = totalActive.toFixed(3);
+            document.getElementById('total-active-capital').innerText = totalActive.toFixed(4);
 
             if (totalActive <= 0) {
-                document.getElementById('total-daily-profit').innerText = `0.000`;
+                document.getElementById('total-daily-profit').innerText = `0.0000`;
                 grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
                 return;
             }
 
             const globalROIRate = getGlobalROI(totalActive);
             const totalDailyProfit = (totalActive * (globalROIRate / 100));
-            document.getElementById('total-daily-profit').innerText = totalDailyProfit.toFixed(3);
+            document.getElementById('total-daily-profit').innerText = totalDailyProfit.toFixed(4);
 
             let html = '';
             let foundAny = false;
@@ -130,7 +131,7 @@
                                 <div>
                                     <h3 class="text-xl font-black orbitron italic text-white flex items-center">
                                         <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm">
-                                        ${amount.toFixed(3)} Node
+                                        ${amount.toFixed(4)} Node
                                     </h3>
                                     <p class="text-[9px] text-yellow-500 font-bold uppercase tracking-widest mt-1 italic">Account Tier: ${globalROIRate.toFixed(2)}% Daily</p>
                                 </div>
@@ -146,7 +147,7 @@
                                     <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Yield at ${globalROIRate.toFixed(2)}%</p>
                                     <p class="text-lg font-black orbitron text-green-400 flex items-center justify-center">
                                         <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm">
-                                        ${cardDailyYield.toFixed(3)}
+                                        ${cardDailyYield.toFixed(4)}
                                     </p>
                                 </div>
                             </div>
