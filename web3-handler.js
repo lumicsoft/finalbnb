@@ -37,10 +37,10 @@ const CONTRACT_ABI = [
 
 const calculateGlobalROI = (amount) => {
     const amt = parseFloat(amount);
-    if (amt >= 5000) return 6.00;
-    if (amt >= 2500) return 5.75;
-    if (amt >= 1000) return 5.50;
-    if (amt >= 500) return 5.25;
+    if (amt >= 5.665) return 6.00;
+    if (amt >= 2.832) return 5.75;
+    if (amt >= 1.133) return 5.50;
+    if (amt >= 0.566) return 5.25;
     return 5.00;
 };
 // --- 1. NEW: AUTO-FILL LOGIC ---
@@ -106,8 +106,14 @@ window.handleDeposit = async function() {
 window.handleClaim = async function() {
     try {
         const userAddress = await signer.getAddress();
+        const extra = await contract.usersExtra(userAddress);
         const live = await contract.getLiveBalance(userAddress);
-        const totalPending = live.pendingROI.add(live.pendingCap);
+        
+        // Combine all withdrawable reserves
+        const totalPending = live.pendingROI.add(live.pendingCap)
+                             .add(extra.reserveDailyROI)
+                             .add(extra.reserveDailyCapital);
+                             
         if (totalPending.lte(0)) return alert("No rewards to withdraw!");
         // Wait for tx and use safe gas limit
         const tx = await contract.claimDailyReward(totalPending);
@@ -119,8 +125,14 @@ window.handleClaim = async function() {
 window.handleCompoundDaily = async function() {
     try {
         const userAddress = await signer.getAddress();
+        const extra = await contract.usersExtra(userAddress);
         const live = await contract.getLiveBalance(userAddress);
-        const totalPending = live.pendingROI.add(live.pendingCap);
+        
+        // Combine all compoundable reserves
+        const totalPending = live.pendingROI.add(live.pendingCap)
+                             .add(extra.reserveDailyROI)
+                             .add(extra.reserveDailyCapital);
+
         if (totalPending.lte(0)) return alert("No rewards to compound!");
         // Wait for tx and use safe gas limit
         const tx = await contract.compoundDailyReward(totalPending);
@@ -362,7 +374,7 @@ async function fetchLeadershipData(address) {
         if(document.getElementById('team-count-bar')) document.getElementById('team-count-bar').style.width = `${tPercent}%`;
         updateText('team-count-percent', `${tPercent.toFixed(0)}%`);
 
-        updateText('current-team-volume', tVol.toFixed(3));
+        updateText('current-team-volume', tVol.toFixed(4));
         updateText('target-team-volume', `/ ${nextRank.targetVolume.toLocaleString()} BNB`);
         if(document.getElementById('team-volume-bar')) document.getElementById('team-volume-bar').style.width = `${vPercent}%`;
         updateText('team-volume-percent', `${vPercent.toFixed(0)}%`);
@@ -432,20 +444,26 @@ async function fetchAllData(address) {
         updateText('capital-withdrawn-display', format(user.totalWithdrawn));
 
         // --- Live Balance Fixes ---
-        const networkBalance = format(extra.reserveNetwork);
-        updateText('ref-balance-display', parseFloat(networkBalance).toFixed(3));
-
-        const dailyROI = parseFloat(format(live.pendingROI));
-        const dailyCap = parseFloat(format(live.pendingCap));
-        const totalDailyPending = dailyROI + dailyCap;
+        const networkBalance = parseFloat(format(extra.rewardsReferral)) + 
+                               parseFloat(format(extra.rewardsOnboarding)) + 
+                               parseFloat(format(extra.rewardsRank)) + 
+                               parseFloat(format(extra.reserveNetwork));
         
-        updateText('compounding-balance', totalDailyPending.toFixed(3));
-        updateText('withdrawable-display', (totalDailyPending + parseFloat(networkBalance)).toFixed(3));
+        updateText('ref-balance-display', networkBalance.toFixed(4));
+
+        const pendingROI = parseFloat(format(live.pendingROI));
+        const pendingCap = parseFloat(format(live.pendingCap));
+        const reserveDaily = parseFloat(format(extra.reserveDailyROI)) + parseFloat(format(extra.reserveDailyCapital));
+        
+        const totalPending = pendingROI + pendingCap + reserveDaily;
+        
+        updateText('compounding-balance', totalPending.toFixed(4));
+        updateText('withdrawable-display', (totalPending + networkBalance).toFixed(4));
         
         // --- CP Display & Projected ROI Fix ---
      
 const activeAmt = parseFloat(format(user.totalActiveDeposit));
-updateText('cp-display', activeAmt.toFixed(3));
+updateText('cp-display', activeAmt.toFixed(4));
         
         const selfStatusEl = document.getElementById('user-status-display');
         const statusBadge = document.getElementById('status-badge');
@@ -465,7 +483,7 @@ updateText('cp-display', activeAmt.toFixed(3));
             }
         }
 
-        const projectedReturn = (activeAmt * 0.05).toFixed(3);
+        const projectedReturn = (activeAmt * (calculateGlobalROI(activeAmt)/100)).toFixed(4);
         updateText('projected-return', projectedReturn);
         
         updateText('rank-display', getRankName(extra.rank));
@@ -519,9 +537,9 @@ window.loadLevelData = async function(level) {
                     </div>
                 </td>
                 <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
-                <td class="p-4 text-xs font-black text-white">${activeD.toFixed(3)}</td>
-                <td class="p-4 text-xs text-gray-400">${parseFloat(teamTD).toFixed(3)}</td>
-                <td class="p-4 text-xs text-green-400 font-bold">${activeD.toFixed(3)}</td>
+                <td class="p-4 text-xs font-black text-white">${activeD.toFixed(4)}</td>
+                <td class="p-4 text-xs text-gray-400">${parseFloat(teamTD).toFixed(4)}</td>
+                <td class="p-4 text-xs text-green-400 font-bold">${activeD.toFixed(4)}</td>
                 <td class="p-4 text-xs ${statusColor} italic uppercase font-black">${statusText}</td>
                 <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
             </tr>`;
@@ -549,10 +567,10 @@ function start8HourCountdown() {
 // --- UTILS ---
 const format = (val) => {
     try { 
-        if (!val) return "0.000"; 
+        if (!val) return "0.0000"; 
         let f = ethers.utils.formatUnits(val.toString(), 18);
-        return parseFloat(f).toFixed(3);
-    } catch (e) { return "0.000"; }
+        return parseFloat(f).toFixed(4);
+    } catch (e) { return "0.0000"; }
 };
 
 const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
@@ -573,7 +591,3 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
-
-
-
-
