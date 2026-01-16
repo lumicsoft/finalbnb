@@ -551,15 +551,38 @@ window.loadLevelData = async function(level) {
 function start8HourCountdown() {
     const timerElement = document.getElementById('next-timer');
     if (!timerElement) return;
+
     setInterval(() => {
         const now = new Date();
-        const targetHour = now.getHours() < 8 ? 8 : now.getHours() < 16 ? 16 : 24;
-        const targetTime = new Date().setHours(targetHour, 0, 0, 0);
-        const diff = targetTime - now;
-        if (diff <= 0) return;
-        const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
-        const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
-        const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+        
+        // 1. Current UTC time (in milliseconds)
+        const nowUTC = now.getTime();
+        
+        // 2. 8 hours in milliseconds (Contract cycle duration)
+        const eightHoursInMs = 8 * 60 * 60 * 1000;
+        
+        // 3. Agla target nikaalna jo 8-hour bucket mein fit ho (UTC 00, 08, 16)
+        // Ye math.ceil se agla slot pakad lega (chahe kisi bhi desh mein ho)
+        const nextTargetUTC = Math.ceil(nowUTC / eightHoursInMs) * eightHoursInMs;
+        
+        // 4. Time difference
+        const diff = nextTargetUTC - nowUTC;
+
+        if (diff <= 0) {
+            // Jaise hi timer zero ho, dashboard refresh karein
+            if (typeof fetchAllData === "function") {
+                const accounts = localStorage.getItem('userAccount'); // ya jo bhi aapka address variable hai
+                if(accounts) fetchAllData(accounts);
+            }
+            return;
+        }
+
+        // 5. Units mein convert karein (H:M:S)
+        const h = Math.floor(diff / (1000 * 60 * 60)).toString().padStart(2, '0');
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+        const s = Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0');
+
+        // 6. Display update
         timerElement.innerText = `${h}:${m}:${s}`;
     }, 1000);
 }
@@ -591,3 +614,4 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
