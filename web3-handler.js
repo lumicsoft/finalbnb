@@ -4,16 +4,16 @@ let provider, signer, contract, Contract;
 const CONTRACT_ADDRESS = "0x732971aa3835CAFefD92a616879512A38a934661"; 
 const TESTNET_CHAIN_ID = 97; 
 
-// --- RANK CONFIG FOR LEADERSHIP ---
+// --- RANK CONFIG FOR LEADERSHIP (Updated: Removed ROI, Added Rewards) ---
 const RANK_DETAILS = [
-    { name: "NONE", roi: "0%", targetTeam: 0, targetVolume: 0 },
-    { name: "V1", roi: "1.00%", targetTeam: 50, targetVolume: 2.83 },
-    { name: "V2", roi: "2.00%", targetTeam: 100, targetVolume:  5.66 },
-    { name: "V3", roi: "3.00%", targetTeam: 200, targetVolume: 11.33 },
-    { name: "V4", roi: "4.00%", targetTeam: 400, targetVolume: 16.99 },
-    { name: "V5", roi: "6.00%", targetTeam: 800, targetVolume: 28.32 },
-    { name: "V6", roi: "8.00%", targetTeam: 1500, targetVolume: 56.64  },
-    { name: "V7", roi: "10.00%", targetTeam: 2500, targetVolume: 113.29  }
+    { name: "NONE", reward: "0 BNB", targetTeam: 0, targetVolume: 0 },
+    { name: "V1", reward: "0.011 BNB", targetTeam: 50, targetVolume: 2.83 },
+    { name: "V2", reward: "0.055 BNB", targetTeam: 100, targetVolume:  5.66 },
+    { name: "V3", reward: "0.222 BNB", targetTeam: 200, targetVolume: 11.33 },
+    { name: "V4", reward: "1.111 BNB", targetTeam: 400, targetVolume: 16.99 },
+    { name: "V5", reward: "5.555 BNB", targetTeam: 800, targetVolume: 28.32 },
+    { name: "V6", reward: "11.111 BNB", targetTeam: 1500, targetVolume: 56.64  },
+    { name: "V7", reward: "22.222 BNB", targetTeam: 2500, targetVolume: 113.29  }
 ];
 
 // --- ABI ---
@@ -37,11 +37,9 @@ const CONTRACT_ABI = [
 
 const calculateGlobalROI = (amount) => {
     const amt = parseFloat(amount);
-    if (amt >= 5.665) return 6.00;
-    if (amt >= 2.832) return 5.75;
-    if (amt >= 1.133) return 5.50;
-    if (amt >= 0.566) return 5.25;
-    return 5.00;
+    if (amt >= 0.256) return 5.50; // New Logic
+    if (amt >= 0.112) return 5.25; // New Logic
+    return 5.00;                  // Base ROI
 };
 // --- 1. NEW: AUTO-FILL LOGIC ---
 function checkReferralURL() {
@@ -111,9 +109,9 @@ window.handleClaim = async function() {
         
         // Combine all withdrawable reserves
         const totalPending = live.pendingROI.add(live.pendingCap)
-                             .add(extra.reserveDailyROI)
-                             .add(extra.reserveDailyCapital);
-                             
+                                     .add(extra.reserveDailyROI)
+                                     .add(extra.reserveDailyCapital);
+                                     
         if (totalPending.lte(0)) return alert("No rewards to withdraw!");
         // Wait for tx and use safe gas limit
         const tx = await contract.claimDailyReward(totalPending);
@@ -130,8 +128,8 @@ window.handleCompoundDaily = async function() {
         
         // Combine all compoundable reserves
         const totalPending = live.pendingROI.add(live.pendingCap)
-                             .add(extra.reserveDailyROI)
-                             .add(extra.reserveDailyCapital);
+                                     .add(extra.reserveDailyROI)
+                                     .add(extra.reserveDailyCapital);
 
         if (totalPending.lte(0)) return alert("No rewards to compound!");
         // Wait for tx and use safe gas limit
@@ -343,7 +341,7 @@ window.fetchBlockchainHistory = async function(type) {
     }
 }
 
-// --- LEADERSHIP DATA ---
+// --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
 async function fetchLeadershipData(address) {
     try {
         const [user, extra] = await Promise.all([
@@ -353,7 +351,7 @@ async function fetchLeadershipData(address) {
 
         const rIdx = extra.rank;
         updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
-        updateText('rank-bonus-display', `${RANK_DETAILS[rIdx].roi} Leadership ROI`);
+        updateText('rank-bonus-display', `Reward: ${RANK_DETAILS[rIdx].reward}`);
         updateText('rank-reward-available', `${format(extra.rewardsRank)}`);
         updateText('total-rank-earned', `${format(user.totalEarnings)}`);
         updateText('team-total-deposit', `${format(user.teamTotalDeposit)}`);
@@ -403,15 +401,15 @@ async function loadLeadershipDownlines(address, myRankIdx) {
             const uA = wallets[i];
             if (!uA || uA === ethers.constants.AddressZero) continue;
             const [dUser, dExtra] = await Promise.all([contract.users(uA), contract.usersExtra(uA)]);
-            const diff = Math.max(parseFloat(RANK_DETAILS[myRankIdx].roi) - parseFloat(RANK_DETAILS[dExtra.rank].roi), 0).toFixed(2);
-
+            
+            // Note: Diff% removed because ROI is no longer rank-based
             html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                 <td class="p-4 flex flex-col"><span class="text-white font-bold">${names[i] || 'N/A'}</span><span class="text-[9px] text-gray-400">${uA.substring(0,8)}...</span></td>
                 <td class="p-4 text-yellow-500 font-bold">${RANK_DETAILS[dExtra.rank].name}</td>
                 <td class="p-4">${format(dUser.totalDeposited)}</td>
                 <td class="p-4 text-green-400">${format(activeDeps[i])}</td>
                 <td class="p-4">${dExtra.teamCount}</td>
-                <td class="p-4 text-blue-400 font-bold">${diff}%</td>
+                <td class="p-4 text-blue-400 font-bold">${RANK_DETAILS[dExtra.rank].reward}</td>
                 <td class="p-4">${format(dUser.teamActiveDeposit)}</td>
           </tr>`;
         }
@@ -614,5 +612,3 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
-
-
