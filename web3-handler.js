@@ -54,113 +54,450 @@ function checkReferralURL() {
 }
 // --- INITIALIZATION ---
 async function init() {
-    // Check for referral parameter on every load
     checkReferralURL();
+    
+    const bscTestnetRPC = "https://data-seed-prebsc-1-s1.binance.org:8545/";
+    const savedAddr = localStorage.getItem('userAddress');
+    const isIndexPage = window.location.pathname.endsWith('index.html') || window.location.pathname === '/';
 
-    if (window.ethereum) {
-        try {
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await provider.listAccounts();
-            window.signer = provider.getSigner();
-            signer = window.signer;
-            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    try {
+        if (window.ethereum) {
+           
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            
+            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
             contract = window.contract;
 
-            if (accounts.length > 0) {
-                if (localStorage.getItem('manualLogout') !== 'true') {
-                    await setupApp(accounts[0]);
-                } else {
-                    updateNavbar(accounts[0]);
+            // --- CONDITION START ---
+            if (isIndexPage) {
+                
+                if (savedAddr) {
+                    await setupReadOnly(bscTestnetRPC, savedAddr);
+                }
+            } else {
+               
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    const address = accounts[0];
+                    localStorage.setItem('userAddress', address);
+                    signer = provider.getSigner();
+                    window.signer = signer;
+                    window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    contract = window.contract;
+                    await setupApp(address);
+                } else if (savedAddr) {
+                    await setupReadOnly(bscTestnetRPC, savedAddr);
                 }
             }
-        } catch (error) { console.error("Init Error", error); }
-    } else { alert("Please install MetaMask!"); }
+            // --- CONDITION END ---
+
+       
+            window.ethereum.on('chainChanged', () => window.location.reload());
+            window.ethereum.on('accountsChanged', (accs) => {
+                if (accs.length === 0) localStorage.removeItem('userAddress');
+                else localStorage.setItem('userAddress', accs[0]);
+                window.location.reload();
+            });
+
+        } else {
+           
+            await setupReadOnly(bscTestnetRPC, savedAddr);
+        }
+    } catch (error) { 
+        console.error("Init Error:", error);
+        if (savedAddr) await setupReadOnly(bscTestnetRPC, savedAddr);
+    }
 }
+async function setupReadOnly(rpcUrl, forcedAddress = null) {
+    console.log("Mode: RPC/Memory Data Loading...");
+    try {
+        const tempProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        
+        provider = tempProvider; 
+        window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+        contract = window.contract;
+        
+        const addressToUse = forcedAddress || localStorage.getItem('userAddress');
+        
+        if (addressToUse && addressToUse !== "undefined" && addressToUse !== null) {
+            await setupApp(addressToUse);
+        }
+    } catch (e) {
+        console.error("RPC Setup Failed:", e);
+    }
+}
+
 
 // --- CORE LOGIC ---
 window.handleDeposit = async function() {
-    const amountInput = document.getElementById('deposit-amount');
-    const depositBtn = document.getElementById('deposit-btn');
-    if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Please enter a valid amount!");
-    
-    const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
-    
-    try {
-        depositBtn.disabled = true;
-        depositBtn.innerText = "SIGNING...";
-        
-        // Gas Estimation Fix: Added manual gasLimit to ensure it doesn't fail on BSC
-        const tx = await contract.deposit({ value: amountInWei });
-        
-        depositBtn.innerText = "DEPOSITING...";
-        await tx.wait();
-        location.reload(); 
-    } catch (err) {
-        alert("Error: " + (err.reason || err.message));
-        depositBtn.innerText = "DEPOSIT NOW";
-        depositBtn.disabled = false;
-    }
+    const amountInput = document.getElementById('deposit-amount');
+    const depositBtn = document.getElementById('deposit-btn');
+    
+    // 1. Validation check
+    if (!amountInput || !amountInput.value || parseFloat(amountInput.value) <= 0) {
+        return alert("Please enter a valid BNB amount!");
+    }
+
+    try {
+        // Signer aur Contract check (Same as your robust USDT logic)
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+                                    
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // UI Updates
+        depositBtn.disabled = true;
+        depositBtn.innerText = "SIGNING...";
+
+        // BNB ko Wei mein convert karein
+        const amountInWei = ethers.utils.parseEther(amountInput.value.toString());
+
+        // 2. Deposit Logic (Direct BNB - No Approval Needed)
+        // Yahan function ke andar koi parameter nahi jayega, sirf value jayegi
+        const tx = await activeContract.deposit({ 
+            value: amountInWei,
+            gasLimit: 300000 // Mobile wallets ke liye manual gas limit
+        });
+        
+        depositBtn.innerText = "DEPOSITING...";
+        console.log("TX Hash:", tx.hash);
+
+        // 3. Wait for confirmation
+        await tx.wait();
+        
+        alert("Deposit Successful!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Deposit Error:", err);
+        
+        // Detailed error for debugging
+        let errorMsg = "Transaction Failed";
+        if (err.code === 4001) errorMsg = "User rejected transaction";
+        else if (err.reason) errorMsg = err.reason;
+        else if (err.message) errorMsg = err.message;
+        
+        alert("Error: " + errorMsg);
+        
+        depositBtn.innerText = "DEPOSIT NOW";
+        depositBtn.disabled = false;
+    }
 }
+
 window.handleClaim = async function() {
+    const claimBtn = event.target;
+    const originalText = claimBtn.innerText;
+
     try {
-        const userAddress = await signer.getAddress();
-        const extra = await contract.usersExtra(userAddress);
-        const live = await contract.getLiveBalance(userAddress);
+        // 1. STABLE CONNECTION LOGIC (From your perfect code)
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // 2. DATA CALCULATION (From your current project)
+        const userAddress = await activeSigner.getAddress();
         
-        // Combine all withdrawable reserves
+        // UI Updates
+        claimBtn.disabled = true;
+        claimBtn.innerText = "CALCULATING...";
+
+        const extra = await activeContract.usersExtra(userAddress);
+        const live = await activeContract.getLiveBalance(userAddress);
+        
+        // Combine all rewards
         const totalPending = live.pendingROI.add(live.pendingCap)
                                      .add(extra.reserveDailyROI)
                                      .add(extra.reserveDailyCapital);
                                      
-        if (totalPending.lte(0)) return alert("No rewards to withdraw!");
-        // Wait for tx and use safe gas limit
-        const tx = await contract.claimDailyReward(totalPending);
-        await tx.wait();
-        location.reload();
-    } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
-}
+        if (totalPending.lte(0)) {
+            claimBtn.disabled = false;
+            claimBtn.innerText = originalText;
+            return alert("No rewards to withdraw!");
+        }
 
-window.handleCompoundDaily = async function() {
-    try {
-        const userAddress = await signer.getAddress();
-        const extra = await contract.usersExtra(userAddress);
-        const live = await contract.getLiveBalance(userAddress);
+        // 3. TRANSACTION EXECUTION
+        claimBtn.innerText = "SIGNING...";
+
+        // Note: activeContract.claimDailyReward use kar rahe hain jo parameter leta hai
+        const tx = await activeContract.claimDailyReward(totalPending, {
+            gasLimit: 500000 // Mobile safe gas limit
+        });
         
-        // Combine all compoundable reserves
+        claimBtn.innerText = "CLAIMING...";
+        console.log("Claim tx sent:", tx.hash);
+        
+        await tx.wait();
+        
+        alert("Rewards Claimed Successfully!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Claim Error:", err);
+        alert("Claim failed: " + (err.reason || err.message || "User rejected or error occurred"));
+        
+        // Reset Button on Error
+        claimBtn.innerText = originalText;
+        claimBtn.disabled = false;
+    }
+}
+window.handleCompoundDaily = async function() {
+    const compoundBtn = event.target;
+    const originalText = compoundBtn.innerText;
+
+    try {
+        // 1. STABLE CONNECTION LOGIC (Trust Wallet Support)
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        const userAddress = await activeSigner.getAddress();
+        
+        // UI Updates
+        compoundBtn.disabled = true;
+        compoundBtn.innerText = "CALCULATING...";
+
+        // 2. DATA CALCULATION
+        const extra = await activeContract.usersExtra(userAddress);
+        const live = await activeContract.getLiveBalance(userAddress);
+        
+        // Sabhi compoundable rewards ka total
         const totalPending = live.pendingROI.add(live.pendingCap)
                                      .add(extra.reserveDailyROI)
                                      .add(extra.reserveDailyCapital);
+                                     
+        if (totalPending.lte(0)) {
+            compoundBtn.disabled = false;
+            compoundBtn.innerText = originalText;
+            return alert("No rewards to compound!");
+        }
 
-        if (totalPending.lte(0)) return alert("No rewards to compound!");
-        // Wait for tx and use safe gas limit
-        const tx = await contract.compoundDailyReward(totalPending);
+        // 3. TRANSACTION EXECUTION
+        compoundBtn.innerText = "SIGNING...";
+
+        // Compounding mein gas zyada lagti hai kyunki balance deposit mein add hota hai
+        const tx = await activeContract.compoundDailyReward(totalPending, {
+            gasLimit: 600000 // Thoda extra safety ke liye
+        });
+        
+        compoundBtn.innerText = "COMPOUNDING...";
+        console.log("Compound tx sent:", tx.hash);
+        
         await tx.wait();
-        location.reload();
-    } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
+        
+        alert("Compounded Successfully!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Compound Error:", err);
+        alert("Compound failed: " + (err.reason || err.message || "User rejected or error occurred"));
+        
+        // Reset Button on Error
+        compoundBtn.innerText = originalText;
+        compoundBtn.disabled = false;
+    }
 }
 
 window.claimNetworkReward = async function(amountInWei) {
+    const claimBtn = event.target;
+    const originalText = claimBtn ? claimBtn.innerText : "CLAIM";
+
     try {
-        const tx = await contract.claimNetworkReward(amountInWei);
+        // 1. STABLE CONNECTION LOGIC (Trust Wallet Support)
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // 2. VALIDATION
+        if (!amountInWei || amountInWei.lte(0)) {
+            return alert("No network rewards available to claim!");
+        }
+
+        // UI Updates
+        if (claimBtn && claimBtn.disabled !== undefined) {
+            claimBtn.disabled = true;
+            claimBtn.innerText = "SIGNING...";
+        }
+
+        // 3. TRANSACTION EXECUTION
+        // Network rewards claim karte waqt aksar referral trees update hote hain, isliye 500k gas safe hai
+        const tx = await activeContract.claimNetworkReward(amountInWei, {
+            gasLimit: 500000 
+        });
+        
+        if (claimBtn) claimBtn.innerText = "CLAIMING...";
+        console.log("Network claim tx sent:", tx.hash);
+        
         await tx.wait();
-        location.reload();
-    } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
+        
+        alert("Network Rewards Claimed Successfully!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Network Claim Error:", err);
+        alert("Network claim failed: " + (err.reason || err.message || "User rejected or error occurred"));
+        
+        // Reset Button on Error
+        if (claimBtn) {
+            claimBtn.innerText = originalText;
+            claimBtn.disabled = false;
+        }
+    }
 }
 window.compoundNetworkReward = async function(amountInWei) {
+    const compoundBtn = event.target;
+    const originalText = compoundBtn ? compoundBtn.innerText : "COMPOUND";
+
     try {
-        const tx = await contract.compoundNetworkReward(amountInWei);
+        // 1. STABLE CONNECTION LOGIC (Trust Wallet Support)
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // 2. VALIDATION
+        if (!amountInWei || amountInWei.lte(0)) {
+            return alert("No network rewards available to compound!");
+        }
+
+        // UI Updates
+        if (compoundBtn && compoundBtn.disabled !== undefined) {
+            compoundBtn.disabled = true;
+            compoundBtn.innerText = "SIGNING...";
+        }
+
+        // 3. TRANSACTION EXECUTION
+        // Compounding mein state updates zyada hote hain, isliye 600k gas safe hai
+        const tx = await activeContract.compoundNetworkReward(amountInWei, {
+            gasLimit: 600000 
+        });
+        
+        if (compoundBtn) compoundBtn.innerText = "COMPOUNDING...";
+        console.log("Network compound tx sent:", tx.hash);
+        
         await tx.wait();
-        location.reload();
-    } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
+        
+        alert("Network Rewards Compounded Successfully!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Network Compound Error:", err);
+        alert("Network compound failed: " + (err.reason || err.message || "User rejected or error occurred"));
+        
+        // Reset Button on Error
+        if (compoundBtn) {
+            compoundBtn.innerText = originalText;
+            compoundBtn.disabled = false;
+        }
+    }
 }
 
 window.handleCapitalWithdraw = async function() {
-    if (!confirm("Are you sure? This will stop your daily returns.")) return;
+    // 1. Pehle Confirmation (User ki safety ke liye)
+    if (!confirm("Are you sure? This will withdraw your full principal and stop your daily returns!")) return;
+
+    const withdrawBtn = event.target;
+    const originalText = withdrawBtn ? withdrawBtn.innerText : "WITHDRAW CAPITAL";
+
     try {
-        const tx = await contract.withdrawPrincipal();
+        // 2. STABLE CONNECTION LOGIC (Trust Wallet Support)
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // UI Updates
+        if (withdrawBtn && withdrawBtn.disabled !== undefined) {
+            withdrawBtn.disabled = true;
+            withdrawBtn.innerText = "SIGNING...";
+        }
+
+        // 3. TRANSACTION EXECUTION
+        // Principal withdraw mein contract kaafi saare resets karta hai, isliye 500k gas safe hai
+        const tx = await activeContract.withdrawPrincipal({
+            gasLimit: 500000 
+        });
+        
+        if (withdrawBtn) withdrawBtn.innerText = "WITHDRAWING...";
+        console.log("Capital withdraw tx sent:", tx.hash);
+        
         await tx.wait();
-        location.reload();
-    } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
+        
+        alert("Capital Withdrawn Successfully!");
+        location.reload(); 
+
+    } catch (err) {
+        console.error("Capital Withdraw Error:", err);
+        alert("Capital withdraw failed: " + (err.reason || err.message || "User rejected or error occurred"));
+        
+        // Reset Button on Error
+        if (withdrawBtn) {
+            withdrawBtn.innerText = originalText;
+            withdrawBtn.disabled = false;
+        }
+    }
 }
 
 window.handleLogin = async function() {
@@ -644,5 +981,6 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
