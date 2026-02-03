@@ -502,48 +502,127 @@ window.handleCapitalWithdraw = async function() {
 
 window.handleLogin = async function() {
     try {
-        if (!window.ethereum) return alert("Please install MetaMask!");
-        
-        // 1. Accounts request karein
-        const accounts = await provider.send("eth_requestAccounts", []);
+        if (!window.ethereum) return alert("Please install Trust Wallet or MetaMask!");
+
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         if (accounts.length === 0) return;
-        
         const userAddress = accounts[0]; 
-        
-        // 2. Signer aur Contract ko re-initialize karein
-        signer = provider.getSigner();
-        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        
-        // Logout flag clear karein
-        localStorage.removeItem('manualLogout');
-        
-        // 3. Contract se user data fetch karein
+
+        const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+        const { chainId } = await tempProvider.getNetwork();
+
+        // Check if on BSC Testnet (97)
+        if (chainId !== TESTNET_CHAIN_ID) {
+            alert("Please switch your wallet to BSC Testnet (Chain 97)!");
+            return;
+        }
+
+        const tempSigner = tempProvider.getSigner();
+        const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
+
+        provider = tempProvider;
+        signer = tempSigner;
+        contract = tempContract;
+
         const userData = await contract.users(userAddress);
 
-        // 4. Registration Check
         if (userData.registered === true) {
+            localStorage.setItem('userAddress', userAddress);
+            localStorage.removeItem('manualLogout');
+            
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
+            
             window.location.href = "index1.html";
         } else {
-            alert("This wallet is not registered in EarnBNB!");
+            alert("User Are Not registered ! Plz  Registration...");
             window.location.href = "register.html";
         }
-    } catch (err) {
+    } catch (err) { 
         console.error("Login Error:", err);
-        alert("Login failed! Make sure you are on BSC Mainnet.");
+        alert("Login failed! Make sure your wallet is connected to BSC Testnet."); 
     }
 }
 
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
+    const regBtn = event.target; // Button ko pakadne ke liye
+    
     if (!userField || !refField) return;
+
+    const username = userField.value.trim();
+    const referrer = refField.value.trim();
+
+    if (!username || !referrer) {
+        alert("Username and Referrer are required!");
+        return;
+    }
+
     try {
-       const tx = await contract.register(userField.value.trim(), refField.value.trim());
+      
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet/MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+            
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
+
+        // ---  NETWORK AUTO-SWITCH (BSC Testnet: 97) ---
+        const network = await activeSigner.provider.getNetwork();
+        if (network.chainId !== 97) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x61' }], // 0x61 = 97
+                });
+            } catch (switchError) {
+                alert("Please switch your wallet to BSC Testnet manually!");
+                return;
+            }
+        }
+
+        regBtn.disabled = true;
+        regBtn.innerText = "CHECKING...";
+
+        
+        console.log("Registering username:", username);
+        
+        // Manual gas limit for Trust Wallet stability
+        const tx = await activeContract.register(username, referrer, {
+            gasLimit: 500000 
+        });
+
+        regBtn.innerText = "CONFIRMING...";
+        console.log("Tx Hash:", tx.hash);
+
         await tx.wait();
-        localStorage.removeItem('manualLogout'); 
+        
+        
+        localStorage.removeItem('manualLogout');
+        localStorage.setItem('userAddress', await activeSigner.getAddress()); 
+        
+        alert("Registration Successful!");
         window.location.href = "index1.html";
-    } catch (err) { alert("Error: " + (err.reason || err.message)); }
+
+    } catch (err) { 
+        console.error("Register Error:", err);
+        regBtn.disabled = false;
+        regBtn.innerText = "REGISTER NOW";
+
+        if (err.code === 4001 || err.message.includes("user rejected")) {
+            alert("Transaction rejected by user.");
+        } else {
+            alert("Error: " + (err.reason || "Username might be taken or balance is low."));
+        }
+    }
 }
 
 // --- LOGOUT LOGIC (Optimized) ---
@@ -574,13 +653,20 @@ function showLogoutIcon(address) {
 
 // --- APP SETUP ---
 async function setupApp(address) {
-    const { chainId } = await provider.getNetwork();
-    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
+    if (!address || address === "undefined") return;
     
-    const userData = await contract.users(address);
+    localStorage.setItem('userAddress', address);
+    const network = await provider.getNetwork();
+    if (network.chainId !== TESTNET_CHAIN_ID) { 
+        alert("Please switch your wallet to BSC Testnet (Chain 97)!"); 
+        return; 
+    }
+
+    const activeContract = window.contract || contract;
+    const userData = await activeContract.users(address);
     const path = window.location.pathname;
 
-    // --- SMART REDIRECTION ---
+    // Registration Logic
     if (!userData.registered) {
         if (!path.includes('register.html') && !path.includes('login.html')) {
             window.location.href = "register.html"; 
@@ -597,16 +683,14 @@ async function setupApp(address) {
     showLogoutIcon(address); 
 
     if (path.includes('index1.html')) {
-        fetchAllData(address);
+        setTimeout(() => fetchAllData(address), 300);
         start8HourCountdown(); 
     }
-
     if (path.includes('leadership.html')) {
-        fetchLeadershipData(address);
+        setTimeout(() => fetchLeadershipData(address), 300);
     }
-    
     if (path.includes('history.html')) {
-        window.showHistory('deposit');
+        setTimeout(() => window.showHistory('deposit'), 300);
     }
 }
 
@@ -641,39 +725,64 @@ window.showHistory = async function(type) {
 
 window.fetchBlockchainHistory = async function(type) {
     try {
-        const address = await signer.getAddress();
-        const rawHistory = await contract.getUserHistory(address);
+        // 1. Connection Guard (Trust Wallet support)
+        let activeSigner = window.signer || (typeof signer !== 'undefined' ? signer : null);
+        let activeContract = window.contract || (typeof contract !== 'undefined' ? contract : null);
+
+        // Agar signer nahi hai toh temporary provider se connect karo (Read-only ke liye)
+        if (!activeSigner && window.ethereum) {
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+        }
+
+        if (!activeSigner) return [];
+
+        const address = await activeSigner.getAddress();
+        
+        // Contract se raw history mangwayenge
+        const rawHistory = await activeContract.getUserHistory(address);
         
         const processedLogs = rawHistory.map(item => {
-            const txType = item.txType.toUpperCase(); 
+            const txType = (item.txType || "").toUpperCase(); 
             const detail = (item.detail || "").toUpperCase();
             const dt = new Date(item.timestamp.toNumber() * 1000);
             
             let match = false;
+            
+            // 2. Logic Implementation (Wahi jo aapne diya tha)
             if (type === 'deposit' && txType === 'DEPOSIT') match = true;
-            if (type === 'compounding' && (txType.includes('COMPOUND') || detail.includes('COMPOUND'))) match = true;
+            
+            if (type === 'compounding' && (txType.includes('COMPOUND') || detail.includes('COMPOUND') || txType === 'REINVEST')) match = true;
+            
             if (type === 'income') {
-                const incomeKeywords = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'LEVEL', 'NETWORK', 'REWARD'];
+                const incomeKeywords = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'LEVEL', 'NETWORK', 'REWARD', 'ROI'];
                 if (incomeKeywords.some(k => txType.includes(k) || detail.includes(k))) match = true;
             }
-            if (type === 'withdrawal' && (txType === 'CAPITAL' || detail.includes('CLAIM') || detail.includes('WITHDRAW'))) match = true;
+            
+            if (type === 'withdrawal' && (txType === 'CAPITAL' || detail.includes('CLAIM') || detail.includes('WITHDRAW') || txType.includes('WITHDRAW'))) match = true;
 
             if (!match) return null;
 
+            // 3. Formatting
             return {
-                type: txType,
-                amount: format(item.amount),
+                type: txType.replace('_', ' '),
+                // Yahan ensure karein 'format' function BNB ke liye sahi decimals use kar raha hai
+                amount: typeof format === 'function' ? format(item.amount) : ethers.utils.formatEther(item.amount),
                 date: dt.toLocaleDateString(),
                 time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                 ts: item.timestamp.toNumber(),
-                extra: item.detail,
-                color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-red-400'
+                detail: item.detail,
+                // UI Colors
+                color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-yellow-500'
             };
         });
 
+        // Null hatana aur Latest record upar dikhana
         return processedLogs.filter(l => l !== null).sort((a, b) => b.ts - a.ts);
+
     } catch (e) {
-        console.error("History Error:", e);
+        console.error("Blockchain Sync Error:", e);
         return [];
     }
 }
@@ -681,155 +790,249 @@ window.fetchBlockchainHistory = async function(type) {
 // --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
 async function fetchLeadershipData(address) {
     try {
+        // 1. Connection Guard: Trust Wallet support ke liye active instance check karein
+        let activeContract = window.contract || contract;
+        
+        // Agar address nahi hai toh active signer se lene ki koshish karein
+        if (!address && window.signer) {
+            address = await window.signer.getAddress();
+        }
+        if (!address) return;
+
+        // 2. Fetching Data using stable Promise.all
         const [user, extra] = await Promise.all([
-            contract.users(address),
-            contract.usersExtra(address)
+            activeContract.users(address),
+            activeContract.usersExtra(address)
         ]);
 
         const rIdx = extra.rank;
         
-        // 1. Calculate Power Leg vs Other Legs
-        // Logic: Get all directs, find the max volume, subtract from total
-        const teamRes = await contract.getLevelTeamDetails(address, 1);
+        // 3. Power Leg vs Other Legs Logic
+        // directTeamVolumes fetch karte waqt error handling zaroori hai
+        const teamRes = await activeContract.getLevelTeamDetails(address, 1);
+        
+        // ethers.js mein array structure check (tuple index 5 aksar volumes hote hain)
         const directTeamVolumes = teamRes.teamActiveDeps || teamRes[5] || []; 
         
         let powerLegVolume = 0;
-        let totalTeamActive = parseFloat(format(user.teamActiveDeposit));
+        // Ensure format handle karta hai BNB (18 decimals)
+        let totalTeamActive = parseFloat(typeof format === 'function' ? format(user.teamActiveDeposit) : ethers.utils.formatEther(user.teamActiveDeposit));
 
-        if (directTeamVolumes.length > 0) {
-            // Find the strongest leg
-            const volumes = directTeamVolumes.map(v => parseFloat(format(v)));
+        if (directTeamVolumes && directTeamVolumes.length > 0) {
+            // Strongest leg find karna
+            const volumes = directTeamVolumes.map(v => 
+                parseFloat(typeof format === 'function' ? format(v) : ethers.utils.formatEther(v))
+            );
             powerLegVolume = Math.max(...volumes);
         }
 
-        // Other legs is Total Team Active - Strongest Direct's Team Active
+        // Other legs calculation
         let otherLegsVolume = Math.max(0, totalTeamActive - powerLegVolume);
 
-        // 2. UI Updates (Basic Stats)
-        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
-        updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
-        updateText('rank-reward-available', format(extra.rewardsRank));
-        updateText('total-rank-earned', format(user.totalEarnings));
+        // 4. UI Updates (Basic Stats)
+        // Ensure RANK_DETAILS array globally defined hai
+        if (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[rIdx]) {
+            updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
+            updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
+            
+            const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
+            const nextRank = RANK_DETAILS[nextIdx];
+            updateText('next-rank-display', nextRank.name);
+            updateText('progress-next-rank', nextRank.name);
+
+            // Power Leg Progress UI
+            const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
+            updateText('current-power-val', powerLegVolume.toFixed(2));
+            updateText('target-power-val', `${nextRank.powerReq} BNB`);
+            updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
+            if(document.getElementById('power-progress-bar')) 
+                document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
+
+            // Other Legs Progress UI
+            const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
+            updateText('current-other-val', otherLegsVolume.toFixed(2));
+            updateText('target-other-val', `${nextRank.otherReq} BNB`);
+            updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
+            if(document.getElementById('other-progress-bar')) 
+                document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
+        }
+
+        // Displaying current available rewards
+        updateText('rank-reward-available', typeof format === 'function' ? format(extra.rewardsRank) : ethers.utils.formatEther(extra.rewardsRank));
+        updateText('total-rank-earned', typeof format === 'function' ? format(user.totalEarnings) : ethers.utils.formatEther(user.totalEarnings));
         updateText('power-leg-volume', powerLegVolume.toFixed(4));
         updateText('other-legs-volume', otherLegsVolume.toFixed(4));
 
-        // 3. Next Rank Progress
-        const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
-        const nextRank = RANK_DETAILS[nextIdx];
-        updateText('next-rank-display', nextRank.name);
-        updateText('progress-next-rank', nextRank.name);
+        // 5. Load Table (Sub-function call)
+        if (typeof loadLeadershipDownlines === 'function') {
+            loadLeadershipDownlines(address, rIdx);
+        }
 
-        // Power Leg Progress
-        const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
-        updateText('current-power-val', powerLegVolume.toFixed(2));
-        updateText('target-power-val', `${nextRank.powerReq} BNB`);
-        updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
-        if(document.getElementById('power-progress-bar')) 
-            document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
-
-        // Other Legs Progress
-        const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
-        updateText('current-other-val', otherLegsVolume.toFixed(2));
-        updateText('target-other-val', `${nextRank.otherReq} BNB`);
-        updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
-        if(document.getElementById('other-progress-bar')) 
-            document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
-
-        // 4. Load Table
-        loadLeadershipDownlines(address, rIdx);
-
-    } catch (err) { console.error("Leadership Fetch Error:", err); }
+    } catch (err) { 
+        console.error("Leadership Fetch Error:", err);
+        // Error hone par loading states reset karna achha hota hai
+    }
 }
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
+
     try {
-        const res = await contract.getLevelTeamDetails(address, 1);
+        // 1. Connection Guard
+        let activeContract = window.contract || contract;
+        if (!activeContract) return;
+
+        // Loading state (Optional but good for UX)
+        tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-yellow-500 italic animate-pulse">Loading direct partners...</td></tr>`;
+
+        // 2. Fetching Team Details
+        const res = await activeContract.getLevelTeamDetails(address, 1);
+        
+        // Ethers.js array support (index-based fallback)
         const wallets = res.wallets || res[1] || [];
         const names = res.names || res[0] || [];
-        const activeDeps = res.activeDeps || res[3] || [];
-        const teamActiveDeps = res.teamActiveDeps || res[5] || []; // Team Active Volume
-
+        
         if (wallets.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 italic">No direct members</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 italic">No direct members found</td></tr>`;
             return;
         }
 
         let html = '';
+        
+        // 3. Loop through Directs
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            if (!uA || uA === ethers.constants.AddressZero) continue;
             
-            const [dUser, dExtra] = await Promise.all([contract.users(uA), contract.usersExtra(uA)]);
+            // Basic Safety Check
+            if (!uA || uA === "0x0000000000000000000000000000000000000000") continue;
             
-            // Partner's own team analysis
-            const partnerTotalTeam = parseFloat(format(dUser.teamActiveDeposit));
-            const partnerPersonal = parseFloat(format(dUser.totalActiveDeposit));
-            
-            // Total volume contributed by this direct leg is: His personal + His team
-            const totalLegVolume = partnerPersonal + partnerTotalTeam;
+            try {
+                // Fetching individual partner data
+                const [dUser, dExtra] = await Promise.all([
+                    activeContract.users(uA),
+                    activeContract.usersExtra(uA)
+                ]);
+                
+                // Formatting values with safety check
+                const formatVal = (val) => {
+                    return parseFloat(typeof format === 'function' ? format(val) : ethers.utils.formatEther(val));
+                };
 
-            html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
-                <td class="p-4 flex flex-col">
-                    <span class="text-white font-bold">${names[i] || 'N/A'}</span>
-                    <span class="text-[9px] text-gray-400">${uA.substring(0,10)}...</span>
-                </td>
-                <td class="p-4 text-yellow-500 font-bold">${RANK_DETAILS[dExtra.rank].name}</td>
-                <td class="p-4">${partnerPersonal.toFixed(3)}</td>
-                <td class="p-4 text-green-400 font-bold">${totalLegVolume.toFixed(3)}</td>
-                <td class="p-4 text-gray-400">${partnerTotalTeam.toFixed(3)}</td>
-                <td class="p-4 text-blue-400 font-bold">${RANK_DETAILS[dExtra.rank].reward}</td>
-            </tr>`;
+                const partnerTotalTeam = formatVal(dUser.teamActiveDeposit);
+                const partnerPersonal = formatVal(dUser.totalActiveDeposit);
+                
+                // Total volume logic (Personal + Team)
+                const totalLegVolume = partnerPersonal + partnerTotalTeam;
+                
+                // Rank details safety check
+                const pRank = dExtra.rank;
+                const pRankName = (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[pRank]) ? RANK_DETAILS[pRank].name : "N/A";
+                const pRankReward = (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[pRank]) ? RANK_DETAILS[pRank].reward : "0";
+
+                html += `
+                <tr class="border-b border-white/5 hover:bg-white/10 transition-all">
+                    <td class="p-4 flex flex-col">
+                        <span class="text-white font-bold text-sm">${names[i] || 'User'}</span>
+                        <span class="text-[9px] text-gray-400 font-mono">${uA.substring(0,6)}...${uA.substring(uA.length-4)}</span>
+                    </td>
+                    <td class="p-4 text-yellow-500 font-bold text-xs uppercase">${pRankName}</td>
+                    <td class="p-4 text-sm font-medium text-gray-200">${partnerPersonal.toFixed(3)}</td>
+                    <td class="p-4 text-green-400 font-bold text-sm">${totalLegVolume.toFixed(3)}</td>
+                    <td class="p-4 text-gray-400 text-sm">${partnerTotalTeam.toFixed(3)}</td>
+                    <td class="p-4 text-blue-400 font-bold text-sm">${pRankReward}</td>
+                </tr>`;
+
+            } catch (innerErr) {
+                console.error(`Error loading data for ${uA}:`, innerErr);
+                // Ek row skip hone par bhi table chalti rahegi
+                continue;
+            }
         }
-        tableBody.innerHTML = html;
-    } catch (e) { console.error("Downline Table Error:", e); }
+        
+        tableBody.innerHTML = html || `<tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Error loading downline data</td></tr>`;
+
+    } catch (e) { 
+        console.error("Downline Table Global Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-500 italic">Failed to sync downline. Please check your connection.</td></tr>`;
+    }
 }
 
 // --- GLOBAL DATA FETCH ---
 async function fetchAllData(address) {
     try {
+        // --- TRUST WALLET CONNECTION FIX ---
+        let activeSigner = window.signer || signer;
+        let activeContract = window.contract || contract;
+
+        // Agar signer ya contract missing hai (jaisa mobile browser mein hota hai)
+        if (!activeSigner || !activeContract) {
+            if (window.ethereum) {
+                const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                activeSigner = tempProvider.getSigner();
+                activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+                
+                // Future use ke liye save kar lein
+                window.signer = activeSigner;
+                window.contract = activeContract;
+            } else {
+                return; // No wallet found
+            }
+        }
+
+        // Agar address parameter mein nahi aaya, toh active signer se lein
+        if (!address) {
+            address = await activeSigner.getAddress();
+        }
+
+        // --- FETCH DATA (Stable Promise.all) ---
         const [user, extra, live] = await Promise.all([
-            contract.users(address),
-            contract.usersExtra(address),
-            contract.getLiveBalance(address)
+            activeContract.users(address),
+            activeContract.usersExtra(address),
+            activeContract.getLiveBalance(address)
         ]);
 
         if (!user.registered) return;
 
-        updateText('total-deposit-display', format(user.totalDeposited));
-        updateText('active-deposit', format(user.totalActiveDeposit));
-        updateText('total-earned', format(user.totalEarnings));
-        updateText('total-withdrawn', format(user.totalWithdrawn));
+        // Helper function for safe formatting (BNB 18 decimals)
+        const formatVal = (val) => {
+            if (!val) return "0.00";
+            return typeof format === 'function' ? format(val) : ethers.utils.formatEther(val);
+        };
+
+        // --- UI UPDATES (Same as your logic) ---
+        updateText('total-deposit-display', formatVal(user.totalDeposited));
+        updateText('active-deposit', formatVal(user.totalActiveDeposit));
+        updateText('total-earned', formatVal(user.totalEarnings));
+        updateText('total-withdrawn', formatVal(user.totalWithdrawn));
         updateText('team-count', extra.teamCount.toString());
         updateText('direct-count', extra.directsCount.toString());
-        updateText('level-earnings', format(extra.rewardsReferral));
-        updateText('direct-earnings', format(extra.rewardsOnboarding));
+        updateText('level-earnings', formatVal(extra.rewardsReferral));
+        updateText('direct-earnings', formatVal(extra.rewardsOnboarding));
         
-        // --- Capital Box Fixes ---
-        updateText('capital-investment-display', format(user.totalDeposited));
-        updateText('capital-withdrawn-display', format(user.totalWithdrawn));
+        updateText('capital-investment-display', formatVal(user.totalDeposited));
+        updateText('capital-withdrawn-display', formatVal(user.totalWithdrawn));
 
-        // --- Live Balance Fixes ---
-        const networkBalance = parseFloat(format(extra.rewardsReferral)) + 
-                               parseFloat(format(extra.rewardsOnboarding)) + 
-                               parseFloat(format(extra.rewardsRank)) + 
-                               parseFloat(format(extra.reserveNetwork));
+        // --- LIVE BALANCE CALCULATIONS ---
+        const networkBalance = parseFloat(formatVal(extra.rewardsReferral)) + 
+                               parseFloat(formatVal(extra.rewardsOnboarding)) + 
+                               parseFloat(formatVal(extra.rewardsRank)) + 
+                               parseFloat(formatVal(extra.reserveNetwork));
         
         updateText('ref-balance-display', networkBalance.toFixed(4));
 
-        const pendingROI = parseFloat(format(live.pendingROI));
-        const pendingCap = parseFloat(format(live.pendingCap));
-        const reserveDaily = parseFloat(format(extra.reserveDailyROI)) + parseFloat(format(extra.reserveDailyCapital));
+        const pendingROI = parseFloat(formatVal(live.pendingROI));
+        const pendingCap = parseFloat(formatVal(live.pendingCap));
+        const reserveDaily = parseFloat(formatVal(extra.reserveDailyROI)) + 
+                             parseFloat(formatVal(extra.reserveDailyCapital));
         
         const totalPending = pendingROI + pendingCap + reserveDaily;
         
         updateText('compounding-balance', totalPending.toFixed(4));
         updateText('withdrawable-display', (totalPending + networkBalance).toFixed(4));
         
-        // --- CP Display & Projected ROI Fix ---
-     
-const activeAmt = parseFloat(format(user.totalActiveDeposit));
-updateText('cp-display', activeAmt.toFixed(4));
+        // --- STATUS & CP DISPLAY ---
+        const activeAmt = parseFloat(formatVal(user.totalActiveDeposit));
+        updateText('cp-display', activeAmt.toFixed(4));
         
         const selfStatusEl = document.getElementById('user-status-display');
         const statusBadge = document.getElementById('status-badge');
@@ -849,29 +1052,60 @@ updateText('cp-display', activeAmt.toFixed(4));
             }
         }
 
-        const projectedReturn = (activeAmt * (calculateGlobalROI(activeAmt)/100)).toFixed(4);
-        updateText('projected-return', projectedReturn);
+        // Projected ROI logic
+        if (typeof calculateGlobalROI === 'function') {
+            const projectedReturn = (activeAmt * (calculateGlobalROI(activeAmt)/100)).toFixed(4);
+            updateText('projected-return', projectedReturn);
+        }
         
-        updateText('rank-display', getRankName(extra.rank));
+        // Rank logic
+        if (typeof getRankName === 'function') {
+            updateText('rank-display', getRankName(extra.rank));
+        }
 
-        // --- FIXED REFERRAL LINK LOGIC ---
+        // --- REFERRAL LINK LOGIC ---
         const currentUrl = window.location.href.split('?')[0];
-        const pageName = currentUrl.substring(currentUrl.lastIndexOf('/') + 1);
-        const baseUrl = currentUrl.replace(pageName, 'register.html');
-        const refUrl = `${baseUrl}?ref=${user.username}`;
-        if(document.getElementById('refURL')) document.getElementById('refURL').value = refUrl;
+        const baseUrl = currentUrl.includes('index.html') ? currentUrl.replace('index.html', 'register.html') : currentUrl + 'register.html';
+        
+        const refUrl = `${baseUrl}?ref=${user.username || address}`; 
+        
+        if(document.getElementById('refURL')) {
+            document.getElementById('refURL').value = refUrl;
+        }
 
-    } catch (err) { console.error("Data Fetch Error:", err); }
+    } catch (err) { 
+        console.error("Data Fetch Error:", err); 
+    }
 }
-
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic">Scanning Blockchain...</td></tr>`;
+    
+    // Initial Loading State
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic animate-pulse">Scanning Level ${level} Blockchain...</td></tr>`;
     
     try {
-        const address = await signer.getAddress();
-        const res = await contract.getLevelTeamDetails(address, level);
+        // 1. TRUST WALLET CONNECTION GUARD
+        let activeSigner = window.signer || (typeof signer !== 'undefined' ? signer : null);
+        let activeContract = window.contract || (typeof contract !== 'undefined' ? contract : null);
+
+        if (!activeSigner || !activeContract) {
+            if (window.ethereum) {
+                const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                activeSigner = tempProvider.getSigner();
+                activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+                window.signer = activeSigner;
+                window.contract = activeContract;
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Wallet Not Connected</td></tr>`;
+                return;
+            }
+        }
+
+        const address = await activeSigner.getAddress();
+        
+        // 2. FETCH DATA (Using Tuple Fallbacks)
+        const res = await activeContract.getLevelTeamDetails(address, level);
         const names = res.names || res[0] || [];
         const wallets = res.wallets || res[1] || [];
         const joinDates = res.joinDates || res[2] || [];
@@ -879,39 +1113,59 @@ window.loadLevelData = async function(level) {
         const teamTotalDeps = res.teamTotalDeps || res[4] || [];
 
         if (!wallets || wallets.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500">No users found in Level ${level}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic text-sm">No members found in Level ${level}</td></tr>`;
             return;
         }
+
+        // Helper for BNB formatting
+        const formatVal = (val) => {
+            const formatted = typeof format === 'function' ? format(val) : ethers.utils.formatEther(val);
+            return parseFloat(formatted);
+        };
         
         let html = '';
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            if (!uA || uA === ethers.constants.AddressZero) continue;
+            
+            // Safety Check for empty addresses
+            if (!uA || uA === "0x0000000000000000000000000000000000000000") continue;
+            
             const uName = names[i] || "N/A";
-            const activeD = parseFloat(format(activeDeps[i]));
-            const teamTD = format(teamTotalDeps[i]);
-            let jDate = joinDates[i] > 0 ? new Date(joinDates[i] * 1000).toLocaleDateString() : "N/A";
+            const activeD = formatVal(activeDeps[i]);
+            const teamTD = formatVal(teamTotalDeps[i]);
+            
+            let jDate = "N/A";
+            if (joinDates[i] > 0) {
+                const timestamp = joinDates[i].toNumber ? joinDates[i].toNumber() : joinDates[i];
+                jDate = new Date(timestamp * 1000).toLocaleDateString();
+            }
 
             const statusText = activeD > 0 ? 'ACTIVE' : 'INACTIVE';
-            const statusColor = activeD > 0 ? 'text-yellow-500' : 'text-red-500';
+            const statusColor = activeD > 0 ? 'text-green-400' : 'text-red-500';
 
-            html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
+            html += `
+            <tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                 <td class="p-4 font-mono text-yellow-500 text-[10px]">
                     <div class="flex flex-col">
-                        <span>${uA.substring(0,8)}...${uA.substring(34)}</span>
-                        <span class="text-[8px] text-gray-400 font-sans uppercase">${uName}</span>
+                        <span class="font-bold">${uA.substring(0,8)}...${uA.substring(uA.length-4)}</span>
+                        <span class="text-[8px] text-gray-400 font-sans uppercase tracking-tighter">${uName}</span>
                     </div>
                 </td>
                 <td class="p-4 text-xs font-bold text-gray-400">Lvl ${level}</td>
                 <td class="p-4 text-xs font-black text-white">${activeD.toFixed(4)}</td>
-                <td class="p-4 text-xs text-gray-400">${parseFloat(teamTD).toFixed(4)}</td>
-                <td class="p-4 text-xs text-green-400 font-bold">${activeD.toFixed(4)}</td>
+                <td class="p-4 text-xs text-gray-400">${teamTD.toFixed(4)}</td>
+                <td class="p-4 text-xs text-cyan-400 font-bold">${activeD.toFixed(4)}</td>
                 <td class="p-4 text-xs ${statusColor} italic uppercase font-black">${statusText}</td>
-                <td class="p-4 text-[10px] text-gray-500">${jDate}</td>
+                <td class="p-4 text-[10px] text-gray-500 whitespace-nowrap">${jDate}</td>
             </tr>`;
         }
-        tableBody.innerHTML = html;
-    } catch (e) { tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Sync Error</td></tr>`; }
+        
+        tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">Empty Level</td></tr>`;
+
+    } catch (e) { 
+        console.error("Level Sync Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Blockchain Sync Error. Refresh Wallet.</td></tr>`; 
+    }
 }
 
 function start8HourCountdown() {
@@ -981,6 +1235,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
