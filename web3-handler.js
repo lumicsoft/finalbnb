@@ -616,6 +616,7 @@ function start8HourCountdown() {
     }, 1000);
 }
 
+
 // --- UTILS ---
 const format = (val) => {
     try { 
@@ -643,4 +644,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
