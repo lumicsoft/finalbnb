@@ -76,106 +76,112 @@
         return 5.00;
     }
 
-    async function loadActiveDeposits() {
-        const grid = document.getElementById('deposits-grid');
-        
-        if (typeof window.contract === 'undefined') {
-            setTimeout(loadActiveDeposits, 1000);
-            return;
-        }
-
-        try {
-            const address = await window.signer.getAddress();
-            const userData = await window.contract.users(address);
+  async function loadActiveDeposits() {
+            const grid = document.getElementById('deposits-grid');
             
-            const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
-            document.getElementById('total-active-capital').innerText = totalActive.toFixed(4);
-
-            if (totalActive <= 0) {
-                document.getElementById('total-daily-profit').innerText = `0.0000`;
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-gray-500 orbitron text-xs border border-dashed border-white/10 rounded-3xl">NO ACTIVE DEPOSITS FOUND</div>`;
-                return;
+            // --- FIX 1: Check Global Contract ---
+            const activeContract = window.contract || contract;
+            if (!activeContract) { 
+                console.log("Waiting for contract...");
+                setTimeout(loadActiveDeposits, 1000); 
+                return; 
             }
 
-            const globalROIRate = getGlobalROI(totalActive);
-            const totalDailyProfit = (totalActive * (globalROIRate / 100));
-            document.getElementById('total-daily-profit').innerText = totalDailyProfit.toFixed(4);
+            try {
+               
+                let address = localStorage.getItem('userAddress');
+                if (!address && window.signer) {
+                    address = await window.signer.getAddress();
+                }
 
-            let html = '';
-            let foundAny = false;
+                if (!address) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-20 text-yellow-500 orbitron uppercase text-[10px]">Please Connect Wallet</div>`;
+                    return;
+                }
 
-            for (let i = 0; i < 50; i++) {
-                try {
-                    const pos = await window.contract.getPosition(address, i);
-                    const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
-                    
-                    if (amount === 0) break;
+                const userData = await activeContract.users(address);
+                const totalActive = parseFloat(ethers.utils.formatUnits(userData.totalActiveDeposit, 18));
+                
+                document.getElementById('total-active-capital').innerText = totalActive.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('total-daily-profit').innerText = (totalActive * (DAILY_ROI / 100)).toLocaleString(undefined, {minimumFractionDigits: 2});
 
-                    if (pos.active) {
-                        foundAny = true;
-                        const cardDailyYield = (amount * (globalROIRate / 100));
-                        const startTime = parseInt(pos.startTime);
-                        const endTime = parseInt(pos.endTime);
-                        const currentTime = Math.floor(Date.now() / 1000);
+                updateChart(totalActive);
+
+                let html = '';
+                let foundAny = false;
+
+                // Loop for positions
+                for (let i = 0; i < 50; i++) {
+                    try {
+                        const pos = await activeContract.getPosition(address, i);
+                        const amount = parseFloat(ethers.utils.formatUnits(pos.amount, 18));
                         
-                        const totalDuration = endTime - startTime;
-                        const elapsed = currentTime - startTime;
-                        
-                        let progress = ((elapsed / totalDuration) * 100).toFixed(2);
-                        if (progress > 100) progress = 100;
-                        if (progress < 0) progress = 0;
+                        if (amount === 0) {
+                            if (i > 10) break; 
+                            continue;
+                        }
 
-                        html += `
-                        <div class="premium-border p-8 hover:translate-y-[-5px] transition-all duration-300">
-                            <div class="flex justify-between items-start mb-6">
-                                <div>
-                                    <h3 class="text-xl font-black orbitron italic text-white flex items-center">
-                                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm">
-                                        ${amount.toFixed(4)} Node
-                                    </h3>
-                                    <p class="text-[9px] text-yellow-500 font-bold uppercase tracking-widest mt-1 italic">Account Tier: ${globalROIRate.toFixed(2)}% Daily</p>
-                                </div>
-                                <span class="status-badge">Active</span>
-                            </div>
+                        if (pos.active) {
+                            foundAny = true;
+                            const startTime = parseInt(pos.startTime);
+                            const currentTime = Math.floor(Date.now() / 1000);
+                            const durationSeconds = DURATION_DAYS * 24 * 60 * 60;
+                            const elapsed = currentTime - startTime;
+                            
+                            let progress = ((elapsed / durationSeconds) * 100).toFixed(2);
+                            if (progress > 100) progress = 100;
+                            if (progress < 0) progress = 0;
 
-                            <div class="grid grid-cols-2 gap-4 mb-8">
-                                <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                                    <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Source</p>
-                                    <p class="text-xs font-black orbitron text-yellow-500">${pos.source == 1 ? 'COMPOUND' : 'DIRECT'}</p>
+                            html += `
+                            <div class="premium-card">
+                                <div class="inner-content !block">
+                                    <div class="flex justify-between items-start mb-6">
+                                        <div>
+                                            <p class="label-text mb-1">Node Value</p>
+                                            <h3 class="text-xl font-black orbitron text-white">$${amount.toLocaleString()}</h3>
+                                        </div>
+                                        <span class="status-badge animate-pulse">RUNNING</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3 mb-6">
+                                        <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+                                            <p class="text-[8px] text-gray-500 font-bold uppercase mb-1">Daily Yield</p>
+                                            <p class="text-xs font-bold text-green-400">$${(amount * (DAILY_ROI/100)).toFixed(2)}</p>
+                                        </div>
+                                        <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+                                            <p class="text-[8px] text-gray-500 font-bold uppercase mb-1">Status</p>
+                                            <p class="text-xs font-bold text-yellow-500">ACTIVE</p>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between text-[10px] font-black orbitron">
+                                            <span class="text-gray-500 uppercase">Cycle Progress</span>
+                                            <span class="text-yellow-500">${progress}%</span>
+                                        </div>
+                                        <div class="progress-container">
+                                            <div class="progress-bar-node" style="width: ${progress}%"></div>
+                                        </div>
+                                        <p class="text-[9px] text-gray-600 text-center italic mt-2">Term: ${DURATION_DAYS} Days @ ${DAILY_ROI}% Daily</p>
+                                    </div>
                                 </div>
-                                <div class="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-                                    <p class="text-[9px] font-black text-gray-500 uppercase mb-1">Yield at ${globalROIRate.toFixed(2)}%</p>
-                                    <p class="text-lg font-black orbitron text-green-400 flex items-center justify-center">
-                                        <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon-sm">
-                                        ${cardDailyYield.toFixed(4)}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="space-y-4">
-                                <div class="flex justify-between text-[11px] font-black orbitron uppercase">
-                                    <span class="text-gray-400 italic">Progress</span>
-                                    <span class="text-white">${progress}%</span>
-                                </div>
-                                <div class="progress-container">
-                                    <div class="progress-bar" style="width: ${progress}%"></div>
-                                </div>
-                            </div>
-                        </div>`;
-                    }
-                } catch (e) { break; }
+                            </div>`;
+                        }
+                    } catch (e) { break; }
+                }
+                
+                grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-600 uppercase text-[10px] border border-dashed border-white/10 rounded-3xl">No Active Mining Nodes Found</div>`;
+                lucide.createIcons();
+            } catch (err) {
+                console.error(err);
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500 orbitron uppercase text-[10px]">Sync Error: Wallet possibly locked</div>`;
             }
-
-            grid.innerHTML = foundAny ? html : `<div class="col-span-full text-center py-20 text-gray-500">NO ACTIVE POSITIONS</div>`;
-            if (window.lucide) lucide.createIcons();
-
-        } catch (err) {
-            console.error(err);
-            grid.innerHTML = `<div class="col-span-full text-center py-20 text-red-500">CONTRACT SYNC ERROR</div>`;
         }
-    }
-
-    window.addEventListener('load', () => setTimeout(loadActiveDeposits, 1500));
-</script>
+        
+        window.addEventListener('load', () => {
+           
+            setTimeout(loadActiveDeposits, 1500);
+            lucide.createIcons();
+        });
+    </script>
 </body>
 </html>
+
