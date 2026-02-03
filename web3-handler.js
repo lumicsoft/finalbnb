@@ -6,14 +6,14 @@ const TESTNET_CHAIN_ID = 97;
 
 // --- RANK CONFIG FOR LEADERSHIP (Updated: Removed ROI, Added Rewards) ---
 const RANK_DETAILS = [
-    { name: "NONE", reward: "0 BNB", targetTeam: 0, targetVolume: 0 },
-    { name: "V1", reward: "0.011 BNB", targetTeam: 50, targetVolume: 2.83 },
-    { name: "V2", reward: "0.055 BNB", targetTeam: 100, targetVolume:  5.66 },
-    { name: "V3", reward: "0.222 BNB", targetTeam: 200, targetVolume: 11.33 },
-    { name: "V4", reward: "1.111 BNB", targetTeam: 400, targetVolume: 16.99 },
-    { name: "V5", reward: "5.555 BNB", targetTeam: 800, targetVolume: 28.32 },
-    { name: "V6", reward: "11.111 BNB", targetTeam: 1500, targetVolume: 56.64  },
-    { name: "V7", reward: "22.222 BNB", targetTeam: 2500, targetVolume: 113.29  }
+   { name: "NONE", reward: "0 BNB", powerReq: 0, otherReq: 0 },
+    { name: "V1", reward: "0.011 BNB", powerReq: 1.11, otherReq: 1.11 },
+    { name: "V2", reward: "0.055 BNB", powerReq: 5.55, otherReq: 5.55 },
+    { name: "V3", reward: "0.222 BNB", powerReq: 22.22, otherReq: 22.22 },
+    { name: "V4", reward: "1.111 BNB", powerReq: 66.66, otherReq: 66.66 },
+    { name: "V5", reward: "5.555 BNB", powerReq: 277.77, otherReq: 277.77 },
+    { name: "V6", reward: "11.111 BNB", powerReq: 555.55, otherReq: 555.55 },
+    { name: "V7", reward: "22.222 BNB", powerReq: 1111.0, otherReq: 1111.0 }
 ];
 
 // --- ABI ---
@@ -350,38 +350,59 @@ async function fetchLeadershipData(address) {
         ]);
 
         const rIdx = extra.rank;
-        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
-        updateText('rank-bonus-display', `Reward: ${RANK_DETAILS[rIdx].reward}`);
-        updateText('rank-reward-available', `${format(extra.rewardsRank)}`);
-        updateText('total-rank-earned', `${format(user.totalEarnings)}`);
-        updateText('team-total-deposit', `${format(user.teamTotalDeposit)}`);
-        updateText('team-active-deposit', `${format(user.teamActiveDeposit)}`);
+        
+        // 1. Calculate Power Leg vs Other Legs
+        // Logic: Get all directs, find the max volume, subtract from total
+        const teamRes = await contract.getLevelTeamDetails(address, 1);
+        const directTeamVolumes = teamRes.teamActiveDeps || teamRes[5] || []; 
+        
+        let powerLegVolume = 0;
+        let totalTeamActive = parseFloat(format(user.teamActiveDeposit));
 
+        if (directTeamVolumes.length > 0) {
+            // Find the strongest leg
+            const volumes = directTeamVolumes.map(v => parseFloat(format(v)));
+            powerLegVolume = Math.max(...volumes);
+        }
+
+        // Other legs is Total Team Active - Strongest Direct's Team Active
+        let otherLegsVolume = Math.max(0, totalTeamActive - powerLegVolume);
+
+        // 2. UI Updates (Basic Stats)
+        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
+        updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
+        updateText('rank-reward-available', format(extra.rewardsRank));
+        updateText('total-rank-earned', format(user.totalEarnings));
+        updateText('power-leg-volume', powerLegVolume.toFixed(4));
+        updateText('other-legs-volume', otherLegsVolume.toFixed(4));
+
+        // 3. Next Rank Progress
         const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
         const nextRank = RANK_DETAILS[nextIdx];
-        updateText('next-rank-display', nextRank.name.toUpperCase());
-        updateText('progress-next-rank', nextRank.name.toUpperCase());
+        updateText('next-rank-display', nextRank.name);
+        updateText('progress-next-rank', nextRank.name);
 
-        const tCount = extra.teamCount;
-        const tVol = parseFloat(format(user.teamActiveDeposit));
-        const tPercent = Math.min((tCount / nextRank.targetTeam) * 100, 100) || 0;
-        const vPercent = Math.min((tVol / nextRank.targetVolume) * 100, 100) || 0;
+        // Power Leg Progress
+        const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
+        updateText('current-power-val', powerLegVolume.toFixed(2));
+        updateText('target-power-val', `${nextRank.powerReq} BNB`);
+        updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
+        if(document.getElementById('power-progress-bar')) 
+            document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
 
-        updateText('current-team-count', tCount);
-        updateText('target-team-count', `/ ${nextRank.targetTeam}`);
-        if(document.getElementById('team-count-bar')) document.getElementById('team-count-bar').style.width = `${tPercent}%`;
-        updateText('team-count-percent', `${tPercent.toFixed(0)}%`);
+        // Other Legs Progress
+        const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
+        updateText('current-other-val', otherLegsVolume.toFixed(2));
+        updateText('target-other-val', `${nextRank.otherReq} BNB`);
+        updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
+        if(document.getElementById('other-progress-bar')) 
+            document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
 
-        updateText('current-team-volume', tVol.toFixed(4));
-        updateText('target-team-volume', `/ ${nextRank.targetVolume.toLocaleString()} BNB`);
-        if(document.getElementById('team-volume-bar')) document.getElementById('team-volume-bar').style.width = `${vPercent}%`;
-        updateText('team-volume-percent', `${vPercent.toFixed(0)}%`);
-
+        // 4. Load Table
         loadLeadershipDownlines(address, rIdx);
 
     } catch (err) { console.error("Leadership Fetch Error:", err); }
 }
-
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -390,9 +411,10 @@ async function loadLeadershipDownlines(address, myRankIdx) {
         const wallets = res.wallets || res[1] || [];
         const names = res.names || res[0] || [];
         const activeDeps = res.activeDeps || res[3] || [];
+        const teamActiveDeps = res.teamActiveDeps || res[5] || []; // Team Active Volume
 
         if (wallets.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-500 italic">No direct members</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 italic">No direct members</td></tr>`;
             return;
         }
 
@@ -400,21 +422,30 @@ async function loadLeadershipDownlines(address, myRankIdx) {
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
             if (!uA || uA === ethers.constants.AddressZero) continue;
+            
             const [dUser, dExtra] = await Promise.all([contract.users(uA), contract.usersExtra(uA)]);
             
-            // Note: Diff% removed because ROI is no longer rank-based
+            // Partner's own team analysis
+            const partnerTotalTeam = parseFloat(format(dUser.teamActiveDeposit));
+            const partnerPersonal = parseFloat(format(dUser.totalActiveDeposit));
+            
+            // Total volume contributed by this direct leg is: His personal + His team
+            const totalLegVolume = partnerPersonal + partnerTotalTeam;
+
             html += `<tr class="border-b border-white/5 hover:bg-white/10 transition-all">
-                <td class="p-4 flex flex-col"><span class="text-white font-bold">${names[i] || 'N/A'}</span><span class="text-[9px] text-gray-400">${uA.substring(0,8)}...</span></td>
+                <td class="p-4 flex flex-col">
+                    <span class="text-white font-bold">${names[i] || 'N/A'}</span>
+                    <span class="text-[9px] text-gray-400">${uA.substring(0,10)}...</span>
+                </td>
                 <td class="p-4 text-yellow-500 font-bold">${RANK_DETAILS[dExtra.rank].name}</td>
-                <td class="p-4">${format(dUser.totalDeposited)}</td>
-                <td class="p-4 text-green-400">${format(activeDeps[i])}</td>
-                <td class="p-4">${dExtra.teamCount}</td>
+                <td class="p-4">${partnerPersonal.toFixed(3)}</td>
+                <td class="p-4 text-green-400 font-bold">${totalLegVolume.toFixed(3)}</td>
+                <td class="p-4 text-gray-400">${partnerTotalTeam.toFixed(3)}</td>
                 <td class="p-4 text-blue-400 font-bold">${RANK_DETAILS[dExtra.rank].reward}</td>
-                <td class="p-4">${format(dUser.teamActiveDeposit)}</td>
-          </tr>`;
+            </tr>`;
         }
         tableBody.innerHTML = html;
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Downline Table Error:", e); }
 }
 
 // --- GLOBAL DATA FETCH ---
@@ -612,3 +643,4 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
