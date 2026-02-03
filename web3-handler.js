@@ -53,6 +53,7 @@ function checkReferralURL() {
     }
 }
 // --- INITIALIZATION ---
+// --- INITIALIZATION ---
 async function init() {
     checkReferralURL();
     
@@ -108,6 +109,7 @@ async function init() {
         if (savedAddr) await setupReadOnly(bscTestnetRPC, savedAddr);
     }
 }
+
 async function setupReadOnly(rpcUrl, forcedAddress = null) {
     console.log("Mode: RPC/Memory Data Loading...");
     try {
@@ -1235,6 +1237,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
