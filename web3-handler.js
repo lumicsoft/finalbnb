@@ -132,68 +132,90 @@ async function setupReadOnly(rpcUrl, forcedAddress = null) {
 
 // --- CORE LOGIC ---
 window.handleDeposit = async function() {
-    const amountInput = document.getElementById('deposit-amount');
-    const depositBtn = document.getElementById('deposit-btn');
-    
-    // 1. Validation check
-    if (!amountInput || !amountInput.value || parseFloat(amountInput.value) <= 0) {
-        return alert("Please enter a valid BNB amount!");
-    }
+    const amountInput = document.getElementById('deposit-amount');
+    const depositBtn = document.getElementById('deposit-btn');
+    
+    // 1. Validation check
+    if (!amountInput || !amountInput.value || parseFloat(amountInput.value) <= 0) {
+        return alert("Please enter a valid BNB amount!");
+    }
 
-    try {
-        // Signer aur Contract check (Same as your robust USDT logic)
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
+    try {
+        // Signer aur Contract check
+        let activeSigner = window.signer || (typeof signer !== 'undefined' ? signer : null);
+        let activeContract = window.contract || (typeof contract !== 'undefined' ? contract : null);
 
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-                                    
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
+        // --- FIX 1: Connection Priority ---
+        if (!activeSigner || !window.ethereum) {
+            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
+            
+            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            // Trust Wallet ke liye requestAccounts zyada stable hai
+            const accounts = await tempProvider.send("eth_requestAccounts", []);
+            activeSigner = tempProvider.getSigner();
+            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
+                                    
+            window.signer = activeSigner;
+            window.contract = activeContract;
+        }
 
-        // UI Updates
-        depositBtn.disabled = true;
-        depositBtn.innerText = "SIGNING...";
+        // UI Updates
+        depositBtn.disabled = true;
+        depositBtn.innerText = "CONFIRMING...";
 
-        // BNB ko Wei mein convert karein
-        const amountInWei = ethers.utils.parseEther(amountInput.value.toString());
+        // BNB ko Wei mein convert karein
+        const amountInWei = ethers.utils.parseEther(amountInput.value.toString());
 
-        // 2. Deposit Logic (Direct BNB - No Approval Needed)
-        // Yahan function ke andar koi parameter nahi jayega, sirf value jayegi
-        const tx = await activeContract.deposit({ 
-            value: amountInWei,
-            gasLimit: 300000 // Mobile wallets ke liye manual gas limit
-        });
-        
-        depositBtn.innerText = "DEPOSITING...";
-        console.log("TX Hash:", tx.hash);
+        // --- FIX 2: Dynamic Gas Estimation ---
+        // Direct manual gas 300,000 dene se kabhi kabhi "Out of Gas" aata hai.
+        // Isliye pehle estimate karein, fir buffer add karein.
+        let gasLimit;
+        try {
+            const estimatedGas = await activeContract.estimateGas.deposit({ value: amountInWei });
+            // Add 20% buffer to estimated gas for mobile stability
+            gasLimit = estimatedGas.mul(120).div(100);
+        } catch (gasErr) {
+            console.warn("Gas estimation failed, using fallback.");
+            gasLimit = 500000; // Safe fallback
+        }
 
-        // 3. Wait for confirmation
-        await tx.wait();
-        
-        alert("Deposit Successful!");
-        location.reload(); 
+        // 2. Deposit Logic
+        const tx = await activeContract.deposit({ 
+            value: amountInWei,
+            gasLimit: gasLimit 
+        });
+        
+        depositBtn.innerText = "PROCESSING...";
+        console.log("TX Hash:", tx.hash);
 
-    } catch (err) {
-        console.error("Deposit Error:", err);
-        
-        // Detailed error for debugging
-        let errorMsg = "Transaction Failed";
-        if (err.code === 4001) errorMsg = "User rejected transaction";
-        else if (err.reason) errorMsg = err.reason;
-        else if (err.message) errorMsg = err.message;
-        
-        alert("Error: " + errorMsg);
-        
-        depositBtn.innerText = "DEPOSIT NOW";
-        depositBtn.disabled = false;
-    }
+        // 3. Wait for confirmation
+        const receipt = await tx.wait();
+        
+        if(receipt.status === 1) {
+            alert("Deposit Successful!");
+            location.reload(); 
+        } else {
+            throw new Error("Transaction reverted on chain");
+        }
+
+    } catch (err) {
+        console.error("Deposit Error:", err);
+        
+        let errorMsg = "Transaction Failed";
+        // Trust Wallet/MetaMask specific error handling
+        if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+            errorMsg = "User rejected transaction";
+        } else if (err.data && err.data.message) {
+            errorMsg = err.data.message;
+        } else if (err.reason) {
+            errorMsg = err.reason;
+        }
+        
+        alert("Error: " + errorMsg);
+        
+        depositBtn.innerText = "DEPOSIT NOW";
+        depositBtn.disabled = false;
+    }
 }
 
 window.handleClaim = async function() {
@@ -1237,6 +1259,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
