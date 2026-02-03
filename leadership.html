@@ -13,64 +13,68 @@
         .bnb-icon-sm { width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 2px; }
         .premium-border { border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.02); border-radius: 12px; }
         .orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        /* Mobile Table Scrolling Fix */
+        .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-container table { min-width: 600px; } /* Ensure table doesn't squash on mobile */
     </style>
 </head>
 <body class="bg-[#050505] text-white">
 
-    <main class="max-w-7xl mx-auto px-6 relative z-10 pt-10 pb-20">
+    <main class="max-w-7xl mx-auto px-4 md:px-6 relative z-10 pt-10 pb-20">
         
         <div class="mb-8">
-            <h1 class="text-3xl font-black orbitron italic uppercase tracking-tighter">Leadership <span class="text-yellow-500">Overview</span></h1>
-            <p class="text-gray-400 text-xs font-bold uppercase tracking-widest">Business Volume & Fixed Cash Rewards</p>
+            <h1 class="text-2xl md:text-3xl font-black orbitron italic uppercase tracking-tighter text-center md:text-left">Leadership <span class="text-yellow-500">Overview</span></h1>
+            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest text-center md:text-left">Business Volume & Fixed Cash Rewards</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div class="premium-border p-6 flex items-center justify-between border-l-4 border-l-green-500">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+            <div class="premium-border p-5 md:p-6 flex items-center justify-between border-l-4 border-l-green-500">
                 <div>
                     <p class="text-[10px] font-black text-gray-400 uppercase">Current Status</p>
-                    <h2 id="rank-display" class="text-2xl font-black orbitron text-white text-yellow-500">LOADING...</h2>
-                    <p id="rank-bonus-display" class="text-green-400 font-bold text-[10px] mt-1 italic">Calculating Reward...</p>
+                    <h2 id="rank-display" class="text-xl md:text-2xl font-black orbitron text-yellow-500">LOADING...</h2>
+                    <p id="rank-bonus-display" class="text-green-400 font-bold text-[9px] md:text-[10px] mt-1 italic">Calculating Reward...</p>
                 </div>
-                <i data-lucide="shield-check" class="w-12 h-12 text-green-400 opacity-50"></i>
+                <i data-lucide="shield-check" class="w-10 h-10 md:w-12 md:h-12 text-green-400 opacity-50"></i>
             </div>
-            <div class="premium-border p-6 flex items-center justify-between border-l-4 border-l-yellow-500">
+            <div class="premium-border p-5 md:p-6 flex items-center justify-between border-l-4 border-l-yellow-500">
                 <div>
                     <p class="text-[10px] font-black text-yellow-500 uppercase">Target Rank</p>
-                    <h2 id="next-rank-display" class="text-2xl font-black orbitron text-white italic">-</h2>
+                    <h2 id="next-rank-display" class="text-xl md:text-2xl font-black orbitron text-white italic">-</h2>
                 </div>
-                <i data-lucide="award" class="w-12 h-12 text-yellow-500"></i>
+                <i data-lucide="award" class="w-10 h-10 md:w-12 md:h-12 text-yellow-500"></i>
             </div>
         </div>
 
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div class="premium-border p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="wallet" class="w-8 h-8 text-green-400 mb-2"></i>
+            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
+                <i data-lucide="wallet" class="w-6 h-6 md:w-8 md:h-8 text-green-400 mb-2"></i>
                 <p class="text-[8px] font-bold text-gray-400 uppercase">Unclaimed Reward</p>
-                <h3 class="text-lg font-black orbitron flex items-center">
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="rank-reward-available">0.000</span>
                 </h3>
             </div>
-            <div class="premium-border p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="trending-up" class="w-8 h-8 text-yellow-500 mb-2"></i>
+            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
+                <i data-lucide="trending-up" class="w-6 h-6 md:w-8 md:h-8 text-yellow-500 mb-2"></i>
                 <p class="text-[8px] font-bold text-gray-400 uppercase">Total Cash Earned</p>
-                <h3 class="text-lg font-black orbitron flex items-center">
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="total-rank-earned">0.000</span>
                 </h3>
             </div>
-            <div class="premium-border p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="zap" class="w-8 h-8 text-emerald-400 mb-2"></i>
-                <p class="text-[8px] font-bold text-gray-400 uppercase">Strong Leg (Power)</p>
-                <h3 class="text-lg font-black orbitron flex items-center">
+            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
+                <i data-lucide="zap" class="w-6 h-6 md:w-8 md:h-8 text-emerald-400 mb-2"></i>
+                <p class="text-[8px] font-bold text-gray-400 uppercase">Strong Leg</p>
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="power-leg-volume">0.000</span>
                 </h3>
             </div>
-            <div class="premium-border p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="users" class="w-8 h-8 text-blue-400 mb-2"></i>
-                <p class="text-[8px] font-bold text-gray-400 uppercase">Other Legs Volume</p>
-                <h3 class="text-lg font-black orbitron flex items-center">
+            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
+                <i data-lucide="users" class="w-6 h-6 md:w-8 md:h-8 text-blue-400 mb-2"></i>
+                <p class="text-[8px] font-bold text-gray-400 uppercase">Other Legs</p>
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="other-legs-volume">0.000</span>
                 </h3>
@@ -79,21 +83,21 @@
 
         <div class="premium-border p-6 md:p-8 mb-8">
             <div class="flex items-center gap-3 mb-6">
-                <i data-lucide="bar-chart-big" class="w-6 h-6 text-yellow-500"></i>
-                <h3 class="text-xl font-black orbitron uppercase italic">Rank Advancement <span class="text-yellow-500">Progress</span></h3>
+                <i data-lucide="bar-chart-big" class="w-5 h-5 md:w-6 md:h-6 text-yellow-500"></i>
+                <h3 class="text-sm md:text-xl font-black orbitron uppercase italic">Rank Advancement <span class="text-yellow-500">Progress</span></h3>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="space-y-3">
                     <div class="flex justify-between items-end">
                         <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase">Power Leg Requirement</p>
-                            <p class="text-lg font-black orbitron flex items-center">
+                            <p class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase">Power Leg Requirement</p>
+                            <p class="text-sm md:text-lg font-black orbitron flex items-center">
                                 <span id="current-power-val">0</span> 
                                 <span class="mx-2 text-gray-600 text-sm">/</span> 
-                                <span id="target-power-val" class="text-xs text-gray-500 italic">1.11 BNB</span>
+                                <span id="target-power-val" class="text-[10px] md:text-xs text-gray-500 italic">1.11 BNB</span>
                             </p>
                         </div>
-                        <p id="power-progress-percent" class="text-yellow-500 font-black orbitron">0%</p>
+                        <p id="power-progress-percent" class="text-yellow-500 font-black orbitron text-xs md:text-base">0%</p>
                     </div>
                     <div class="h-2 bg-white/5 rounded-full overflow-hidden">
                         <div id="power-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-1000" style="width: 0%"></div>
@@ -102,14 +106,14 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-end">
                         <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase">Other Legs Requirement</p>
-                            <p class="text-lg font-black orbitron flex items-center">
+                            <p class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase">Other Legs Requirement</p>
+                            <p class="text-sm md:text-lg font-black orbitron flex items-center">
                                 <span id="current-other-val">0</span> 
                                 <span class="mx-2 text-gray-600 text-sm">/</span> 
-                                <span id="target-other-val" class="text-xs text-gray-500 italic">1.11 BNB</span>
+                                <span id="target-other-val" class="text-[10px] md:text-xs text-gray-500 italic">1.11 BNB</span>
                             </p>
                         </div>
-                        <p id="other-progress-percent" class="text-yellow-500 font-black orbitron">0%</p>
+                        <p id="other-progress-percent" class="text-yellow-500 font-black orbitron text-xs md:text-base">0%</p>
                     </div>
                     <div class="h-2 bg-white/5 rounded-full overflow-hidden">
                         <div id="other-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-1000" style="width: 0%"></div>
@@ -119,8 +123,8 @@
         </div>
 
         <div class="premium-border p-6 md:p-8 mb-8">
-            <h3 class="text-xl font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Direct</span> Downlines</h3>
-            <div class="overflow-x-auto">
+            <h3 class="text-lg md:text-xl font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Direct</span> Downlines</h3>
+            <div class="table-container">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="text-[10px] uppercase text-gray-500 border-b border-white/10">
@@ -137,8 +141,8 @@
         </div>
 
         <div class="premium-border p-6 md:p-8 mb-8">
-            <h3 class="text-xl font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Leadership</span> Ranks & Rewards</h3>
-            <div class="overflow-x-auto">
+            <h3 class="text-lg md:text-xl font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Leadership</span> Ranks & Rewards</h3>
+            <div class="table-container">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="text-[10px] uppercase text-gray-500 border-b border-white/10">
@@ -164,7 +168,6 @@
     <script src="web3-handler.js"></script>
     <script>
         lucide.createIcons();
-        // JavaScript logic for Power Leg calculation should be implemented in web3-handler.js
     </script>
 </body>
 </html>
