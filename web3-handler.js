@@ -811,80 +811,70 @@ window.fetchBlockchainHistory = async function(type) {
 }
 
 // --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
-// --- LEADERSHIP DATA (Final Fixed Version) ---
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
-        
-        if (!address && window.signer) {
-            address = await window.signer.getAddress();
-        }
-        if (!address) return;
+        if (!address && window.signer) address = await window.signer.getAddress();
+        if (!address || !activeContract) return;
 
-        // 1. Contract se Data Fetch karein (extra variable mein rank, maxLeg aur totalTeamBusiness hai)
+        // 1. Contract se Fresh Data uthayein
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        const rIdx = parseInt(extra.rank); // Current Rank (0 to 6)
+        const rIdx = parseInt(extra.rank);
         
-        // 2. Power Leg aur Total Team Business (Lifetime based)
-        // Note: Hum seedha extra.maxLegBusiness use karenge jo contract ne calculate kiya hai
+        // 2. POWER vs OTHER Calculation (Contract Based)
+        // extra.maxLegBusiness hi asli "Power Leg" hai jo contract ne chuni hai
         const powerLegVolume = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness));
+        // extra.totalTeamBusiness hi poori team ka lifetime business hai
         const totalTeamVolume = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness));
+        // Baki bacha hua business "Other Legs" mein jayega
+        const otherLegsVolume = Math.max(0, totalTeamVolume - powerLegVolume);
 
-        // 3. Other Legs Calculation (Total - Power)
-        // Ye hamesha accurate rahega kyunki ye contract ke data se sync hai
-        let otherLegsVolume = Math.max(0, totalTeamVolume - powerLegVolume);
-
-        // 4. UI Updates (Rank and Progress)
-        if (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[rIdx]) {
-            updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
-            updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
-            
-            // Agli rank ki requirements dikhane ke liye logic
-            const nextIdx = rIdx < 6 ? rIdx + 1 : 6; 
-            const nextRank = RANK_DETAILS[nextIdx];
-            
-            updateText('next-rank-display', nextRank.name);
-            updateText('progress-next-rank', nextRank.name);
-
-            // Power Leg Progress UI (%)
-            const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
-            updateText('current-power-val', powerLegVolume.toFixed(4));
-            updateText('target-power-val', `${nextRank.powerReq} BNB`);
-            updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
-            if(document.getElementById('power-progress-bar')) 
-                document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
-
-            // Other Legs Progress UI (%)
-            const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
-            updateText('current-other-val', otherLegsVolume.toFixed(4));
-            updateText('target-other-val', `${nextRank.otherReq} BNB`);
-            updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
-            if(document.getElementById('other-progress-bar')) 
-                document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
-        }
-
-        // 5. Rewards Display
-        const rewardsRank = parseFloat(ethers.utils.formatEther(extra.rewardsRank));
-        const totalEarned = parseFloat(ethers.utils.formatEther(user.totalEarnings));
-
-        updateText('rank-reward-available', rewardsRank.toFixed(4));
-        updateText('total-rank-earned', totalEarned.toFixed(4));
+        // 3. UI Sync (Top Stats)
+        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
+        updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
+        updateText('rank-reward-available', parseFloat(ethers.utils.formatEther(extra.rewardsRank)).toFixed(4));
+        updateText('total-rank-earned', parseFloat(ethers.utils.formatEther(user.totalEarnings)).toFixed(4));
         
-        // Final volumes display
+        // Dashboard Stats
         updateText('power-leg-volume', powerLegVolume.toFixed(4));
         updateText('other-legs-volume', otherLegsVolume.toFixed(4));
 
-        // 6. Load Downline Table
+        // 4. Progress Bars Logic
+        const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
+        const nextRank = RANK_DETAILS[nextIdx];
+
+        updateText('next-rank-display', nextRank.name);
+        
+        // Calculation for Bars
+        const pPercent = nextRank.powerReq > 0 ? Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) : 0;
+        const oPercent = nextRank.otherReq > 0 ? Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) : 0;
+
+        // Update Labels
+        updateText('current-power-val', powerLegVolume.toFixed(2));
+        updateText('target-power-val', `${nextRank.powerReq} BNB`);
+        updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
+
+        updateText('current-other-val', otherLegsVolume.toFixed(2));
+        updateText('target-other-val', `${nextRank.otherReq} BNB`);
+        updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
+
+        // Update Progress Bars (Width)
+        if(document.getElementById('power-progress-bar')) 
+            document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
+        if(document.getElementById('other-progress-bar')) 
+            document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
+
+        // 5. Downline Table Load
         if (typeof loadLeadershipDownlines === 'function') {
             loadLeadershipDownlines(address, rIdx);
         }
 
-    } catch (err) { 
-        console.error("Leadership Fetch Error:", err);
+    } catch (err) {
+        console.error("Critical Sync Error:", err);
     }
 }
 async function loadLeadershipDownlines(address, myRankIdx) {
@@ -1249,6 +1239,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
