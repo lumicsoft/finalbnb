@@ -810,74 +810,74 @@ window.fetchBlockchainHistory = async function(type) {
     }
 }
 
-// --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
         if (!address && window.signer) address = await window.signer.getAddress();
         if (!address || !activeContract) return;
 
-        // 1. Data Fetching (Contract se direct data uthana)
+        // 1. Contract se Data Fetch karein
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        // --- CONTRACT MAPPING EXPLAINED ---
-        // Struct UserExtra: 0: rewardsReferral, 1: rewardsOnboarding, 2: rewardsRank, 
+        // --- CONTRACT STRUCT MAPPING (AS PER YOUR CODE) ---
+        // 0: rewardsReferral, 1: rewardsOnboarding, 2: rewardsRank, 
         // 3: reserveDailyCapital, 4: reserveDailyROI, 5: reserveNetwork, 
-        // 6: teamCount, 7: directsCount, 8: directsQuali, 9: rank, 
-        // 10: maxLegBusiness, 11: totalTeamBusiness
+        // 6: teamCount, 7: directsCount, 8: directsQuali, 
+        // 9: rank (uint8), 
+        // 10: maxLegBusiness (POWER LEG), 
+        // 11: totalTeamBusiness (TOTAL TEAM)
 
-        // 2. Power Leg aur Total Team Business (Index based access for safety)
-        // Agar extra ek array ki tarah behave kar raha hai toh index use honge
-        let powerLegBN = extra.maxLegBusiness || extra[10] || 0;
-        let totalTeamBN = extra.totalTeamBusiness || extra[11] || 0;
+        // 2. Exact Index se Business uthayein
+        let powerLegBN = extra[10] || 0; 
+        let totalTeamBN = extra[11] || 0; 
 
         let powerLeg = parseFloat(ethers.utils.formatEther(powerLegBN));
         let totalTeam = parseFloat(ethers.utils.formatEther(totalTeamBN));
         
-        // Logical Fix: Other Legs = Total Business - Power Leg
+        // Logical Calculation for Weaker Legs
         let otherLegs = Math.max(0, totalTeam - powerLeg);
 
-        // 3. Rank Requirements (As per your 1.11 Scale)
+        // 3. Rank Requirements (Contract ke RANK_POWER_REQ array ke hisaab se)
+        // Contract mein 0.1, 0.2, 0.3... hai
         const MY_RANKS = [
             { name: "NONE", pReq: 0, oReq: 0 },
-            { name: "V1", pReq: 1.11, oReq: 1.11 },
-            { name: "V2", pReq: 5.55, oReq: 5.55 },
-            { name: "V3", pReq: 22.22, oReq: 22.22 },
-            { name: "V4", pReq: 66.66, oReq: 66.66 },
-            { name: "V5", pReq: 277.77, oReq: 277.77 },
-            { name: "V6", pReq: 555.55, oReq: 555.55 }
+            { name: "V1", pReq: 0.1, oReq: 0.1 },
+            { name: "V2", pReq: 0.2, oReq: 0.2 },
+            { name: "V3", pReq: 0.3, oReq: 0.3 },
+            { name: "V4", pReq: 0.4, oReq: 0.4 },
+            { name: "V5", pReq: 0.5, oReq: 0.5 },
+            { name: "V6", pReq: 0.6, oReq: 0.6 }
         ];
 
-        // 4. Current Rank (Index 9 in UserExtra)
-        const rIdx = parseInt(extra.rank || extra[9] || 0);
+        // 4. Current Rank (Index 9)
+        const rIdx = parseInt(extra[9] || 0);
         const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
         const target = MY_RANKS[nextIdx];
 
-        // 5. Update Main UI Fields
+        // 5. Update UI Text
         updateText('rank-display', MY_RANKS[rIdx].name);
         updateText('next-rank-display', target.name);
         updateText('power-leg-volume', powerLeg.toFixed(4));
         updateText('other-legs-volume', otherLegs.toFixed(4));
         
-        // Rewards (Index 2 is rewardsRank)
-        let rankRewards = extra.rewardsRank || extra[2] || 0;
-        updateText('rank-reward-available', ethers.utils.formatEther(rankRewards));
+        // Rewards (Index 2: rewardsRank)
+        updateText('rank-reward-available', ethers.utils.formatEther(extra[2] || 0));
         updateText('total-rank-earned', ethers.utils.formatEther(user.totalEarnings || 0));
 
         // 6. Progress Bar Details
-        updateText('current-power-val', powerLeg.toFixed(2));
+        updateText('current-power-val', powerLeg.toFixed(3));
         updateText('target-power-val', target.pReq + " BNB");
-        updateText('current-other-val', otherLegs.toFixed(2));
+        updateText('current-other-val', otherLegs.toFixed(3));
         updateText('target-other-val', target.oReq + " BNB");
 
         // Percentage Calculation
         let pPer = target.pReq > 0 ? Math.min((powerLeg / target.pReq) * 100, 100) : 0;
         let oPer = target.oReq > 0 ? Math.min((otherLegs / target.oReq) * 100, 100) : 0;
 
-        // Visual Progress Update
+        // Progress Bar Visuals
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
         if(pBar) pBar.style.width = pPer + "%";
@@ -886,18 +886,10 @@ async function fetchLeadershipData(address) {
         updateText('power-progress-percent', Math.floor(pPer) + "%");
         updateText('other-progress-percent', Math.floor(oPer) + "%");
 
-        // Bonus: Rank up status text
-        const bonusEl = document.getElementById('rank-bonus-display');
-        if(bonusEl) {
-            if(rIdx < 6) {
-                bonusEl.innerText = `Next Reward: ${MY_RANKS[nextIdx].pReq * 0.5} BNB on reaching ${MY_RANKS[nextIdx].name}`;
-            } else {
-                bonusEl.innerText = "Maximum Rank Achieved!";
-            }
-        }
+        console.log("Leadership Page Synced with Contract Struct");
 
     } catch (err) {
-        console.error("Leadership Fetch Error:", err);
+        console.error("Critical Leadership Error:", err);
     }
 }
 async function loadLeadershipDownlines(address, myRankIdx) {
@@ -1262,6 +1254,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
