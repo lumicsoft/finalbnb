@@ -811,37 +811,37 @@ window.fetchBlockchainHistory = async function(type) {
 }
 
 async function fetchLeadershipData(address) {
+    console.log("Leadership data update started for:", address);
     try {
+        // 1. Core Objects Check (Wallet Connection Bachane ke liye)
         let activeContract = window.contract || contract;
-        if (!address && window.signer) address = await window.signer.getAddress();
-        if (!address || !activeContract) return;
+        if (!activeContract) {
+            console.warn("Contract not ready yet.");
+            return;
+        }
 
-        // 1. Contract se Data Fetch karein
+        if (!address && window.signer) {
+            address = await window.signer.getAddress();
+        }
+        if (!address) return;
+
+        // 2. Data Fetching (Parallel call for speed)
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        // --- CONTRACT STRUCT MAPPING (AS PER YOUR CODE) ---
-        // 0: rewardsReferral, 1: rewardsOnboarding, 2: rewardsRank, 
-        // 3: reserveDailyCapital, 4: reserveDailyROI, 5: reserveNetwork, 
-        // 6: teamCount, 7: directsCount, 8: directsQuali, 
-        // 9: rank (uint8), 
-        // 10: maxLegBusiness (POWER LEG), 
-        // 11: totalTeamBusiness (TOTAL TEAM)
-
-        // 2. Exact Index se Business uthayein
-        let powerLegBN = extra[10] || 0; 
-        let totalTeamBN = extra[11] || 0; 
+        // 3. Contract Variables Mapping (AS PER YOUR SOLIDITY STRUCT)
+        // extra[9] = rank, extra[10] = maxLegBusiness, extra[11] = totalTeamBusiness
+        let powerLegBN = extra[10] || 0;
+        let totalTeamBN = extra[11] || 0;
+        let rankRewardsBN = extra[2] || 0; // rewardsRank
 
         let powerLeg = parseFloat(ethers.utils.formatEther(powerLegBN));
         let totalTeam = parseFloat(ethers.utils.formatEther(totalTeamBN));
-        
-        // Logical Calculation for Weaker Legs
         let otherLegs = Math.max(0, totalTeam - powerLeg);
 
-        // 3. Rank Requirements (Contract ke RANK_POWER_REQ array ke hisaab se)
-        // Contract mein 0.1, 0.2, 0.3... hai
+        // 4. Rank Requirements (Match with RANK_POWER_REQ in Solidity)
         const MY_RANKS = [
             { name: "NONE", pReq: 0, oReq: 0 },
             { name: "V1", pReq: 0.1, oReq: 0.1 },
@@ -852,44 +852,46 @@ async function fetchLeadershipData(address) {
             { name: "V6", pReq: 0.6, oReq: 0.6 }
         ];
 
-        // 4. Current Rank (Index 9)
         const rIdx = parseInt(extra[9] || 0);
         const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
         const target = MY_RANKS[nextIdx];
 
-        // 5. Update UI Text
-        updateText('rank-display', MY_RANKS[rIdx].name);
-        updateText('next-rank-display', target.name);
-        updateText('power-leg-volume', powerLeg.toFixed(4));
-        updateText('other-legs-volume', otherLegs.toFixed(4));
-        
-        // Rewards (Index 2: rewardsRank)
-        updateText('rank-reward-available', ethers.utils.formatEther(extra[2] || 0));
-        updateText('total-rank-earned', ethers.utils.formatEther(user.totalEarnings || 0));
+        // 5. UI Updates with Null Checks (Taki error na aaye)
+        const safeUpdate = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val;
+        };
 
-        // 6. Progress Bar Details
-        updateText('current-power-val', powerLeg.toFixed(3));
-        updateText('target-power-val', target.pReq + " BNB");
-        updateText('current-other-val', otherLegs.toFixed(3));
-        updateText('target-other-val', target.oReq + " BNB");
+        safeUpdate('rank-display', MY_RANKS[rIdx] ? MY_RANKS[rIdx].name : "NONE");
+        safeUpdate('next-rank-display', target.name);
+        safeUpdate('power-leg-volume', powerLeg.toFixed(4));
+        safeUpdate('other-legs-volume', otherLegs.toFixed(4));
+        safeUpdate('rank-reward-available', parseFloat(ethers.utils.formatEther(rankRewardsBN)).toFixed(4));
+        safeUpdate('total-rank-earned', parseFloat(ethers.utils.formatEther(user.totalEarnings || 0)).toFixed(4));
 
-        // Percentage Calculation
+        // Progress Details
+        safeUpdate('current-power-val', powerLeg.toFixed(3));
+        safeUpdate('target-power-val', target.pReq + " BNB");
+        safeUpdate('current-other-val', otherLegs.toFixed(3));
+        safeUpdate('target-other-val', target.oReq + " BNB");
+
+        // 6. Progress Bar Visuals
         let pPer = target.pReq > 0 ? Math.min((powerLeg / target.pReq) * 100, 100) : 0;
         let oPer = target.oReq > 0 ? Math.min((otherLegs / target.oReq) * 100, 100) : 0;
 
-        // Progress Bar Visuals
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
-        if(pBar) pBar.style.width = pPer + "%";
-        if(oBar) oBar.style.width = oPer + "%";
+        if (pBar) pBar.style.width = pPer + "%";
+        if (oBar) oBar.style.width = oPer + "%";
 
-        updateText('power-progress-percent', Math.floor(pPer) + "%");
-        updateText('other-progress-percent', Math.floor(oPer) + "%");
+        safeUpdate('power-progress-percent', Math.floor(pPer) + "%");
+        safeUpdate('other-progress-percent', Math.floor(oPer) + "%");
 
-        console.log("Leadership Page Synced with Contract Struct");
+        console.log("Leadership Data Updated Successfully!");
 
     } catch (err) {
-        console.error("Critical Leadership Error:", err);
+        // Agar yahan error aata bhi hai, toh wallet connection nahi tootega
+        console.error("Leadership Data Error (Wallet still active):", err);
     }
 }
 async function loadLeadershipDownlines(address, myRankIdx) {
@@ -1254,6 +1256,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
