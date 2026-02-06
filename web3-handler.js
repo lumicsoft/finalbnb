@@ -1,7 +1,7 @@
 let provider, signer, contract, Contract;
 
 // --- CONFIGURATION ---
-const CONTRACT_ADDRESS = "0xF059F300a032bFc118cc9ADc0c1C18F80Baf6f9d"; 
+const CONTRACT_ADDRESS = "0x7f4b3f6e015e96a5394f502c89fea2880b901aa5"; 
 const TESTNET_CHAIN_ID = 97; 
 
 // --- RANK CONFIG FOR LEADERSHIP (Updated: Removed ROI, Added Rewards) ---
@@ -1258,6 +1258,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
