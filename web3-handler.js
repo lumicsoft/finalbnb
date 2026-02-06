@@ -811,83 +811,99 @@ window.fetchBlockchainHistory = async function(type) {
 }
 
 // --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
-// --- LEADERSHIP DATA (Original Style with Calculation Fix) ---
+// --- LEADERSHIP DATA (FINAL BUSINESS DISPLAY FIX) ---
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
         if (!address && window.signer) {
             address = await window.signer.getAddress();
         }
-        if (!address || !activeContract) return;
+        if (!address || !activeContract) {
+            console.log("Waiting for wallet connection...");
+            return;
+        }
 
-        // 1. Data Fetching
+        // 1. Data Fetching from Contract
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        // Agar data nahi aaya toh yahan se return ho jaye (Page load nahi rukega)
-        if (!extra || !user) return;
-
-        const rIdx = extra.rank || 0;
-        
-        // --- FIXED CALCULATION (Using Contract Lifetime Business) ---
-        // 'maxLegBusiness' hi asli Power Leg hai (Contract se)
-        let powerLegVolume = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness || 0));
-        
-        // 'totalTeamBusiness' total lifetime business hai (Contract se)
-        let totalTeamLifetime = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness || 0));
-
-        // Other legs = Total - Power
-        let otherLegsVolume = Math.max(0, totalTeamLifetime - powerLegVolume);
-        // --- END FIX ---
-
-        // 4. UI Updates
-        if (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[rIdx]) {
-            updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
-            updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
-            
-            // Next Rank Index logic
-            const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
-            const nextRank = RANK_DETAILS[nextIdx];
-            
-            updateText('next-rank-display', nextRank.name);
-            updateText('progress-next-rank', nextRank.name);
-
-            // Power Leg Progress
-            const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
-            updateText('current-power-val', powerLegVolume.toFixed(2));
-            updateText('target-power-val', `${nextRank.powerReq} BNB`);
-            updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
-            if(document.getElementById('power-progress-bar')) 
-                document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
-
-            // Other Legs Progress
-            const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
-            updateText('current-other-val', otherLegsVolume.toFixed(2));
-            updateText('target-other-val', `${nextRank.otherReq} BNB`);
-            updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
-            if(document.getElementById('other-progress-bar')) 
-                document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
+        // Agar data nahi mila toh console mein check karein
+        if (!extra || !user) {
+            console.error("Contract data not found for address:", address);
+            return;
         }
 
-        // Available rewards display
-        updateText('rank-reward-available', typeof format === 'function' ? format(extra.rewardsRank) : ethers.utils.formatEther(extra.rewardsRank));
-        updateText('total-rank-earned', typeof format === 'function' ? format(user.totalEarnings) : ethers.utils.formatEther(user.totalEarnings));
+        const rIdx = parseInt(extra.rank) || 0;
         
-        // Figures update
-        updateText('power-leg-volume', powerLegVolume.toFixed(4));
-        updateText('other-legs-volume', otherLegsVolume.toFixed(4));
+        // 2. Business Values (BNB Mein convert kar rahe hain)
+        // extra.maxLegBusiness = Strong Leg
+        // extra.totalTeamBusiness = Poori team ka business
+        let powerLeg = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness || 0));
+        let totalTeam = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness || 0));
+        let otherLegs = Math.max(0, totalTeam - powerLeg);
 
+        // 3. Rank Settings (Aapke HTML Table ke exact 1.11 scale ke mutabiq)
+        const MY_RANKS = [
+            { name: "NONE", pReq: 0, oReq: 0 },
+            { name: "V1", pReq: 1.11, oReq: 1.11 },
+            { name: "V2", pReq: 5.55, oReq: 5.55 },
+            { name: "V3", pReq: 22.22, oReq: 22.22 },
+            { name: "V4", pReq: 66.66, oReq: 66.66 },
+            { name: "V5", pReq: 277.77, oReq: 277.77 },
+            { name: "V6", pReq: 555.55, oReq: 555.55 }
+        ];
+
+        // 4. Update Top Boxes (Strong Leg & Other Legs)
+        // Ye IDs aapke HTML se match karni chahiye
+        const updateField = (id, val) => {
+            const el = document.getElementById(id);
+            if(el) el.innerText = val;
+            else console.warn("ID not found in HTML:", id);
+        };
+
+        updateField('power-leg-volume', powerLeg.toFixed(4));
+        updateField('other-legs-volume', otherLegs.toFixed(4));
+        updateField('rank-reward-available', ethers.utils.formatEther(extra.rewardsRank || 0));
+        updateField('total-rank-earned', ethers.utils.formatEther(user.totalEarnings || 0));
+
+        // 5. Progress Bar Updates
+        const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
+        const target = MY_RANKS[nextIdx];
+
+        updateField('rank-display', MY_RANKS[rIdx].name);
+        updateField('next-rank-display', target.name);
+
+        // Requirements display (Bar ke upar wala hissa)
+        updateField('current-power-val', powerLeg.toFixed(2));
+        updateField('target-power-val', target.pReq + " BNB");
+        
+        updateField('current-other-val', otherLegs.toFixed(2));
+        updateField('target-other-val', target.oReq + " BNB");
+
+        // Percentage Calculation
+        let pPer = target.pReq > 0 ? Math.min((powerLeg / target.pReq) * 100, 100) : 0;
+        let oPer = target.oReq > 0 ? Math.min((otherLegs / target.oReq) * 100, 100) : 0;
+
+        updateField('power-progress-percent', Math.floor(pPer) + "%");
+        updateField('other-progress-percent', Math.floor(oPer) + "%");
+
+        // Visual Bar Width Update
+        const pBar = document.getElementById('power-progress-bar');
+        const oBar = document.getElementById('other-progress-bar');
+        if(pBar) pBar.style.width = pPer + "%";
+        if(oBar) oBar.style.width = oPer + "%";
+
+        // Table loading
         if (typeof loadLeadershipDownlines === 'function') {
             loadLeadershipDownlines(address, rIdx);
         }
 
     } catch (err) { 
-        console.error("Leadership Fetch Error:", err);
+        console.error("Critical Leadership Error:", err);
     }
 }
-
 
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
@@ -1251,6 +1267,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
