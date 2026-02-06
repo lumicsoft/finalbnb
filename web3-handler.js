@@ -811,89 +811,80 @@ window.fetchBlockchainHistory = async function(type) {
 }
 
 // --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
+// --- LEADERSHIP DATA (Final Fixed Version) ---
 async function fetchLeadershipData(address) {
     try {
-        // 1. Connection Guard: Trust Wallet support ke liye active instance check karein
         let activeContract = window.contract || contract;
         
-        // Agar address nahi hai toh active signer se lene ki koshish karein
         if (!address && window.signer) {
             address = await window.signer.getAddress();
         }
         if (!address) return;
 
-        // 2. Fetching Data using stable Promise.all
+        // 1. Contract se Data Fetch karein (extra variable mein rank, maxLeg aur totalTeamBusiness hai)
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        const rIdx = extra.rank;
+        const rIdx = parseInt(extra.rank); // Current Rank (0 to 6)
         
-        // 3. Power Leg vs Other Legs Logic
-        // directTeamVolumes fetch karte waqt error handling zaroori hai
-        const teamRes = await activeContract.getLevelTeamDetails(address, 1);
-        
-        // ethers.js mein array structure check (tuple index 5 aksar volumes hote hain)
-        const directTeamVolumes = teamRes.teamActiveDeps || teamRes[5] || []; 
-        
-        let powerLegVolume = 0;
-        // Ensure format handle karta hai BNB (18 decimals)
-        let totalTeamActive = parseFloat(typeof format === 'function' ? format(user.teamActiveDeposit) : ethers.utils.formatEther(user.teamActiveDeposit));
+        // 2. Power Leg aur Total Team Business (Lifetime based)
+        // Note: Hum seedha extra.maxLegBusiness use karenge jo contract ne calculate kiya hai
+        const powerLegVolume = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness));
+        const totalTeamVolume = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness));
 
-        if (directTeamVolumes && directTeamVolumes.length > 0) {
-            // Strongest leg find karna
-            const volumes = directTeamVolumes.map(v => 
-                parseFloat(typeof format === 'function' ? format(v) : ethers.utils.formatEther(v))
-            );
-            powerLegVolume = Math.max(...volumes);
-        }
+        // 3. Other Legs Calculation (Total - Power)
+        // Ye hamesha accurate rahega kyunki ye contract ke data se sync hai
+        let otherLegsVolume = Math.max(0, totalTeamVolume - powerLegVolume);
 
-        // Other legs calculation
-        let otherLegsVolume = Math.max(0, totalTeamActive - powerLegVolume);
-
-        // 4. UI Updates (Basic Stats)
-        // Ensure RANK_DETAILS array globally defined hai
+        // 4. UI Updates (Rank and Progress)
         if (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[rIdx]) {
             updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
             updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
             
-            const nextIdx = rIdx < 7 ? rIdx + 1 : 7;
+            // Agli rank ki requirements dikhane ke liye logic
+            const nextIdx = rIdx < 6 ? rIdx + 1 : 6; 
             const nextRank = RANK_DETAILS[nextIdx];
+            
             updateText('next-rank-display', nextRank.name);
             updateText('progress-next-rank', nextRank.name);
 
-            // Power Leg Progress UI
+            // Power Leg Progress UI (%)
             const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
-            updateText('current-power-val', powerLegVolume.toFixed(2));
+            updateText('current-power-val', powerLegVolume.toFixed(4));
             updateText('target-power-val', `${nextRank.powerReq} BNB`);
             updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
             if(document.getElementById('power-progress-bar')) 
                 document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
 
-            // Other Legs Progress UI
+            // Other Legs Progress UI (%)
             const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
-            updateText('current-other-val', otherLegsVolume.toFixed(2));
+            updateText('current-other-val', otherLegsVolume.toFixed(4));
             updateText('target-other-val', `${nextRank.otherReq} BNB`);
             updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
             if(document.getElementById('other-progress-bar')) 
                 document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
         }
 
-        // Displaying current available rewards
-        updateText('rank-reward-available', typeof format === 'function' ? format(extra.rewardsRank) : ethers.utils.formatEther(extra.rewardsRank));
-        updateText('total-rank-earned', typeof format === 'function' ? format(user.totalEarnings) : ethers.utils.formatEther(user.totalEarnings));
+        // 5. Rewards Display
+        const rewardsRank = parseFloat(ethers.utils.formatEther(extra.rewardsRank));
+        const totalEarned = parseFloat(ethers.utils.formatEther(user.totalEarnings));
+
+        updateText('rank-reward-available', rewardsRank.toFixed(4));
+        updateText('total-rank-earned', totalEarned.toFixed(4));
+        
+        // Final volumes display
         updateText('power-leg-volume', powerLegVolume.toFixed(4));
         updateText('other-legs-volume', otherLegsVolume.toFixed(4));
 
-        // 5. Load Table (Sub-function call)
+        // 6. Load Downline Table
         if (typeof loadLeadershipDownlines === 'function') {
             loadLeadershipDownlines(address, rIdx);
         }
 
     } catch (err) { 
         console.error("Leadership Fetch Error:", err);
-        // Error hone par loading states reset karna achha hota hai
     }
 }
 async function loadLeadershipDownlines(address, myRankIdx) {
@@ -1258,6 +1249,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
