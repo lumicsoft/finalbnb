@@ -811,42 +811,46 @@ window.fetchBlockchainHistory = async function(type) {
 }
 
 // --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
-// --- LEADERSHIP DATA (Aapka Original Structure - Business Fix) ---
+// --- LEADERSHIP DATA (Original Style with Calculation Fix) ---
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
         if (!address && window.signer) {
             address = await window.signer.getAddress();
         }
-        if (!address) return;
+        if (!address || !activeContract) return;
 
-        // 1. Data Fetching (Aapke style mein)
+        // 1. Data Fetching
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        const rIdx = extra.rank;
-        
-        // --- FIXED CALCULATION START ---
-        // Purane code mein aap 'directTeamVolumes' se Max nikal rahe the (sirf Level 1)
-        // Contract mein 'extra.maxLegBusiness' hi poori Power Leg ka business hai
-        let powerLegVolume = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness));
-        
-        // 'extra.totalTeamBusiness' poori team ka lifetime business hai
-        let totalTeamLifetime = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness));
+        // Agar data nahi aaya toh yahan se return ho jaye (Page load nahi rukega)
+        if (!extra || !user) return;
 
-        // Other legs calculation (Total - Power)
+        const rIdx = extra.rank || 0;
+        
+        // --- FIXED CALCULATION (Using Contract Lifetime Business) ---
+        // 'maxLegBusiness' hi asli Power Leg hai (Contract se)
+        let powerLegVolume = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness || 0));
+        
+        // 'totalTeamBusiness' total lifetime business hai (Contract se)
+        let totalTeamLifetime = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness || 0));
+
+        // Other legs = Total - Power
         let otherLegsVolume = Math.max(0, totalTeamLifetime - powerLegVolume);
-        // --- FIXED CALCULATION END ---
+        // --- END FIX ---
 
-        // 4. UI Updates (Baki pura code aapka same hai)
+        // 4. UI Updates
         if (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[rIdx]) {
             updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
             updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
             
+            // Next Rank Index logic
             const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
             const nextRank = RANK_DETAILS[nextIdx];
+            
             updateText('next-rank-display', nextRank.name);
             updateText('progress-next-rank', nextRank.name);
 
@@ -871,7 +875,7 @@ async function fetchLeadershipData(address) {
         updateText('rank-reward-available', typeof format === 'function' ? format(extra.rewardsRank) : ethers.utils.formatEther(extra.rewardsRank));
         updateText('total-rank-earned', typeof format === 'function' ? format(user.totalEarnings) : ethers.utils.formatEther(user.totalEarnings));
         
-        // Actual Figures (Ye ab contract se match karenge)
+        // Figures update
         updateText('power-leg-volume', powerLegVolume.toFixed(4));
         updateText('other-legs-volume', otherLegsVolume.toFixed(4));
 
@@ -1247,6 +1251,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
