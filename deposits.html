@@ -72,11 +72,9 @@
 
         function getGlobalROI(totalAmount) {
             const amt = parseFloat(totalAmount);
-            if (amt >= 5.665) return 6.00;
-            if (amt >= 2.832) return 5.75;
-            if (amt >= 1.133) return 5.50;
-            if (amt >= 0.566) return 5.25;
-            return 5.00;
+            if (amt >= 0.256) return 5.50;
+            if (amt >= 0.112) return 5.25;
+            if (amt >= 0.011) return 5.00; 
         }
 
         async function loadActiveDeposits() {
@@ -200,3 +198,4 @@
     </script>
 </body>
 </html>
+
