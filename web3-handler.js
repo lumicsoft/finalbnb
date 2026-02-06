@@ -812,12 +812,13 @@ window.fetchBlockchainHistory = async function(type) {
 
 // --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
 
-// --- LEADERSHIP DATA (Updated: FIXED Power vs Other Sync) ---
+// --- LEADERSHIP DATA (Updated: Removed ROI, Added Fixed Rewards) ---
 async function fetchLeadershipData(address) {
     try {
-        // 1. Connection Guard
+        // 1. Connection Guard: Trust Wallet support ke liye active instance check karein
         let activeContract = window.contract || contract;
         
+        // Agar address nahi hai toh active signer se lene ki koshish karein
         if (!address && window.signer) {
             address = await window.signer.getAddress();
         }
@@ -831,25 +832,25 @@ async function fetchLeadershipData(address) {
 
         const rIdx = extra.rank;
         
-        // 3. Power Leg vs Other Legs Logic (FIXED)
-        // Contract mein 'extra.maxLegBusiness' hi asli Power Leg ka volume hai
+        // 3. Power Leg vs Other Legs Logic (FIXED USING CONTRACT DATA)
+        // Aapka contract 'maxLegBusiness' mein power leg khud store karta hai
         let powerLegVolume = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness));
         
-        // Contract mein 'extra.totalTeamBusiness' poori team ka lifetime business hai
+        // Aapka contract 'totalTeamBusiness' mein lifetime team business store karta hai
         let totalTeamVolume = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness));
 
-        // As per Contract logic: Baki bacha business "Other Legs" hai
+        // Other legs = Total - Power (Ye exact contract logic hai)
         let otherLegsVolume = Math.max(0, totalTeamVolume - powerLegVolume);
 
         // 4. UI Updates (Basic Stats)
+        // Ensure RANK_DETAILS array globally defined hai
         if (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[rIdx]) {
             updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
             updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
             
-            // Index handle karein (Total 6 ranks hain V1-V6)
+            // Fixed Index for V1-V6 (total 6 ranks)
             const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
             const nextRank = RANK_DETAILS[nextIdx];
-            
             updateText('next-rank-display', nextRank.name);
             updateText('progress-next-rank', nextRank.name);
 
@@ -870,11 +871,11 @@ async function fetchLeadershipData(address) {
                 document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
         }
 
-        // Displaying rewards
+        // Displaying current available rewards
         updateText('rank-reward-available', typeof format === 'function' ? format(extra.rewardsRank) : ethers.utils.formatEther(extra.rewardsRank));
         updateText('total-rank-earned', typeof format === 'function' ? format(user.totalEarnings) : ethers.utils.formatEther(user.totalEarnings));
         
-        // Displaying Volumes
+        // Actual volumes display (Fixed Labels)
         updateText('power-leg-volume', powerLegVolume.toFixed(4));
         updateText('other-legs-volume', otherLegsVolume.toFixed(4));
 
@@ -887,7 +888,6 @@ async function fetchLeadershipData(address) {
         console.error("Leadership Fetch Error:", err);
     }
 }
-
 
 
 async function loadLeadershipDownlines(address, myRankIdx) {
@@ -1252,6 +1252,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
