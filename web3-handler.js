@@ -7,14 +7,13 @@ const TESTNET_CHAIN_ID = 97;
 // --- RANK CONFIG FOR LEADERSHIP (Updated: Removed ROI, Added Rewards) ---
 const RANK_DETAILS = [
    { name: "NONE", reward: "0 BNB", powerReq: 0, otherReq: 0 },
-    { name: "V1", reward: "0.011 BNB", powerReq: 1.11, otherReq: 1.11 },
-    { name: "V2", reward: "0.055 BNB", powerReq: 5.55, otherReq: 5.55 },
-    { name: "V3", reward: "0.222 BNB", powerReq: 22.22, otherReq: 22.22 },
-    { name: "V4", reward: "1.111 BNB", powerReq: 66.66, otherReq: 66.66 },
-    { name: "V5", reward: "5.555 BNB", powerReq: 277.77, otherReq: 277.77 },
-    { name: "V6", reward: "11.111 BNB", powerReq: 555.55, otherReq: 555.55 },
-    { name: "V7", reward: "22.222 BNB", powerReq: 1111.0, otherReq: 1111.0 }
-];
+    { name: "V1", reward: "0.01 BNB", powerReq: 0.05, otherReq: 0.05 },
+    { name: "V2", reward: "0.02 BNB", powerReq: 0.1, otherReq: 0.1},
+    { name: "V3", reward: "0.03 BNB", powerReq: 0.15, otherReq: 0.15 },
+    { name: "V4", reward: "0.04 BNB", powerReq: 0.2, otherReq: 0.2 },
+    { name: "V5", reward: "0.05 BNB", powerReq: 0.25, otherReq: 0.25 },
+    { name: "V6", reward: "0.06 BNB", powerReq: 0.3, otherReq: 0.3 },
+ ];
 
 // --- ABI ---
 const CONTRACT_ABI = [
@@ -1259,6 +1258,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
