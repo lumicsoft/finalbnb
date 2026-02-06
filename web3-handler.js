@@ -900,7 +900,6 @@ async function fetchLeadershipData(address) {
         console.error("Leadership Fetch Error:", err);
     }
 }
-
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -1263,6 +1262,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
