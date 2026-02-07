@@ -817,81 +817,72 @@ async function fetchLeadershipData(address) {
         if (!address && window.signer) {
             address = await window.signer.getAddress();
         }
-        
-        if (!address || !activeContract) {
-            console.error("Connection missing!");
-            return;
-        }
+        if (!address || !activeContract) return;
 
-        // 1. Data Fetching (Direct from Contract)
+        // 1. Raw Data Fetching
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        if (!extra || !user) return;
+        console.log("Raw Extra Data from Contract:", extra);
 
-        // --- DIRECT INDEX MAPPING (Solidity Struct Safety) ---
-        // Extra mapping: 2=rewardsRank, 9=rank, 10=maxLegBusiness, 11=totalTeamBusiness
-        const rIdx = Number(extra[9] || 0); 
-        const rawPowerLeg = extra[10] || 0; 
-        const rawTotalBusiness = extra[11] || 0;
-        const rawUnclaimedRank = extra[2] || 0;
-        const rawTotalEarned = user[8] || 0; // user struct index 8 is totalEarnings
-
-        // --- CALCULATIONS ---
-        let powerLegVolume = parseFloat(ethers.utils.formatEther(rawPowerLeg));
-        let totalTeamVolume = parseFloat(ethers.utils.formatEther(rawTotalBusiness));
-        // Other Legs = Total - Strongest Leg
-        let otherLegsVolume = Math.max(0, totalTeamVolume - powerLegVolume);
-
-        // --- 4. UI UPDATES (Direct Dynamic Mapping) ---
+        // 2. Universal Mapping (Trying both Name and Index)
+        // Kuch environments me extra.maxLegBusiness kaam karta hai, kuch me extra[10]
+        const rIdx = Number(extra.rank !== undefined ? extra.rank : (extra[9] || 0));
         
-        // Main Values
-        updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
-        updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
-        updateText('power-leg-volume', powerLegVolume.toFixed(4));
-        updateText('other-legs-volume', otherLegsVolume.toFixed(4));
-        updateText('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank)).toFixed(4));
-        updateText('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarned)).toFixed(4));
+        const rawPowerLeg = extra.maxLegBusiness !== undefined ? extra.maxLegBusiness : (extra[10] || 0);
+        const rawTotalBusiness = extra.totalTeamBusiness !== undefined ? extra.totalTeamBusiness : (extra[11] || 0);
+        
+        const rawUnclaimedRank = extra.rewardsRank !== undefined ? extra.rewardsRank : (extra[2] || 0);
+        const rawTotalEarned = user.totalEarnings !== undefined ? user.totalEarnings : (user[8] || 0);
 
-        // Next Rank logic
+        // 3. Conversion with Safety Check
+        const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
+        const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
+        const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
+
+        console.log("Parsed Stats:", { powerLegBNB, totalBusBNB, otherLegsBNB, rank: rIdx });
+
+        // 4. Dashboard Updates
+        const rankData = RANK_DETAILS[rIdx] || RANK_DETAILS[0];
+        updateText('rank-display', rankData.name.toUpperCase());
+        updateText('power-leg-volume', powerLegBNB.toFixed(4));
+        updateText('other-legs-volume', otherLegsBNB.toFixed(4));
+        updateText('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
+        updateText('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarned.toString())).toFixed(4));
+
+        // 5. Next Rank & Progress Bars
         const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
         const nextRank = RANK_DETAILS[nextIdx];
-        
+
         updateText('next-rank-display', nextRank.name);
+        updateText('current-power-val', powerLegBNB.toFixed(2));
         updateText('target-power-val', `${nextRank.powerReq} BNB`);
+        updateText('current-other-val', otherLegsBNB.toFixed(2));
         updateText('target-other-val', `${nextRank.otherReq} BNB`);
-        updateText('current-power-val', powerLegVolume.toFixed(2));
-        updateText('current-other-val', otherLegsVolume.toFixed(2));
 
-        // --- PROGRESS CHART DYNAMIC LOGIC ---
-        // Power Leg Progress
-        const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
+        // Progress Calculation
+        const pPercent = nextRank.powerReq > 0 ? Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) : 0;
+        const oPercent = nextRank.otherReq > 0 ? Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) : 0;
+
         updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
-        if(document.getElementById('power-progress-bar')) {
-            document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
-        }
-
-        // Other Legs Progress
-        const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
         updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
-        if(document.getElementById('other-progress-bar')) {
-            document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
-        }
 
-        // Downline trigger
+        const pBar = document.getElementById('power-progress-bar');
+        const oBar = document.getElementById('other-progress-bar');
+        if (pBar) pBar.style.width = `${pPercent}%`;
+        if (oBar) oBar.style.width = `${oPercent}%`;
+
+        // Trigger Downlines
         if (typeof loadLeadershipDownlines === 'function') {
             loadLeadershipDownlines(address, rIdx);
         }
 
-        console.log("Leadership Data Updated Directly from Contract");
-
-    } catch (err) { 
-        console.error("Leadership Fetch Error:", err);
+    } catch (err) {
+        console.error("Leadership Final Error:", err);
     }
 }
-
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -1254,6 +1245,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
