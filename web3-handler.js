@@ -811,82 +811,85 @@ window.fetchBlockchainHistory = async function(type) {
 }
 
 
+// 1. Rank Configuration (Sahi naam ke saath)
+const RANK_CONFIG = [
+    { name: "NONE", reward: "0 BNB", powerReq: 0, otherReq: 0 },
+    { name: "V1", reward: "0.55 BNB", powerReq: 1.11, otherReq: 1.11 },
+    { name: "V2", reward: "1.11 BNB", powerReq: 5.55, otherReq: 5.55 },
+    { name: "V3", reward: "4.44 BNB", powerReq: 22.22, otherReq: 22.22 },
+    { name: "V4", reward: "11.11 BNB", powerReq: 66.66, otherReq: 66.66 },
+    { name: "V5", reward: "111.11 BNB", powerReq: 277.77, otherReq: 277.77 },
+    { name: "V6", reward: "333.33 BNB", powerReq: 555.55, otherReq: 555.55 }
+];
+
 async function fetchLeadershipData(address) {
-    try {
-        let activeContract = window.contract || contract;
-        if (!address && window.signer) {
-            address = await window.signer.getAddress();
-        }
-        
-        if (!address || !activeContract) {
-            console.error("Wallet not connected or contract not initialized");
-            return;
-        }
+    try {
+        let activeContract = window.contract || contract;
+        if (!address && window.signer) {
+            address = await window.signer.getAddress();
+        }
+        
+        if (!address || !activeContract) return;
 
-        // Contract se raw data fetch karna
-        const [userData, extraData] = await Promise.all([
-            activeContract.users(address),
-            activeContract.usersExtra(address)
-        ]);
+        // Contract Fetching
+        const [userData, extraData] = await Promise.all([
+            activeContract.users(address),
+            activeContract.usersExtra(address)
+        ]);
 
-        // --- 100% DIRECT CONTRACT MAPPING ---
-        // Solidity Struct Indexing (Safest Method)
-        const rankIndex = Number(extraData[9] || 0);          // uint8 rank
-        const rawPowerLeg = extraData[10] || 0;               // uint256 maxLegBusiness
-        const rawTotalBusiness = extraData[11] || 0;          // uint256 totalTeamBusiness
-        const rawUnclaimedRank = extraData[2] || 0;           // uint256 rewardsRank
-        const rawTotalEarnings = userData[8] || 0;            // uint256 totalEarnings (User struct index 8)
+        // Struct Index Mapping
+        const rankIndex = Number(extraData[9] || 0);
+        const rawPowerLeg = extraData[10] || 0;
+        const rawTotalBusiness = extraData[11] || 0;
+        const rawUnclaimedRank = extraData[2] || 0;
+        const rawTotalEarnings = userData[8] || 0;
 
-        // Convert Wei to Ether
-        const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg));
-        const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness));
-        const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
+        // Calculations
+        const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg));
+        const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness));
+        const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        // --- UI UPDATES ---
-        const updateText = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.innerText = val;
-        };
+        // Helper Function to safely update UI
+        const safeSetText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val;
+        };
 
-        // 1. Top Card Stats
-        updateText('rank-display', RANK_CONFIG[rankIndex].name);
-        updateText('rank-bonus-display', `Next Reward: ${RANK_CONFIG[rankIndex < 6 ? rankIndex + 1 : 6].reward}`);
-        
-        // 2. Main Figures
-        updateText('power-leg-volume', powerLegBNB.toFixed(4));
-        updateText('other-legs-volume', otherLegsBNB.toFixed(4));
-        updateText('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank)).toFixed(4));
-        updateText('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings)).toFixed(4));
+        // 2. Dashboard Update
+        safeSetText('rank-display', RANK_CONFIG[rankIndex].name);
+        safeSetText('power-leg-volume', powerLegBNB.toFixed(4));
+        safeSetText('other-legs-volume', otherLegsBNB.toFixed(4));
+        safeSetText('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank)).toFixed(4));
+        safeSetText('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings)).toFixed(4));
 
-        // 3. Progress Section (Next Rank)
-        const nextRankIdx = rankIndex < 6 ? rankIndex + 1 : 6;
-        const targetRank = RANK_CONFIG[nextRankIdx];
+        // 3. Next Rank Progress
+        const nextRankIdx = rankIndex < 6 ? rankIndex + 1 : 6;
+        const targetRank = RANK_CONFIG[nextRankIdx];
 
-        updateText('next-rank-display', targetRank.name);
-        updateText('current-power-val', powerLegBNB.toFixed(2));
-        updateText('target-power-val', `${targetRank.pReq} BNB`);
-        updateText('current-other-val', otherLegsBNB.toFixed(2));
-        updateText('target-other-val', `${targetRank.oReq} BNB`);
+        safeSetText('next-rank-display', targetRank.name);
+        safeSetText('current-power-val', powerLegBNB.toFixed(2));
+        safeSetText('target-power-val', `${targetRank.powerReq} BNB`);
+        safeSetText('current-other-val', otherLegsBNB.toFixed(2));
+        safeSetText('target-other-val', `${targetRank.otherReq} BNB`);
 
-        // 4. Progress Bars calculation
-        const pPercent = Math.min((powerLegBNB / targetRank.pReq) * 100, 100);
-        const oPercent = Math.min((otherLegsBNB / targetRank.oReq) * 100, 100);
+        // 4. Progress Bars
+        const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
+        const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
 
-        updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
-        updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
+        safeSetText('power-progress-percent', `${pPercent.toFixed(0)}%`);
+        safeSetText('other-progress-percent', `${oPercent.toFixed(0)}%`);
 
-        const pBar = document.getElementById('power-progress-bar');
-        const oBar = document.getElementById('other-progress-bar');
-        if (pBar) pBar.style.width = `${pPercent}%`;
-        if (oBar) oBar.style.width = `${oPercent}%`;
+        const pBar = document.getElementById('power-progress-bar');
+        const oBar = document.getElementById('other-progress-bar');
+        if (pBar) pBar.style.width = `${pPercent}%`;
+        if (oBar) oBar.style.width = `${oPercent}%`;
 
-        console.log("Leadership data updated successfully.");
+        console.log("Leadership data loaded for:", address);
 
-    } catch (err) {
-        console.error("Leadership Fetch Error:", err);
-    }
+    } catch (err) {
+        console.error("Leadership Fetch Error:", err);
+    }
 }
-
 
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
@@ -1250,6 +1253,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
