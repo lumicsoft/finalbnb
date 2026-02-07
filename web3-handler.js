@@ -811,89 +811,82 @@ window.fetchBlockchainHistory = async function(type) {
 }
 
 async function fetchLeadershipData(address) {
-    console.log("Leadership data update started for:", address);
-    try {
-        // 1. Core Objects Check (Wallet Connection Bachane ke liye)
-        let activeContract = window.contract || contract;
-        if (!activeContract) {
-            console.warn("Contract not ready yet.");
-            return;
-        }
+    try {
+        let activeContract = window.contract || contract;
+        if (!address && window.signer) {
+            address = await window.signer.getAddress();
+        }
+        if (!address || !activeContract) return;
 
-        if (!address && window.signer) {
-            address = await window.signer.getAddress();
-        }
-        if (!address) return;
+        // 1. Data Fetching
+        const [user, extra] = await Promise.all([
+            activeContract.users(address),
+            activeContract.usersExtra(address)
+        ]);
 
-        // 2. Data Fetching (Parallel call for speed)
-        const [user, extra] = await Promise.all([
-            activeContract.users(address),
-            activeContract.usersExtra(address)
-        ]);
+        // Agar data nahi aaya toh yahan se return ho jaye (Page load nahi rukega)
+        if (!extra || !user) return;
 
-        // 3. Contract Variables Mapping (AS PER YOUR SOLIDITY STRUCT)
-        // extra[9] = rank, extra[10] = maxLegBusiness, extra[11] = totalTeamBusiness
-        let powerLegBN = extra[10] || 0;
-        let totalTeamBN = extra[11] || 0;
-        let rankRewardsBN = extra[2] || 0; // rewardsRank
+        const rIdx = extra.rank || 0;
+        
+        // --- FIXED CALCULATION (Using Contract Lifetime Business) ---
+        // 'maxLegBusiness' hi asli Power Leg hai (Contract se)
+        let powerLegVolume = parseFloat(ethers.utils.formatEther(extra.maxLegBusiness || 0));
+        
+        // 'totalTeamBusiness' total lifetime business hai (Contract se)
+        let totalTeamLifetime = parseFloat(ethers.utils.formatEther(extra.totalTeamBusiness || 0));
 
-        let powerLeg = parseFloat(ethers.utils.formatEther(powerLegBN));
-        let totalTeam = parseFloat(ethers.utils.formatEther(totalTeamBN));
-        let otherLegs = Math.max(0, totalTeam - powerLeg);
+        // Other legs = Total - Power
+        let otherLegsVolume = Math.max(0, totalTeamLifetime - powerLegVolume);
+        // --- END FIX ---
 
-        // 4. Rank Requirements (Match with RANK_POWER_REQ in Solidity)
-        const MY_RANKS = [
-            { name: "NONE", pReq: 0, oReq: 0 },
-            { name: "V1", pReq: 0.1, oReq: 0.1 },
-            { name: "V2", pReq: 0.2, oReq: 0.2 },
-            { name: "V3", pReq: 0.3, oReq: 0.3 },
-            { name: "V4", pReq: 0.4, oReq: 0.4 },
-            { name: "V5", pReq: 0.5, oReq: 0.5 },
-            { name: "V6", pReq: 0.6, oReq: 0.6 }
-        ];
+        // 4. UI Updates
+        if (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[rIdx]) {
+            updateText('rank-display', RANK_DETAILS[rIdx].name.toUpperCase());
+            updateText('rank-bonus-display', `Current Bonus: ${RANK_DETAILS[rIdx].reward}`);
+            
+            // Next Rank Index logic
+            const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
+            const nextRank = RANK_DETAILS[nextIdx];
+            
+            updateText('next-rank-display', nextRank.name);
+            updateText('progress-next-rank', nextRank.name);
 
-        const rIdx = parseInt(extra[9] || 0);
-        const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
-        const target = MY_RANKS[nextIdx];
+            // Power Leg Progress
+            const pPercent = Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) || 0;
+            updateText('current-power-val', powerLegVolume.toFixed(2));
+            updateText('target-power-val', `${nextRank.powerReq} BNB`);
+            updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
+            if(document.getElementById('power-progress-bar')) 
+                document.getElementById('power-progress-bar').style.width = `${pPercent}%`;
 
-        // 5. UI Updates with Null Checks (Taki error na aaye)
-        const safeUpdate = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.innerText = val;
-        };
+            // Other Legs Progress
+            const oPercent = Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) || 0;
+            updateText('current-other-val', otherLegsVolume.toFixed(2));
+            updateText('target-other-val', `${nextRank.otherReq} BNB`);
+            updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
+            if(document.getElementById('other-progress-bar')) 
+                document.getElementById('other-progress-bar').style.width = `${oPercent}%`;
+        }
 
-        safeUpdate('rank-display', MY_RANKS[rIdx] ? MY_RANKS[rIdx].name : "NONE");
-        safeUpdate('next-rank-display', target.name);
-        safeUpdate('power-leg-volume', powerLeg.toFixed(4));
-        safeUpdate('other-legs-volume', otherLegs.toFixed(4));
-        safeUpdate('rank-reward-available', parseFloat(ethers.utils.formatEther(rankRewardsBN)).toFixed(4));
-        safeUpdate('total-rank-earned', parseFloat(ethers.utils.formatEther(user.totalEarnings || 0)).toFixed(4));
+        // Available rewards display
+        updateText('rank-reward-available', typeof format === 'function' ? format(extra.rewardsRank) : ethers.utils.formatEther(extra.rewardsRank));
+        updateText('total-rank-earned', typeof format === 'function' ? format(user.totalEarnings) : ethers.utils.formatEther(user.totalEarnings));
+        
+        // Figures update
+        updateText('power-leg-volume', powerLegVolume.toFixed(4));
+        updateText('other-legs-volume', otherLegsVolume.toFixed(4));
 
-        // Progress Details
-        safeUpdate('current-power-val', powerLeg.toFixed(3));
-        safeUpdate('target-power-val', target.pReq + " BNB");
-        safeUpdate('current-other-val', otherLegs.toFixed(3));
-        safeUpdate('target-other-val', target.oReq + " BNB");
+        if (typeof loadLeadershipDownlines === 'function') {
+            loadLeadershipDownlines(address, rIdx);
+        }
 
-        // 6. Progress Bar Visuals
-        let pPer = target.pReq > 0 ? Math.min((powerLeg / target.pReq) * 100, 100) : 0;
-        let oPer = target.oReq > 0 ? Math.min((otherLegs / target.oReq) * 100, 100) : 0;
-
-        const pBar = document.getElementById('power-progress-bar');
-        const oBar = document.getElementById('other-progress-bar');
-        if (pBar) pBar.style.width = pPer + "%";
-        if (oBar) oBar.style.width = oPer + "%";
-
-        safeUpdate('power-progress-percent', Math.floor(pPer) + "%");
-        safeUpdate('other-progress-percent', Math.floor(oPer) + "%");
-
-        console.log("Leadership Data Updated Successfully!");
-
-    } catch (err) {
-        // Agar yahan error aata bhi hai, toh wallet connection nahi tootega
-        console.error("Leadership Data Error (Wallet still active):", err);
-    }
+    } catch (err) { 
+        console.error("Leadership Fetch Error:", err);
+    }
 }
+
+
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -1256,6 +1249,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
