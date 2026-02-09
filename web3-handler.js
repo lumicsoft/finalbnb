@@ -873,23 +873,17 @@ async function fetchLeadershipData(address) {
         const oBar = document.getElementById('other-progress-bar');
         if (pBar) pBar.style.width = `${pPercent}%`;
         if (oBar) oBar.style.width = `${oPercent}%`;
-
-        if (typeof loadLeadershipDownlines === 'function') {
-
-            loadLeadershipDownlines(address, rIdx);
-
+if (typeof loadLeadershipDownlines === 'function') {
+            console.log("Calling loadLeadershipDownlines...");
+            loadLeadershipDownlines(address);
+        } else {
+            console.warn("loadLeadershipDownlines function NOT FOUND!");
         }
 
-
-
-    } catch (err) { 
-
-        console.error("Leadership Fetch Error:", err);
-
+    } catch (err) {
+        console.error("Leadership Final Error:", err);
     }
-
 }
-
 
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
@@ -1253,6 +1247,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
