@@ -810,7 +810,6 @@ window.fetchBlockchainHistory = async function(type) {
     }
 }
 
-
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
@@ -819,65 +818,80 @@ async function fetchLeadershipData(address) {
         }
         if (!address || !activeContract) return;
 
-        // 1. Raw Data Fetching (Direct from Contract)
+        console.log("Fetching data for:", address);
+
+        // 1. Data Fetch
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        console.log("Contract Response:", extra);
+        // 2. DATA EXTRACTION (The Fix)
+        // Hum check kar rahe hain ki data .rank mein hai ya array index [9] mein
+        const rIdx = Number(extra.rank ?? extra[9] ?? 0);
+        
+        // Power Leg (maxLegBusiness) - Index 10 in your struct
+        const rawPowerLeg = extra.maxLegBusiness ?? extra[10] ?? 0;
+        
+        // Total Business (totalTeamBusiness) - Index 11 in your struct
+        const rawTotalBusiness = extra.totalTeamBusiness ?? extra[11] ?? 0;
+        
+        // Rewards and Earnings
+        const rawUnclaimedRank = extra.rewardsRank ?? extra[2] ?? 0;
+        const rawTotalEarned = user.totalEarnings ?? user[8] ?? 0;
 
-        // 2. Mapping from your exact Response
-        // Aapke contract response keys: rank, maxLegBusiness, totalTeamBusiness, rewardsRank
-        const rIdx = Number(extra.rank || 0);
-        const rawPowerLeg = extra.maxLegBusiness || 0;
-        const rawTotalBusiness = extra.totalTeamBusiness || 0;
-        const rawUnclaimedRank = extra.rewardsRank || 0;
-        const rawTotalEarned = user.totalEarnings || 0;
-
-        // 3. Conversion to BNB
+        // 3. CONVERSION (Wei to BNB)
+        // rawPowerLeg.toString() zaroori hai BigInt errors se bachne ke liye
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        // 4. Update Stats on Dashboard
-        const rankData = RANK_DETAILS[rIdx] || RANK_DETAILS[0];
-        updateText('rank-display', rankData.name.toUpperCase());
-        updateText('power-leg-volume', powerLegBNB.toFixed(4));
-        updateText('other-legs-volume', otherLegsBNB.toFixed(4));
-        updateText('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
-        updateText('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarned.toString())).toFixed(4));
+        console.log("Calculated BNB Values:", { powerLegBNB, otherLegsBNB, totalBusBNB });
 
-        // 5. Next Rank & Progress Bars Calculation
+        // 4. UI UPDATE (Main Stats)
+        const rankData = RANK_DETAILS[rIdx] || RANK_DETAILS[0];
+        
+        const safeUpdate = (id, val) => {
+            const el = document.getElementById(id);
+            if(el) el.innerText = val;
+        };
+
+        safeUpdate('rank-display', rankData.name.toUpperCase());
+        safeUpdate('power-leg-volume', powerLegBNB.toFixed(4));
+        safeUpdate('other-legs-volume', otherLegsBNB.toFixed(4));
+        safeUpdate('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
+        safeUpdate('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarned.toString())).toFixed(4));
+
+        // 5. NEXT RANK & PROGRESS BARS
         const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
         const nextRank = RANK_DETAILS[nextIdx];
 
-        updateText('next-rank-display', nextRank.name);
-        updateText('current-power-val', powerLegBNB.toFixed(2));
-        updateText('target-power-val', `${nextRank.powerReq} BNB`);
-        updateText('current-other-val', otherLegsBNB.toFixed(2));
-        updateText('target-other-val', `${nextRank.otherReq} BNB`);
+        safeUpdate('next-rank-display', nextRank.name);
+        safeUpdate('current-power-val', powerLegBNB.toFixed(2));
+        safeUpdate('target-power-val', `${nextRank.powerReq} BNB`);
+        safeUpdate('current-other-val', otherLegsBNB.toFixed(2));
+        safeUpdate('target-other-val', `${nextRank.otherReq} BNB`);
 
-        // Correct Progress Bar Percentages
+        // Progress Calculation
         const pPercent = nextRank.powerReq > 0 ? Math.min((powerLegBNB / nextRank.powerReq) * 100, 100) : 0;
         const oPercent = nextRank.otherReq > 0 ? Math.min((otherLegsBNB / nextRank.otherReq) * 100, 100) : 0;
 
-        updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
-        updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
+        safeUpdate('power-progress-percent', `${Math.floor(pPercent)}%`);
+        safeUpdate('other-progress-percent', `${Math.floor(oPercent)}%`);
 
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
         if (pBar) pBar.style.width = `${pPercent}%`;
         if (oBar) oBar.style.width = `${oPercent}%`;
 
-        // 6. Force Trigger Downline Table Load
-        console.log("Loading Downline Partners for:", address);
+        // 6. TRIGGER DOWNLINE
         await loadLeadershipDownlines(address);
 
     } catch (err) {
-        console.error("Leadership Final Error:", err);
+        console.error("CRITICAL ERROR in fetchLeadershipData:", err);
     }
 }
+
 async function loadLeadershipDownlines(address) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -1234,6 +1248,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
