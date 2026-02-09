@@ -1,172 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leadership | Earn BNB</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style1.css">
-    <style>
-        .bnb-icon { width: 18px; height: 18px; display: inline-block; vertical-align: middle; margin-right: 4px; filter: drop-shadow(0 0 2px rgba(243, 186, 47, 0.4)); }
-        .bnb-icon-sm { width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 2px; }
-        .premium-border { border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.02); border-radius: 12px; }
-        .orbitron { font-family: 'Orbitron', sans-serif; }
-        
-        /* Mobile Table Scrolling Fix */
-        .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .table-container table { min-width: 600px; } /* Ensure table doesn't squash on mobile */
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leadership | Earn BNB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #050505; color: white; }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .premium-border { 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            background: rgba(255, 255, 255, 0.03); 
+            border-radius: 16px; 
+            backdrop-filter: blur(10px);
+        }
+        .bnb-icon { width: 16px; height: 16px; margin-right: 6px; }
+        .table-container { width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .table-container::-webkit-scrollbar { display: none; }
+    </style>
 </head>
-<body class="bg-[#050505] text-white">
+<body class="pb-24">
 
-    <main class="max-w-7xl mx-auto px-4 md:px-6 relative z-10 pt-10 pb-20">
-        
-        <div class="mb-8">
-            <h1 class="text-2xl md:text-3xl font-black orbitron italic uppercase tracking-tighter text-center md:text-left">Leadership <span class="text-yellow-500">Overview</span></h1>
-            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest text-center md:text-left">Business Volume & Fixed Cash Rewards</p>
-        </div>
+    <div id="header-placeholder"></div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
-            <div class="premium-border p-5 md:p-6 flex items-center justify-between border-l-4 border-l-green-500">
-                <div>
-                    <p class="text-[10px] font-black text-gray-400 uppercase">Current Status</p>
-                    <h2 id="rank-display" class="text-xl md:text-2xl font-black orbitron text-yellow-500">LOADING...</h2>
-                    <p id="rank-bonus-display" class="text-green-400 font-bold text-[9px] md:text-[10px] mt-1 italic">Calculating Reward...</p>
-                </div>
-                <i data-lucide="shield-check" class="w-10 h-10 md:w-12 md:h-12 text-green-400 opacity-50"></i>
-            </div>
-            <div class="premium-border p-5 md:p-6 flex items-center justify-between border-l-4 border-l-yellow-500">
-                <div>
-                    <p class="text-[10px] font-black text-yellow-500 uppercase">Target Rank</p>
-                    <h2 id="next-rank-display" class="text-xl md:text-2xl font-black orbitron text-white italic">-</h2>
-                </div>
-                <i data-lucide="award" class="w-10 h-10 md:w-12 md:h-12 text-yellow-500"></i>
-            </div>
-        </div>
+    <main class="max-w-6xl mx-auto px-4 pt-8">
+        
+        <div class="mb-8 text-center md:text-left">
+            <h1 class="text-2xl md:text-3xl font-black orbitron italic uppercase tracking-tighter">
+                LEADERSHIP <span class="text-yellow-500">DASHBOARD</span>
+            </h1>
+            <p class="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Real-time Business Analytics</p>
+        </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="wallet" class="w-6 h-6 md:w-8 md:h-8 text-green-400 mb-2"></i>
-                <p class="text-[8px] font-bold text-gray-400 uppercase">Unclaimed Reward</p>
-                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
-                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
-                    <span id="rank-reward-available">0.000</span>
-                </h3>
-            </div>
-            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="trending-up" class="w-6 h-6 md:w-8 md:h-8 text-yellow-500 mb-2"></i>
-                <p class="text-[8px] font-bold text-gray-400 uppercase">Total Cash Earned</p>
-                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
-                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
-                    <span id="total-rank-earned">0.000</span>
-                </h3>
-            </div>
-            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="zap" class="w-6 h-6 md:w-8 md:h-8 text-emerald-400 mb-2"></i>
-                <p class="text-[8px] font-bold text-gray-400 uppercase">Strong Leg</p>
-                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
-                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
-                    <span id="power-leg-volume">0.000</span>
-                </h3>
-            </div>
-            <div class="premium-border p-4 md:p-5 text-center flex flex-col items-center justify-center">
-                <i data-lucide="users" class="w-6 h-6 md:w-8 md:h-8 text-blue-400 mb-2"></i>
-                <p class="text-[8px] font-bold text-gray-400 uppercase">Other Legs</p>
-                <h3 class="text-sm md:text-lg font-black orbitron flex items-center">
-                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
-                    <span id="other-legs-volume">0.000</span>
-                </h3>
-            </div>
-        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="premium-border p-5 border-l-4 border-l-green-500 flex justify-between items-center">
+                <div>
+                    <p class="text-[9px] font-black text-gray-500 uppercase">Current Status</p>
+                    <h2 id="rank-display" class="text-xl font-black orbitron text-yellow-500 tracking-tight">LOADING...</h2>
+                    <p id="rank-bonus-display" class="text-green-400 font-bold text-[10px] mt-1 italic">Syncing...</p>
+                </div>
+                <div class="bg-green-500/10 p-3 rounded-xl">
+                    <i data-lucide="shield-check" class="w-6 h-6 text-green-500"></i>
+                </div>
+            </div>
 
-        <div class="premium-border p-6 md:p-8 mb-8">
-            <div class="flex items-center gap-3 mb-6">
-                <i data-lucide="bar-chart-big" class="w-5 h-5 md:w-6 md:h-6 text-yellow-500"></i>
-                <h3 class="text-sm md:text-xl font-black orbitron uppercase italic">Rank Advancement <span class="text-yellow-500">Progress</span></h3>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="space-y-3">
-                    <div class="flex justify-between items-end">
-                        <div>
-                            <p class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase">Power Leg Requirement</p>
-                            <p class="text-sm md:text-lg font-black orbitron flex items-center">
-                                <span id="current-power-val">0</span> 
-                                <span class="mx-2 text-gray-600 text-sm">/</span> 
-                                <span id="target-power-val" class="text-[10px] md:text-xs text-gray-500 italic">1.11 BNB</span>
-                            </p>
-                        </div>
-                        <p id="power-progress-percent" class="text-yellow-500 font-black orbitron text-xs md:text-base">0%</p>
-                    </div>
-                    <div class="h-2 bg-white/5 rounded-full overflow-hidden">
-                        <div id="power-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                </div>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-end">
-                        <div>
-                            <p class="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase">Other Legs Requirement</p>
-                            <p class="text-sm md:text-lg font-black orbitron flex items-center">
-                                <span id="current-other-val">0</span> 
-                                <span class="mx-2 text-gray-600 text-sm">/</span> 
-                                <span id="target-other-val" class="text-[10px] md:text-xs text-gray-500 italic">1.11 BNB</span>
-                            </p>
-                        </div>
-                        <p id="other-progress-percent" class="text-yellow-500 font-black orbitron text-xs md:text-base">0%</p>
-                    </div>
-                    <div class="h-2 bg-white/5 rounded-full overflow-hidden">
-                        <div id="other-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <div class="premium-border p-5 border-l-4 border-l-yellow-500 flex justify-between items-center">
+                <div>
+                    <p class="text-[9px] font-black text-gray-500 uppercase">Target Rank</p>
+                    <h2 id="next-rank-display" class="text-xl font-black orbitron text-white italic tracking-tight">-</h2>
+                    <p class="text-yellow-500/70 font-bold text-[10px] mt-1 uppercase">Next Milestone</p>
+                </div>
+                <div class="bg-yellow-500/10 p-3 rounded-xl">
+                    <i data-lucide="award" class="w-6 h-6 text-yellow-500"></i>
+                </div>
+            </div>
+        </div>
 
-        <div class="premium-border p-6 md:p-8 mb-8">
-            <h3 class="text-lg md:text-xl font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Direct</span> Downlines</h3>
-            <div class="table-container">
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="text-[10px] uppercase text-gray-500 border-b border-white/10">
-                            <th class="p-4">Partner</th><th>Rank</th><th>Personal Deposit</th><th>Team Volume</th><th>Strong Leg</th><th>Other Legs</th>
-                        </tr>
-                    </thead>
-                    <tbody id="direct-downline-body" class="text-gray-300 text-xs font-mono">
-                        <tr>
-                            <td colspan="6" class="p-8 text-center text-gray-500 italic">Connect wallet to load team data...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+            <div class="premium-border p-4 text-center">
+                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Unclaimed Reward</p>
+                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="rank-reward-available">0.000</span>
+                </div>
+            </div>
+            <div class="premium-border p-4 text-center text-yellow-500">
+                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Total Earned</p>
+                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="total-rank-earned">0.000</span>
+                </div>
+            </div>
+            <div class="premium-border p-4 text-center">
+                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Strong Leg</p>
+                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="power-leg-volume">0.000</span>
+                </div>
+            </div>
+            <div class="premium-border p-4 text-center">
+                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Other Legs</p>
+                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+                    <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
+                    <span id="other-legs-volume">0.000</span>
+                </div>
+            </div>
+        </div>
 
-        <div class="premium-border p-6 md:p-8 mb-8">
-            <h3 class="text-lg md:text-xl font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Leadership</span> Ranks & Rewards</h3>
-            <div class="table-container">
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="text-[10px] uppercase text-gray-500 border-b border-white/10">
-                            <th class="p-4">Rank</th><th>Cash Reward</th><th>Power Leg Req.</th><th>Other Legs Req.</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-gray-300 text-xs font-mono">
-                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V1</td><td class="text-yellow-500 font-bold">0.55 BNB</td><td>1.11 BNB</td><td>1.11 BNB</td></tr>
-                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V2</td><td class="text-yellow-500 font-bold">1.11 BNB</td><td>5.55 BNB</td><td>5.55 BNB</td></tr>
-                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V3</td><td class="text-yellow-500 font-bold">4.44 BNB</td><td>22.22 BNB</td><td>22.22 BNB</td></tr>
-                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V4</td><td class="text-yellow-500 font-bold">11.11 BNB</td><td>66.66 BNB</td><td>66.66 BNB</td></tr>
-                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V5</td><td class="text-yellow-500 font-bold">111.11 BNB</td><td>277.77 BNB</td><td>277.77 BNB</td></tr>
-                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V6</td><td class="text-yellow-500 font-bold">333.33 BNB</td><td>555.55 BNB</td><td>555.55 BNB</td></tr>
-                    
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="components.js"></script>
-    <script src="web3-handler.js"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+        <div class="premium-border p-6 mb-8">
+            <h3 class="text-xs font-black orbitron uppercase mb-6 flex items-center gap-2">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-yellow-500"></i>
+                Rank <span class="text-yellow-500">Advancement</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <p class="text-[9px] font-bold text-gray-500 uppercase">Strong Leg Req.</p>
+                        <p id="power-progress-percent" class="text-yellow-500 font-black orbitron text-sm">0%</p>
+                    </div>
+                    <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div id="power-progress-bar" class="h-full bg-yellow-500 transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <div class="flex text-[10px] font-bold orbitron">
+                        <span id="current-power-val" class="text-white">0</span>
+                        <span class="mx-1 text-gray-600">/</span>
+                        <span id="target-power-val" class="text-gray-500">0 BNB</span>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <p class="text-[9px] font-bold text-gray-500 uppercase">Other Legs Req.</p>
+                        <p id="other-progress-percent" class="text-yellow-500 font-black orbitron text-sm">0%</p>
+                    </div>
+                    <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div id="other-progress-bar" class="h-full bg-yellow-500 transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <div class="flex text-[10px] font-bold orbitron">
+                        <span id="current-other-val" class="text-white">0</span>
+                        <span class="mx-1 text-gray-600">/</span>
+                        <span id="target-other-val" class="text-gray-500">0 BNB</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="premium-border p-5 mb-8">
+            <h3 class="text-xs font-black orbitron uppercase mb-5 flex items-center gap-2 text-yellow-500">
+                <i data-lucide="users" class="w-4 h-4"></i> Direct Team
+            </h3>
+            <div class="table-container">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-[9px] uppercase text-gray-500 border-b border-white/5">
+                            <th class="pb-3">Partner</th>
+                            <th class="pb-3">Rank</th>
+                            <th class="pb-3">Deposit</th>
+                            <th class="pb-3">Team Vol.</th>
+                            <th class="pb-3">Strong Leg</th>
+                        </tr>
+                    </thead>
+                    <tbody id="direct-downline-body" class="text-[11px]">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="components.js"></script> <script src="web3-handler.js"></script>
+    <script>
+        lucide.createIcons();
+        window.addEventListener('load', () => {
+            const addr = localStorage.getItem('userAccount');
+            if (addr && typeof fetchLeadershipData === 'function') {
+                fetchLeadershipData(addr);
+            }
+        });
+    </script>
 </body>
 </html>
