@@ -812,93 +812,80 @@ window.fetchBlockchainHistory = async function(type) {
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
-        if (!activeContract) {
-            console.log("Waiting for contract connection...");
-            return;
-        }
+        if (!activeContract) return;
 
         const [userData, extraData] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        console.log("Diagnostic Data:", extraData);
-
-        // --- MAPPING FIX (Indices 11 and 12 for Business) ---
-        // Humne saare fallbacks barkarar rakhe hain
+        // --- 1. DATA EXTRACTION ---
         const finalRawPower = extraData.maxLegBusiness || extraData[10] || extraData[11] || 0;
         const finalRawTotal = extraData.totalTeamBusiness || extraData[11] || extraData[12] || 0;
         
-        // Rank Index (Aapki ABI ke mutabiq Index 9 ya 10 par rank hai)
-        const rankIndex = Number(extraData.rank || extraData[9] || extraData[10] || 0);
-        const rawUnclaimedRank = extraData.rewardsRank || extraData[2] || 0;
-        const rawTotalEarnings = userData.totalEarnings || userData[8] || 0;
-
-        // --- CONVERSION ---
+        // Rank ko pakka number banayein
+        const rankIndex = Number(extraData.rank || extraData[9] || 0);
+        
         const powerLegBNB = parseFloat(ethers.utils.formatEther(finalRawPower.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(finalRawTotal.toString()));
-        
-        // Other Legs Calculation: Total - Strong Leg
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        // --- UI UPDATES HELPER ---
+        // --- 2. DYNAMIC TARGET FIX ---
+        // Agar user V1 (Rank 1) hai, toh target har haal me V2 (Index 2) hona chahiye
+        let nextIdx = rankIndex + 1; 
+        if (nextIdx > 6) nextIdx = 6; // Max rank limit
+
+        const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
+        const targetRank = RANK_DETAILS[nextIdx]; 
+
+        // --- 3. UI UPDATES HELPER ---
         const update = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
         };
 
-        // --- DYNAMIC TARGET LOGIC (Fixed for Progressive Bars) ---
-        const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
-        
-        // Agla target set karne ke liye: Agar rank 0 hai to target V1, agar 1 hai to target V2
-        let nextIdx = rankIndex + 1;
-        if (nextIdx > 6) nextIdx = 6; // Max rank V6 tak hi target dikhaye
-        const targetRank = RANK_DETAILS[nextIdx];
-
-        // Numbers display
+        // Dashbaord Rank Update
         update('rank-display', currentRank.name);
-        update('rank-bonus-display', `Reward: ${currentRank.reward}`);
-        update('power-leg-volume', powerLegBNB.toFixed(4)); 
-        update('other-legs-volume', otherLegsBNB.toFixed(4));
-        
-        update('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
-        update('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings.toString())).toFixed(4));
-        
-        // Progress Info (Milestone targets)
-        update('next-rank-display', targetRank.name);
-        update('current-power-val', powerLegBNB.toFixed(4));
-        update('target-power-val', `${targetRank.powerReq} BNB`);
-        update('current-other-val', otherLegsBNB.toFixed(4));
-        update('target-other-val', `${targetRank.otherReq} BNB`);
+        update('next-rank-display', targetRank.name); // <--- Ye ab V2 dikhayega
 
-        // --- PROGRESS BAR CALCULATION (Based on Next Target) ---
+        // Volume Display
+        update('power-leg-volume', powerLegBNB.toFixed(4));
+        update('other-legs-volume', otherLegsBNB.toFixed(4));
+
+        // --- 4. TARGET & PROGRESS CALCULATION (THE FIX) ---
+        // Yahan targetRank.powerReq ab V2 wala value (0.2) pick karega
+        update('target-power-val', `${targetRank.powerReq} BNB`);
+        update('target-other-val', `${targetRank.otherReq} BNB`);
+        update('current-power-val', powerLegBNB.toFixed(4));
+        update('current-other-val', otherLegsBNB.toFixed(4));
+
+        // Percentages calculation based on NEXT target
         const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
         const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
 
         update('power-progress-percent', `${Math.floor(pPercent)}%`);
         update('other-progress-percent', `${Math.floor(oPercent)}%`);
 
+        // --- 5. PROGRESS BAR VISUAL FIX ---
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
         
         if (pBar) {
             pBar.style.width = `${pPercent}%`;
-            pBar.style.height = "100%"; 
-            pBar.style.minHeight = "8px"; 
-            pBar.style.transition = "width 0.5s ease-in-out"; // Smooth animation
+            pBar.style.height = "100%";
+            pBar.style.minHeight = "10px"; // Ensure visibility
+            console.log("Setting Power Bar to:", pPercent + "%");
         }
         if (oBar) {
             oBar.style.width = `${oPercent}%`;
-            oBar.style.height = "100%"; 
-            oBar.style.minHeight = "8px";
-            oBar.style.transition = "width 0.5s ease-in-out";
+            oBar.style.height = "100%";
+            oBar.style.minHeight = "10px";
+            console.log("Setting Other Bar to:", oPercent + "%");
         }
 
         if (typeof loadLeadershipDownlines === "function") {
             loadLeadershipDownlines(address);
         }
-
-        console.log("UI Updated: Target is", targetRank.name, "Progress:", pPercent.toFixed(2) + "%");
 
     } catch (err) {
         console.error("Leadership Final Error:", err);
@@ -1260,6 +1247,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
