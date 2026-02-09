@@ -812,71 +812,86 @@ window.fetchBlockchainHistory = async function(type) {
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
-        if (!activeContract) return;
-
-        if (!address && window.signer) address = await window.signer.getAddress();
-        if (!address) return;
+        if (!activeContract) {
+            console.log("Waiting for contract connection...");
+            return;
+        }
 
         const [userData, extraData] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        console.log("Raw ExtraData:", extraData);
+        console.log("Diagnostic Data:", extraData);
 
-        // --- FIXED EXTRACTION ---
-        // Kyunki aapke array mein objects hain, hume unhe access karna hoga
-        // Aapke response ke mutabiq maxLegBusiness aur totalBusiness un objects mein se kisi ek mein honge
+        // --- MAPPING FIX (Using your console table indices) ---
+        // Based on your table: Index 0 & 1 have the hex values
+        // Index 8 is Rank, Index 6/7 are counts
         
-        const rawPowerLeg = extraData.maxLegBusiness || (extraData[0] && extraData[0].maxLegBusiness) || extraData[4] || 0;
-        const rawTotalBusiness = extraData.totalTeamBusiness || (extraData[0] && extraData[0].totalTeamBusiness) || extraData[5] || 0;
+        // Let's use the most reliable fallback logic
+        const rawPowerLeg = extraData.maxLegBusiness || extraData[10] || extraData[0] || 0;
+        const rawTotalBusiness = extraData.totalTeamBusiness || extraData[11] || extraData[1] || 0;
         const rankIndex = Number(extraData.rank || extraData[8] || 0);
+        const rawUnclaimedRank = extraData.rewardsRank || extraData[2] || 0;
+        const rawTotalEarnings = userData.totalEarnings || userData[8] || 0;
 
-        // --- BNB CONVERSION ---
+        // --- CONVERSION ---
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        console.log("Final Values:", { powerLegBNB, totalBusBNB, otherLegsBNB });
-
-        // --- UI UPDATE ---
+        // --- UI UPDATES ---
         const update = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
         };
 
-        // Numbers display
-        update('power-leg-volume', powerLegBNB.toFixed(4));
-        update('other-legs-volume', otherLegsBNB.toFixed(4));
-        update('current-power-val', powerLegBNB.toFixed(2));
-        update('current-other-val', otherLegsBNB.toFixed(2));
-
-        // --- PROGRESS BAR ---
         const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
         const nextIdx = rankIndex < 6 ? rankIndex + 1 : 6;
         const targetRank = RANK_DETAILS[nextIdx];
 
-        if (targetRank) {
-            const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
-            const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
+        // Numbers display
+        update('rank-display', currentRank.name);
+        update('rank-bonus-display', `Reward: ${currentRank.reward}`);
+        update('power-leg-volume', powerLegBNB.toFixed(4));
+        update('other-legs-volume', otherLegsBNB.toFixed(4));
+        update('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
+        update('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings.toString())).toFixed(4));
+        
+        // Progress Info
+        update('next-rank-display', targetRank.name);
+        update('current-power-val', powerLegBNB.toFixed(2));
+        update('target-power-val', `${targetRank.powerReq} BNB`);
+        update('current-other-val', otherLegsBNB.toFixed(2));
+        update('target-other-val', `${targetRank.otherReq} BNB`);
 
-            update('power-progress-percent', `${Math.floor(pPercent)}%`);
-            update('other-progress-percent', `${Math.floor(oPercent)}%`);
+        // --- PROGRESS BAR FIX (Force Style) ---
+        const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
+        const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
 
-            const pBar = document.getElementById('power-progress-bar');
-            const oBar = document.getElementById('other-progress-bar');
-            
-            if (pBar) pBar.style.width = `${pPercent}%`;
-            if (oBar) oBar.style.width = `${oPercent}%`;
+        update('power-progress-percent', `${Math.floor(pPercent)}%`);
+        update('other-progress-percent', `${Math.floor(oPercent)}%`);
 
-            update('rank-display', currentRank.name);
-            update('next-rank-display', targetRank.name);
-            update('target-power-val', `${targetRank.powerReq} BNB`);
-            update('target-other-val', `${targetRank.otherReq} BNB`);
+        const pBar = document.getElementById('power-progress-bar');
+        const oBar = document.getElementById('other-progress-bar');
+        
+        if (pBar) {
+            pBar.style.width = `${pPercent}%`;
+            pBar.style.height = "100%"; // Tailwind fallback
+            pBar.style.minHeight = "8px"; 
+        }
+        if (oBar) {
+            oBar.style.width = `${oPercent}%`;
+            oBar.style.height = "100%"; // Tailwind fallback
+            oBar.style.minHeight = "8px";
+        }
+
+        if (typeof loadLeadershipDownlines === "function") {
+            loadLeadershipDownlines(address);
         }
 
     } catch (err) {
-        console.error("Leadership Fetch Error:", err);
+        console.error("Leadership Final Error:", err);
     }
 }
 
@@ -1236,6 +1251,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
