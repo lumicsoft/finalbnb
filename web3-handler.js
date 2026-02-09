@@ -878,22 +878,19 @@ async function fetchLeadershipData(address) {
         console.error("Leadership Final Error:", err);
     }
 }
-async function loadLeadershipDownlines(address, myRankIdx) {
+async function loadLeadershipDownlines(address) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
 
     try {
-        // 1. Connection Guard
         let activeContract = window.contract || contract;
         if (!activeContract) return;
 
-        // Loading state (Optional but good for UX)
+        // Initial Loading State
         tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-yellow-500 italic animate-pulse">Loading direct partners...</td></tr>`;
 
-        // 2. Fetching Team Details
+        // 1. Fetch Level 1 Partners
         const res = await activeContract.getLevelTeamDetails(address, 1);
-        
-        // Ethers.js array support (index-based fallback)
         const wallets = res.wallets || res[1] || [];
         const names = res.names || res[0] || [];
         
@@ -904,61 +901,58 @@ async function loadLeadershipDownlines(address, myRankIdx) {
 
         let html = '';
         
-        // 3. Loop through Directs
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            
-            // Basic Safety Check
             if (!uA || uA === "0x0000000000000000000000000000000000000000") continue;
             
             try {
-                // Fetching individual partner data
+                // 2. Fetch Partner's Data (Users & UsersExtra)
                 const [dUser, dExtra] = await Promise.all([
                     activeContract.users(uA),
                     activeContract.usersExtra(uA)
                 ]);
                 
-                // Formatting values with safety check
-                const formatVal = (val) => {
-                    return parseFloat(typeof format === 'function' ? format(val) : ethers.utils.formatEther(val));
-                };
+                // 3. Precise Calculations (Matching Dashboard Logic)
+                const partnerPersonal = parseFloat(ethers.utils.formatEther(dUser.totalActiveDeposit || 0));
+                
+                // Partner ka apna Power Leg aur Total Business
+                const pPowerLegBNB = parseFloat(ethers.utils.formatEther(dExtra.maxLegBusiness || 0));
+                const pTotalBusBNB = parseFloat(ethers.utils.formatEther(dExtra.totalTeamBusiness || 0));
+                
+                // Important: Partner ka total volume = uska personal + uska total team business
+                const partnerTotalVolume = partnerPersonal + pTotalBusBNB;
+                
+                // Partner ki Other Legs (Total - Power)
+                const pOtherLegsBNB = Math.max(0, pTotalBusBNB - pPowerLegBNB);
 
-                const partnerTotalTeam = formatVal(dUser.teamActiveDeposit);
-                const partnerPersonal = formatVal(dUser.totalActiveDeposit);
-                
-                // Total volume logic (Personal + Team)
-                const totalLegVolume = partnerPersonal + partnerTotalTeam;
-                
-                // Rank details safety check
-                const pRank = dExtra.rank;
-                const pRankName = (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[pRank]) ? RANK_DETAILS[pRank].name : "N/A";
-                const pRankReward = (typeof RANK_DETAILS !== 'undefined' && RANK_DETAILS[pRank]) ? RANK_DETAILS[pRank].reward : "0";
+                // 4. Rank Details mapping
+                const pRank = Number(dExtra.rank || 0);
+                const rankInfo = RANK_DETAILS[pRank] || RANK_DETAILS[0];
 
                 html += `
-                <tr class="border-b border-white/5 hover:bg-white/10 transition-all">
-                    <td class="p-4 flex flex-col">
-                        <span class="text-white font-bold text-sm">${names[i] || 'User'}</span>
-                        <span class="text-[9px] text-gray-400 font-mono">${uA.substring(0,6)}...${uA.substring(uA.length-4)}</span>
+                <tr class="border-b border-white/5 hover:bg-white/10 transition-all text-xs">
+                    <td class="p-4">
+                        <div class="text-white font-bold">${names[i] || 'User'}</div>
+                        <div class="text-[9px] text-gray-500 font-mono">${uA.substring(0,6)}...${uA.substring(uA.length-4)}</div>
                     </td>
-                    <td class="p-4 text-yellow-500 font-bold text-xs uppercase">${pRankName}</td>
-                    <td class="p-4 text-sm font-medium text-gray-200">${partnerPersonal.toFixed(3)}</td>
-                    <td class="p-4 text-green-400 font-bold text-sm">${totalLegVolume.toFixed(3)}</td>
-                    <td class="p-4 text-gray-400 text-sm">${partnerTotalTeam.toFixed(3)}</td>
-                    <td class="p-4 text-blue-400 font-bold text-sm">${pRankReward}</td>
+                    <td class="p-4"><span class="bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded text-[10px] font-bold">${rankInfo.name}</span></td>
+                    <td class="p-4 text-gray-200">${partnerPersonal.toFixed(3)}</td>
+                    <td class="p-4 text-green-400 font-bold">${partnerTotalVolume.toFixed(3)}</td>
+                    <td class="p-4 text-gray-400 font-medium">${pPowerLegBNB.toFixed(3)}</td>
+                    <td class="p-4 text-blue-400 font-bold">${pOtherLegsBNB.toFixed(3)}</td>
                 </tr>`;
 
             } catch (innerErr) {
-                console.error(`Error loading data for ${uA}:`, innerErr);
-                // Ek row skip hone par bhi table chalti rahegi
+                console.warn(`Partner ${uA} data missing`, innerErr);
                 continue;
             }
         }
         
-        tableBody.innerHTML = html || `<tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Error loading downline data</td></tr>`;
+        tableBody.innerHTML = html;
 
     } catch (e) { 
-        console.error("Downline Table Global Error:", e);
-        tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-500 italic">Failed to sync downline. Please check your connection.</td></tr>`;
+        console.error("Downline Global Error:", e);
+        tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-red-500 italic">Failed to sync downline data.</td></tr>`;
     }
 }
 
@@ -1240,6 +1234,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
