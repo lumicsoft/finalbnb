@@ -824,20 +824,23 @@ async function fetchLeadershipData(address) {
 
         console.log("Diagnostic Data:", extraData);
 
-        // --- MAPPING FIX (Using your console table indices) ---
-        // Based on your table: Index 0 & 1 have the hex values
-        // Index 8 is Rank, Index 6/7 are counts
+        // --- THE FIX: Sahi Indexing for 0.08 and 0.15 ---
+        // 1. Aapke contract response ke mutabiq maxLegBusiness index 10 par hai (0.08)
+        const rawPowerLeg = extraData.maxLegBusiness || extraData[10] || 0;
         
-        // Let's use the most reliable fallback logic
-        const rawPowerLeg = extraData.maxLegBusiness || extraData[10] || extraData[0] || 0;
-        const rawTotalBusiness = extraData.totalTeamBusiness || extraData[11] || extraData[1] || 0;
-        const rankIndex = Number(extraData.rank || extraData[8] || 0);
+        // 2. totalTeamBusiness index 11 par hai (0.15)
+        const rawTotalBusiness = extraData.totalTeamBusiness || extraData[11] || 0;
+        
+        // 3. Baki mapping as it is
+        const rankIndex = Number(extraData.rank || extraData[9] || 0); // Rank usually index 9 or 8
         const rawUnclaimedRank = extraData.rewardsRank || extraData[2] || 0;
         const rawTotalEarnings = userData.totalEarnings || userData[8] || 0;
 
         // --- CONVERSION ---
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
+        
+        // 4. CALCULATION: Other Legs = Total (0.15) - Power (0.08) = 0.07
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
         // --- UI UPDATES ---
@@ -853,8 +856,12 @@ async function fetchLeadershipData(address) {
         // Numbers display
         update('rank-display', currentRank.name);
         update('rank-bonus-display', `Reward: ${currentRank.reward}`);
+        
+        // Yahan ab 0.0800 dikhega
         update('power-leg-volume', powerLegBNB.toFixed(4));
+        // Yahan ab 0.0700 dikhega
         update('other-legs-volume', otherLegsBNB.toFixed(4));
+        
         update('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
         update('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings.toString())).toFixed(4));
         
@@ -877,12 +884,12 @@ async function fetchLeadershipData(address) {
         
         if (pBar) {
             pBar.style.width = `${pPercent}%`;
-            pBar.style.height = "100%"; // Tailwind fallback
+            pBar.style.height = "100%"; 
             pBar.style.minHeight = "8px"; 
         }
         if (oBar) {
             oBar.style.width = `${oPercent}%`;
-            oBar.style.height = "100%"; // Tailwind fallback
+            oBar.style.height = "100%"; 
             oBar.style.minHeight = "8px";
         }
 
@@ -894,7 +901,6 @@ async function fetchLeadershipData(address) {
         console.error("Leadership Final Error:", err);
     }
 }
-
 async function loadLeadershipDownlines(address) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -1251,6 +1257,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
