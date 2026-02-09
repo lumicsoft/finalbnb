@@ -809,7 +809,6 @@ window.fetchBlockchainHistory = async function(type) {
         return [];
     }
 }
-
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
@@ -823,66 +822,57 @@ async function fetchLeadershipData(address) {
             activeContract.usersExtra(address)
         ]);
 
-        // --- STEP 1: DEBUGGING (Isse check karein F12 console mein) ---
-        console.log("Full ExtraData Response:", extraData);
+        // --- DEBUGGER: Ise Console mein dhyan se dekho ---
+        console.log("--- LEADERSHIP DATA DEBUG ---");
+        console.table(extraData); // Ye aapko saari values list mein dikhayega
 
-        // --- STEP 2: SAFE EXTRACTION ---
-        // Hum check kar rahe hain ki data .maxLegBusiness mein hai ya array index mein
-        const rawPowerLeg = extraData.maxLegBusiness || extraData[10] || 0;
-        const rawTotalBusiness = extraData.totalTeamBusiness || extraData[11] || 0;
-        const rankIndex = Number(extraData.rank || extraData[9] || 0);
+        // --- SAFE DATA EXTRACTION ---
+        // Hum check kar rahe hain har rasta: Name -> Index -> Default 0
+        const rawPowerLeg = extraData.maxLegBusiness || extraData[10] || extraData[8] || 0;
+        const rawTotalBusiness = extraData.totalTeamBusiness || extraData[11] || extraData[9] || 0;
+        const rankIndex = Number(extraData.rank || extraData[9] || extraData[7] || 0);
 
-        // --- STEP 3: CONVERSION ---
-        // Ether conversion (ensure string handling)
+        // --- CONVERSION ---
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
-        
-        // Calculation for Other Legs
-        const otherLegsBNB = totalBusBNB > powerLegBNB ? (totalBusBNB - powerLegBNB) : 0;
+        const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        console.log("Calculated BNB:", { powerLegBNB, totalBusBNB, otherLegsBNB });
-
-        // --- STEP 4: UI UPDATE ---
+        // --- UI UPDATES ---
         const update = (id, text) => {
             const el = document.getElementById(id);
-            if (el) {
-                el.innerText = text;
-            } else {
-                console.warn(`ID not found in HTML: ${id}`);
-            }
+            if (el) el.innerText = text;
         };
 
-        // Numbers display
         update('power-leg-volume', powerLegBNB.toFixed(4));
         update('other-legs-volume', otherLegsBNB.toFixed(4));
         update('current-power-val', powerLegBNB.toFixed(2));
         update('current-other-val', otherLegsBNB.toFixed(2));
 
-        // Progress Bar Logic
+        // --- PROGRESS BAR FIX ---
         const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
         const nextIdx = rankIndex < 6 ? rankIndex + 1 : 6;
         const targetRank = RANK_DETAILS[nextIdx];
 
-        // Progress Calculations
-        const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
-        const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
+        // Agar targetRank missing hai toh error na aaye
+        if (targetRank) {
+            const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
+            const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
 
-        // Bar and Text Updates
-        update('power-progress-percent', `${Math.floor(pPercent)}%`);
-        update('other-progress-percent', `${Math.floor(oPercent)}%`);
+            update('power-progress-percent', `${Math.floor(pPercent)}%`);
+            update('other-progress-percent', `${Math.floor(oPercent)}%`);
 
-        const pBar = document.getElementById('power-progress-bar');
-        const oBar = document.getElementById('other-progress-bar');
-        
-        if (pBar) pBar.style.width = `${pPercent}%`;
-        if (oBar) oBar.style.width = `${oPercent}%`;
+            const pBar = document.getElementById('power-progress-bar');
+            const oBar = document.getElementById('other-progress-bar');
+            if (pBar) pBar.style.width = `${pPercent}%`;
+            if (oBar) oBar.style.width = `${oPercent}%`;
 
-        // Rank info
-        update('rank-display', currentRank.name);
-        update('next-rank-display', targetRank.name);
+            update('next-rank-display', targetRank.name);
+            update('target-power-val', `${targetRank.powerReq} BNB`);
+            update('target-other-val', `${targetRank.otherReq} BNB`);
+        }
 
     } catch (err) {
-        console.error("Leadership Fetch Error:", err);
+        console.error("Critical Error:", err);
     }
 }
 
@@ -1242,6 +1232,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
