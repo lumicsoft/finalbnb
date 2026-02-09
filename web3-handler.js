@@ -812,7 +812,7 @@ window.fetchBlockchainHistory = async function(type) {
 
 async function fetchLeadershipData(address) {
     try {
-        // A. Connection Check (Force wait for contract)
+        // A. Connection Check
         let activeContract = window.contract || contract;
         if (!activeContract) {
             console.log("Waiting for contract...");
@@ -833,14 +833,25 @@ async function fetchLeadershipData(address) {
             activeContract.usersExtra(address)
         ]);
 
-        // C. Contract Mapping (Using your exact response keys)
-        const rankIndex = Number(extraData.rank || 0);
-        const rawPowerLeg = extraData.maxLegBusiness || 0;
-        const rawTotalBusiness = extraData.totalTeamBusiness || 0;
-        const rawUnclaimedRank = extraData.rewardsRank || 0;
-        const rawTotalEarnings = userData.totalEarnings || userData[8] || 0;
+        // Debugging ke liye (Check karein console mein data kaise aa raha hai)
+        console.log("Extra Data Raw:", extraData);
 
-        // D. Convert Wei to BNB
+        // C. Contract Mapping (FALLBACKS ADDED: Name or Index)
+        // Agar extraData.rank kaam nahi karega toh extraData[9] se data uthayega
+        const rankIndex = Number(extraData.rank !== undefined ? extraData.rank : (extraData[9] || 0));
+        
+        // Max Leg Business (Index 10)
+        const rawPowerLeg = extraData.maxLegBusiness !== undefined ? extraData.maxLegBusiness : (extraData[10] || 0);
+        
+        // Total Team Business (Index 11)
+        const rawTotalBusiness = extraData.totalTeamBusiness !== undefined ? extraData.totalTeamBusiness : (extraData[11] || 0);
+        
+        const rawUnclaimedRank = extraData.rewardsRank !== undefined ? extraData.rewardsRank : (extraData[2] || 0);
+        
+        // User Data Handling
+        const rawTotalEarnings = userData.totalEarnings !== undefined ? userData.totalEarnings : (userData[8] || 0);
+
+        // D. Convert Wei to BNB (Safe Parsing)
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
@@ -851,11 +862,15 @@ async function fetchLeadershipData(address) {
             if (el) el.innerText = text;
         };
 
+        // Rank Details Setup
         const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
         update('rank-display', currentRank.name);
         update('rank-bonus-display', `Rank Reward: ${currentRank.reward}`);
+        
+        // Yahan aapka Main Issue Solve ho jayega
         update('power-leg-volume', powerLegBNB.toFixed(4));
         update('other-legs-volume', otherLegsBNB.toFixed(4));
+        
         update('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
         update('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings.toString())).toFixed(4));
 
@@ -882,7 +897,9 @@ async function fetchLeadershipData(address) {
         if (oBar) oBar.style.width = `${oPercent}%`;
 
         // G. Load Team Table
-        loadLeadershipDownlines(address);
+        if (typeof loadLeadershipDownlines === "function") {
+            loadLeadershipDownlines(address);
+        }
 
     } catch (err) {
         console.error("Leadership Fetch Error:", err);
@@ -1245,6 +1262,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
