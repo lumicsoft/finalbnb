@@ -812,83 +812,80 @@ window.fetchBlockchainHistory = async function(type) {
 
 async function fetchLeadershipData(address) {
     try {
+        // A. Connection Check (Force wait for contract)
         let activeContract = window.contract || contract;
+        if (!activeContract) {
+            console.log("Waiting for contract...");
+            setTimeout(() => fetchLeadershipData(address), 1000);
+            return;
+        }
+
         if (!address && window.signer) {
             address = await window.signer.getAddress();
         }
-        if (!address || !activeContract) return;
+        if (!address) return;
 
-        console.log("Fetching data for:", address);
+        console.log("Syncing Leadership for:", address);
 
-        // 1. Data Fetch
-        const [user, extra] = await Promise.all([
+        // B. Fetch Data from Contract
+        const [userData, extraData] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        // 2. DATA EXTRACTION (The Fix)
-        // Hum check kar rahe hain ki data .rank mein hai ya array index [9] mein
-        const rIdx = Number(extra.rank ?? extra[9] ?? 0);
-        
-        // Power Leg (maxLegBusiness) - Index 10 in your struct
-        const rawPowerLeg = extra.maxLegBusiness ?? extra[10] ?? 0;
-        
-        // Total Business (totalTeamBusiness) - Index 11 in your struct
-        const rawTotalBusiness = extra.totalTeamBusiness ?? extra[11] ?? 0;
-        
-        // Rewards and Earnings
-        const rawUnclaimedRank = extra.rewardsRank ?? extra[2] ?? 0;
-        const rawTotalEarned = user.totalEarnings ?? user[8] ?? 0;
+        // C. Contract Mapping (Using your exact response keys)
+        const rankIndex = Number(extraData.rank || 0);
+        const rawPowerLeg = extraData.maxLegBusiness || 0;
+        const rawTotalBusiness = extraData.totalTeamBusiness || 0;
+        const rawUnclaimedRank = extraData.rewardsRank || 0;
+        const rawTotalEarnings = userData.totalEarnings || userData[8] || 0;
 
-        // 3. CONVERSION (Wei to BNB)
-        // rawPowerLeg.toString() zaroori hai BigInt errors se bachne ke liye
+        // D. Convert Wei to BNB
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        console.log("Calculated BNB Values:", { powerLegBNB, otherLegsBNB, totalBusBNB });
-
-        // 4. UI UPDATE (Main Stats)
-        const rankData = RANK_DETAILS[rIdx] || RANK_DETAILS[0];
-        
-        const safeUpdate = (id, val) => {
+        // E. Update UI Elements
+        const update = (id, text) => {
             const el = document.getElementById(id);
-            if(el) el.innerText = val;
+            if (el) el.innerText = text;
         };
 
-        safeUpdate('rank-display', rankData.name.toUpperCase());
-        safeUpdate('power-leg-volume', powerLegBNB.toFixed(4));
-        safeUpdate('other-legs-volume', otherLegsBNB.toFixed(4));
-        safeUpdate('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
-        safeUpdate('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarned.toString())).toFixed(4));
+        const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
+        update('rank-display', currentRank.name);
+        update('rank-bonus-display', `Rank Reward: ${currentRank.reward}`);
+        update('power-leg-volume', powerLegBNB.toFixed(4));
+        update('other-legs-volume', otherLegsBNB.toFixed(4));
+        update('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
+        update('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings.toString())).toFixed(4));
 
-        // 5. NEXT RANK & PROGRESS BARS
-        const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
-        const nextRank = RANK_DETAILS[nextIdx];
+        // F. Progress Calculation
+        const nextIdx = rankIndex < 6 ? rankIndex + 1 : 6;
+        const targetRank = RANK_DETAILS[nextIdx];
 
-        safeUpdate('next-rank-display', nextRank.name);
-        safeUpdate('current-power-val', powerLegBNB.toFixed(2));
-        safeUpdate('target-power-val', `${nextRank.powerReq} BNB`);
-        safeUpdate('current-other-val', otherLegsBNB.toFixed(2));
-        safeUpdate('target-other-val', `${nextRank.otherReq} BNB`);
+        update('next-rank-display', targetRank.name);
+        update('current-power-val', powerLegBNB.toFixed(2));
+        update('target-power-val', `${targetRank.powerReq} BNB`);
+        update('current-other-val', otherLegsBNB.toFixed(2));
+        update('target-other-val', `${targetRank.otherReq} BNB`);
 
-        // Progress Calculation
-        const pPercent = nextRank.powerReq > 0 ? Math.min((powerLegBNB / nextRank.powerReq) * 100, 100) : 0;
-        const oPercent = nextRank.otherReq > 0 ? Math.min((otherLegsBNB / nextRank.otherReq) * 100, 100) : 0;
+        // Bar Calculations
+        const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
+        const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
 
-        safeUpdate('power-progress-percent', `${Math.floor(pPercent)}%`);
-        safeUpdate('other-progress-percent', `${Math.floor(oPercent)}%`);
+        update('power-progress-percent', `${Math.floor(pPercent)}%`);
+        update('other-progress-percent', `${Math.floor(oPercent)}%`);
 
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
         if (pBar) pBar.style.width = `${pPercent}%`;
         if (oBar) oBar.style.width = `${oPercent}%`;
 
-        // 6. TRIGGER DOWNLINE
-        await loadLeadershipDownlines(address);
+        // G. Load Team Table
+        loadLeadershipDownlines(address);
 
     } catch (err) {
-        console.error("CRITICAL ERROR in fetchLeadershipData:", err);
+        console.error("Leadership Fetch Error:", err);
     }
 }
 
@@ -1248,6 +1245,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
