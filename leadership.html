@@ -4,146 +4,171 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leadership | Earn BNB</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="style1.css">
+    
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #050505; color: white; }
+        /* Yahan wahi styles hain jo design ko fix rakhte hain */
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #050505; color: white; margin: 0; }
         .orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        /* Premium Card Design (Responsive Fix) */
         .premium-border { 
             border: 1px solid rgba(255, 255, 255, 0.08); 
-            background: rgba(255, 255, 255, 0.03); 
+            background: rgba(255, 255, 255, 0.02); 
             border-radius: 16px; 
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(8px);
         }
-        .bnb-icon { width: 16px; height: 16px; margin-right: 6px; }
-        .table-container { width: 100%; overflow-x: auto; scrollbar-width: none; }
+        
+        .bnb-icon { width: 16px; height: 16px; display: inline-block; vertical-align: middle; margin-right: 4px; }
+        
+        /* Table Scrolling Fix for Mobile */
+        .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .table-container::-webkit-scrollbar { display: none; }
+        .table-container table { min-width: 600px; }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            .main-content { padding-top: 20px; }
+            .stat-card { padding: 1rem !important; }
+        }
     </style>
 </head>
-<body class="pb-24">
+<body class="bg-[#050505]">
 
     <div id="header-placeholder"></div>
 
-    <main class="max-w-6xl mx-auto px-4 pt-8">
+    <main class="max-w-7xl mx-auto px-4 md:px-6 relative z-10 pt-10 pb-24 main-content">
         
-        <div class="mb-8 text-center md:text-left">
-            <h1 class="text-2xl md:text-3xl font-black orbitron italic uppercase tracking-tighter">
-                LEADERSHIP <span class="text-yellow-500">DASHBOARD</span>
+        <div class="mb-8">
+            <h1 class="text-2xl md:text-3xl font-black orbitron italic uppercase tracking-tighter text-center md:text-left">
+                Leadership <span class="text-yellow-500">Overview</span>
             </h1>
-            <p class="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Real-time Business Analytics</p>
+            <p class="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest text-center md:text-left">
+                Business Volume & Fixed Cash Rewards
+            </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div class="premium-border p-5 border-l-4 border-l-green-500 flex justify-between items-center">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8">
+            <div class="premium-border p-5 md:p-6 flex items-center justify-between border-l-4 border-l-green-500 stat-card">
                 <div>
-                    <p class="text-[9px] font-black text-gray-500 uppercase">Current Status</p>
-                    <h2 id="rank-display" class="text-xl font-black orbitron text-yellow-500 tracking-tight">LOADING...</h2>
-                    <p id="rank-bonus-display" class="text-green-400 font-bold text-[10px] mt-1 italic">Syncing...</p>
+                    <p class="text-[10px] font-black text-gray-400 uppercase">Current Status</p>
+                    <h2 id="rank-display" class="text-xl md:text-2xl font-black orbitron text-yellow-500">LOADING...</h2>
+                    <p id="rank-bonus-display" class="text-green-400 font-bold text-[9px] md:text-[10px] mt-1 italic">Calculating Reward...</p>
                 </div>
-                <div class="bg-green-500/10 p-3 rounded-xl">
-                    <i data-lucide="shield-check" class="w-6 h-6 text-green-500"></i>
-                </div>
+                <i data-lucide="shield-check" class="w-10 h-10 text-green-400 opacity-50"></i>
             </div>
-
-            <div class="premium-border p-5 border-l-4 border-l-yellow-500 flex justify-between items-center">
+            <div class="premium-border p-5 md:p-6 flex items-center justify-between border-l-4 border-l-yellow-500 stat-card">
                 <div>
-                    <p class="text-[9px] font-black text-gray-500 uppercase">Target Rank</p>
-                    <h2 id="next-rank-display" class="text-xl font-black orbitron text-white italic tracking-tight">-</h2>
-                    <p class="text-yellow-500/70 font-bold text-[10px] mt-1 uppercase">Next Milestone</p>
+                    <p class="text-[10px] font-black text-yellow-500 uppercase">Target Rank</p>
+                    <h2 id="next-rank-display" class="text-xl md:text-2xl font-black orbitron text-white italic">-</h2>
                 </div>
-                <div class="bg-yellow-500/10 p-3 rounded-xl">
-                    <i data-lucide="award" class="w-6 h-6 text-yellow-500"></i>
-                </div>
+                <i data-lucide="award" class="w-10 h-10 text-yellow-500"></i>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
             <div class="premium-border p-4 text-center">
-                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Unclaimed Reward</p>
-                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+                <i data-lucide="wallet" class="w-5 h-5 text-green-400 mx-auto mb-2"></i>
+                <p class="text-[8px] font-bold text-gray-400 uppercase">Unclaimed Reward</p>
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center justify-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="rank-reward-available">0.000</span>
-                </div>
+                </h3>
             </div>
-            <div class="premium-border p-4 text-center text-yellow-500">
-                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Total Earned</p>
-                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+            <div class="premium-border p-4 text-center">
+                <i data-lucide="trending-up" class="w-5 h-5 text-yellow-500 mx-auto mb-2"></i>
+                <p class="text-[8px] font-bold text-gray-400 uppercase">Total Cash Earned</p>
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center justify-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="total-rank-earned">0.000</span>
-                </div>
+                </h3>
             </div>
             <div class="premium-border p-4 text-center">
-                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Strong Leg</p>
-                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+                <i data-lucide="zap" class="w-5 h-5 text-emerald-400 mx-auto mb-2"></i>
+                <p class="text-[8px] font-bold text-gray-400 uppercase">Strong Leg</p>
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center justify-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="power-leg-volume">0.000</span>
-                </div>
+                </h3>
             </div>
             <div class="premium-border p-4 text-center">
-                <p class="text-[8px] font-bold text-gray-500 uppercase mb-2">Other Legs</p>
-                <div class="flex items-center justify-center font-black orbitron text-sm md:text-base">
+                <i data-lucide="users" class="w-5 h-5 text-blue-400 mx-auto mb-2"></i>
+                <p class="text-[8px] font-bold text-gray-400 uppercase">Other Legs</p>
+                <h3 class="text-sm md:text-lg font-black orbitron flex items-center justify-center">
                     <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-icon">
                     <span id="other-legs-volume">0.000</span>
+                </h3>
+            </div>
+        </div>
+
+        <div class="premium-border p-6 md:p-8 mb-8">
+            <div class="flex items-center gap-3 mb-6">
+                <i data-lucide="bar-chart-big" class="w-5 h-5 text-yellow-500"></i>
+                <h3 class="text-xs md:text-sm font-black orbitron uppercase italic">Rank <span class="text-yellow-500">Progress</span></h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <p class="text-[9px] font-bold text-gray-400 uppercase">Strong Leg Req.</p>
+                        <p id="power-progress-percent" class="text-yellow-500 font-black orbitron text-xs">0%</p>
+                    </div>
+                    <div class="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div id="power-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <p class="text-[10px] font-bold orbitron text-gray-500">
+                        <span id="current-power-val" class="text-white">0</span> / <span id="target-power-val">1.11 BNB</span>
+                    </p>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <p class="text-[9px] font-bold text-gray-400 uppercase">Other Legs Req.</p>
+                        <p id="other-progress-percent" class="text-yellow-500 font-black orbitron text-xs">0%</p>
+                    </div>
+                    <div class="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div id="other-progress-bar" class="h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <p class="text-[10px] font-bold orbitron text-gray-500">
+                        <span id="current-other-val" class="text-white">0</span> / <span id="target-other-val">1.11 BNB</span>
+                    </p>
                 </div>
             </div>
         </div>
 
         <div class="premium-border p-6 mb-8">
-            <h3 class="text-xs font-black orbitron uppercase mb-6 flex items-center gap-2">
-                <i data-lucide="bar-chart-3" class="w-4 h-4 text-yellow-500"></i>
-                Rank <span class="text-yellow-500">Advancement</span>
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="space-y-3">
-                    <div class="flex justify-between items-end">
-                        <p class="text-[9px] font-bold text-gray-500 uppercase">Strong Leg Req.</p>
-                        <p id="power-progress-percent" class="text-yellow-500 font-black orbitron text-sm">0%</p>
-                    </div>
-                    <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div id="power-progress-bar" class="h-full bg-yellow-500 transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <div class="flex text-[10px] font-bold orbitron">
-                        <span id="current-power-val" class="text-white">0</span>
-                        <span class="mx-1 text-gray-600">/</span>
-                        <span id="target-power-val" class="text-gray-500">0 BNB</span>
-                    </div>
-                </div>
-
-                <div class="space-y-3">
-                    <div class="flex justify-between items-end">
-                        <p class="text-[9px] font-bold text-gray-500 uppercase">Other Legs Req.</p>
-                        <p id="other-progress-percent" class="text-yellow-500 font-black orbitron text-sm">0%</p>
-                    </div>
-                    <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div id="other-progress-bar" class="h-full bg-yellow-500 transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <div class="flex text-[10px] font-bold orbitron">
-                        <span id="current-other-val" class="text-white">0</span>
-                        <span class="mx-1 text-gray-600">/</span>
-                        <span id="target-other-val" class="text-gray-500">0 BNB</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="premium-border p-5 mb-8">
-            <h3 class="text-xs font-black orbitron uppercase mb-5 flex items-center gap-2 text-yellow-500">
-                <i data-lucide="users" class="w-4 h-4"></i> Direct Team
-            </h3>
+            <h3 class="text-sm font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Direct</span> Downlines</h3>
             <div class="table-container">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="text-[9px] uppercase text-gray-500 border-b border-white/5">
-                            <th class="pb-3">Partner</th>
-                            <th class="pb-3">Rank</th>
-                            <th class="pb-3">Deposit</th>
-                            <th class="pb-3">Team Vol.</th>
-                            <th class="pb-3">Strong Leg</th>
+                        <tr class="text-[10px] uppercase text-gray-500 border-b border-white/10">
+                            <th class="p-4">Partner</th><th>Rank</th><th>Deposit</th><th>Team Vol.</th><th>Strong Leg</th><th>Other Legs</th>
                         </tr>
                     </thead>
-                    <tbody id="direct-downline-body" class="text-[11px]">
-                        </tbody>
+                    <tbody id="direct-downline-body" class="text-gray-300 text-[11px] font-mono">
+                        <tr><td colspan="6" class="p-8 text-center text-gray-500 italic">Syncing team data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="premium-border p-6 mb-8">
+            <h3 class="text-sm font-black orbitron uppercase italic mb-6"><span class="text-yellow-500">Rank</span> Rewards Table</h3>
+            <div class="table-container">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-[10px] uppercase text-gray-500 border-b border-white/10">
+                            <th class="p-4">Rank</th><th>Reward</th><th>Strong Req.</th><th>Other Req.</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-400 text-[11px] font-mono">
+                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V1</td><td class="text-yellow-500">0.55 BNB</td><td>1.11 BNB</td><td>1.11 BNB</td></tr>
+                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V2</td><td class="text-yellow-500">1.11 BNB</td><td>5.55 BNB</td><td>5.55 BNB</td></tr>
+                        <tr class="border-b border-white/5"><td class="p-4 font-bold text-white">V3</td><td class="text-yellow-500">4.44 BNB</td><td>22.22 BNB</td><td>22.22 BNB</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -152,13 +177,18 @@
     <div id="footer-placeholder"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="components.js"></script> <script src="web3-handler.js"></script>
+    <script src="components.js"></script>
+    <script src="web3-handler.js"></script>
     <script>
+        // Icons Initialization
         lucide.createIcons();
-        window.addEventListener('load', () => {
-            const addr = localStorage.getItem('userAccount');
-            if (addr && typeof fetchLeadershipData === 'function') {
-                fetchLeadershipData(addr);
+
+        // Data Loading Logic
+        window.addEventListener('load', async () => {
+            const userAccount = localStorage.getItem('userAccount');
+            if (userAccount && typeof fetchLeadershipData === 'function') {
+                // Thoda wait taaki contract load ho jaye
+                setTimeout(() => fetchLeadershipData(userAccount), 1000);
             }
         });
     </script>
