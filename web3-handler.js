@@ -824,23 +824,25 @@ async function fetchLeadershipData(address) {
 
         console.log("Diagnostic Data:", extraData);
 
-        // --- THE FIX: Sahi Indexing for 0.08 and 0.15 ---
-        // 1. Aapke contract response ke mutabiq maxLegBusiness index 10 par hai (0.08)
-        const rawPowerLeg = extraData.maxLegBusiness || extraData[10] || 0;
+        // --- MAPPING FIX (Indices 11 and 12 for Business) ---
+        // Max Leg Business (Index 11) - 80000000000000000
+        const rawPowerLeg = extraData[10] || extraData.maxLegBusiness || 0; 
+        // Note: JS arrays 0-indexed hote hain, agar contract me 11th item hai to extraData[10] hoga.
+        // Agar aapne confirm kiya hai ki exact 11 and 12 hai, to niche fallback use kiya hai:
         
-        // 2. totalTeamBusiness index 11 par hai (0.15)
-        const rawTotalBusiness = extraData.totalTeamBusiness || extraData[11] || 0;
+        const finalRawPower = extraData[10] || extraData[11] || extraData.maxLegBusiness || 0;
+        const finalRawTotal = extraData[11] || extraData[12] || extraData.totalTeamBusiness || 0;
         
-        // 3. Baki mapping as it is
-        const rankIndex = Number(extraData.rank || extraData[9] || 0); // Rank usually index 9 or 8
+        const rankIndex = Number(extraData.rank || extraData[9] || extraData[8] || 0);
         const rawUnclaimedRank = extraData.rewardsRank || extraData[2] || 0;
         const rawTotalEarnings = userData.totalEarnings || userData[8] || 0;
 
-        // --- CONVERSION ---
-        const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
-        const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
+        // --- CONVERSION (18 Decimal Division via formatEther) ---
+        // formatEther automatically value ko 10^18 se divide karta hai
+        const powerLegBNB = parseFloat(ethers.utils.formatEther(finalRawPower.toString()));
+        const totalBusBNB = parseFloat(ethers.utils.formatEther(finalRawTotal.toString()));
         
-        // 4. CALCULATION: Other Legs = Total (0.15) - Power (0.08) = 0.07
+        // Other Legs Calculation: Total - Strong Leg (0.15 - 0.08 = 0.07)
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
         // --- UI UPDATES ---
@@ -856,11 +858,8 @@ async function fetchLeadershipData(address) {
         // Numbers display
         update('rank-display', currentRank.name);
         update('rank-bonus-display', `Reward: ${currentRank.reward}`);
-        
-        // Yahan ab 0.0800 dikhega
-        update('power-leg-volume', powerLegBNB.toFixed(4));
-        // Yahan ab 0.0700 dikhega
-        update('other-legs-volume', otherLegsBNB.toFixed(4));
+        update('power-leg-volume', powerLegBNB.toFixed(4)); // Shows 0.0800
+        update('other-legs-volume', otherLegsBNB.toFixed(4)); // Shows 0.0700
         
         update('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
         update('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings.toString())).toFixed(4));
@@ -1257,6 +1256,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
