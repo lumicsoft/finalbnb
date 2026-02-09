@@ -868,10 +868,6 @@ async function fetchLeadershipData(address) {
         if (pBar) pBar.style.width = `${pPercent}%`;
         if (oBar) oBar.style.width = `${oPercent}%`;
 
-    } catch (err) {
-        console.error("Leadership Final Error:", err);
-    }
-}
 
         if (typeof loadLeadershipDownlines === "function") {
             loadLeadershipDownlines(address);
@@ -1237,6 +1233,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
