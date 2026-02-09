@@ -822,38 +822,40 @@ async function fetchLeadershipData(address) {
             activeContract.usersExtra(address)
         ]);
 
-        // --- DEBUGGER: Ise Console mein dhyan se dekho ---
-        console.log("--- LEADERSHIP DATA DEBUG ---");
-        console.table(extraData); // Ye aapko saari values list mein dikhayega
+        console.log("Raw ExtraData:", extraData);
 
-        // --- SAFE DATA EXTRACTION ---
-        // Hum check kar rahe hain har rasta: Name -> Index -> Default 0
-        const rawPowerLeg = extraData.maxLegBusiness || extraData[10] || extraData[8] || 0;
-        const rawTotalBusiness = extraData.totalTeamBusiness || extraData[11] || extraData[9] || 0;
-        const rankIndex = Number(extraData.rank || extraData[9] || extraData[7] || 0);
+        // --- FIXED EXTRACTION ---
+        // Kyunki aapke array mein objects hain, hume unhe access karna hoga
+        // Aapke response ke mutabiq maxLegBusiness aur totalBusiness un objects mein se kisi ek mein honge
+        
+        const rawPowerLeg = extraData.maxLegBusiness || (extraData[0] && extraData[0].maxLegBusiness) || extraData[4] || 0;
+        const rawTotalBusiness = extraData.totalTeamBusiness || (extraData[0] && extraData[0].totalTeamBusiness) || extraData[5] || 0;
+        const rankIndex = Number(extraData.rank || extraData[8] || 0);
 
-        // --- CONVERSION ---
+        // --- BNB CONVERSION ---
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        // --- UI UPDATES ---
+        console.log("Final Values:", { powerLegBNB, totalBusBNB, otherLegsBNB });
+
+        // --- UI UPDATE ---
         const update = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
         };
 
+        // Numbers display
         update('power-leg-volume', powerLegBNB.toFixed(4));
         update('other-legs-volume', otherLegsBNB.toFixed(4));
         update('current-power-val', powerLegBNB.toFixed(2));
         update('current-other-val', otherLegsBNB.toFixed(2));
 
-        // --- PROGRESS BAR FIX ---
+        // --- PROGRESS BAR ---
         const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
         const nextIdx = rankIndex < 6 ? rankIndex + 1 : 6;
         const targetRank = RANK_DETAILS[nextIdx];
 
-        // Agar targetRank missing hai toh error na aaye
         if (targetRank) {
             const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
             const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
@@ -863,16 +865,18 @@ async function fetchLeadershipData(address) {
 
             const pBar = document.getElementById('power-progress-bar');
             const oBar = document.getElementById('other-progress-bar');
+            
             if (pBar) pBar.style.width = `${pPercent}%`;
             if (oBar) oBar.style.width = `${oPercent}%`;
 
+            update('rank-display', currentRank.name);
             update('next-rank-display', targetRank.name);
             update('target-power-val', `${targetRank.powerReq} BNB`);
             update('target-other-val', `${targetRank.otherReq} BNB`);
         }
 
     } catch (err) {
-        console.error("Critical Error:", err);
+        console.error("Leadership Fetch Error:", err);
     }
 }
 
@@ -1232,6 +1236,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
