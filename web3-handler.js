@@ -812,40 +812,33 @@ window.fetchBlockchainHistory = async function(type) {
 async function fetchLeadershipData(address) {
     try {
         let activeContract = window.contract || contract;
-        if (!activeContract) {
-            console.log("Waiting for contract connection...");
-            return;
-        }
+        if (!activeContract) return;
 
         const [userData, extraData] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        console.log("Diagnostic Data:", extraData);
+        console.log("Deep Scan ExtraData:", extraData);
 
-        // --- MAPPING FIX (Indices 11 and 12 for Business) ---
-        // Max Leg Business (Index 11) - 80000000000000000
-        const rawPowerLeg = extraData[10] || extraData.maxLegBusiness || 0; 
-        // Note: JS arrays 0-indexed hote hain, agar contract me 11th item hai to extraData[10] hoga.
-        // Agar aapne confirm kiya hai ki exact 11 and 12 hai, to niche fallback use kiya hai:
+        // --- THE OBJECT SCANNER FIX ---
+        // Kyunki data objects ke andar hai, hum unhe aise access karenge:
+        const rawPowerLeg = extraData.maxLegBusiness || (extraData[0] && extraData[0].maxLegBusiness) || 0;
+        const rawTotalBusiness = extraData.totalTeamBusiness || (extraData[0] && extraData[0].totalTeamBusiness) || 0;
         
-        const finalRawPower = extraData[10] || extraData[11] || extraData.maxLegBusiness || 0;
-        const finalRawTotal = extraData[11] || extraData[12] || extraData.totalTeamBusiness || 0;
-        
-        const rankIndex = Number(extraData.rank || extraData[9] || extraData[8] || 0);
-        const rawUnclaimedRank = extraData.rewardsRank || extraData[2] || 0;
+        // Rank aur baaki data ke liye fallback
+        const rankIndex = Number(extraData.rank || extraData[8] || 0);
+        const rawUnclaimedRank = extraData.rewardsRank || (extraData[0] && extraData[0].rewardsRank) || 0;
         const rawTotalEarnings = userData.totalEarnings || userData[8] || 0;
 
-        // --- CONVERSION (18 Decimal Division via formatEther) ---
-        // formatEther automatically value ko 10^18 se divide karta hai
-        const powerLegBNB = parseFloat(ethers.utils.formatEther(finalRawPower.toString()));
-        const totalBusBNB = parseFloat(ethers.utils.formatEther(finalRawTotal.toString()));
-        
-        // Other Legs Calculation: Total - Strong Leg (0.15 - 0.08 = 0.07)
+        // --- CONVERSION (18 Decimals) ---
+        const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
+        const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        // --- UI UPDATES ---
+        console.log("Successfully Extracted:", { powerLegBNB, otherLegsBNB });
+
+        // --- UI UPDATE ---
         const update = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
@@ -855,23 +848,15 @@ async function fetchLeadershipData(address) {
         const nextIdx = rankIndex < 6 ? rankIndex + 1 : 6;
         const targetRank = RANK_DETAILS[nextIdx];
 
-        // Numbers display
         update('rank-display', currentRank.name);
-        update('rank-bonus-display', `Reward: ${currentRank.reward}`);
-        update('power-leg-volume', powerLegBNB.toFixed(4)); // Shows 0.0800
-        update('other-legs-volume', otherLegsBNB.toFixed(4)); // Shows 0.0700
-        
-        update('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
-        update('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarnings.toString())).toFixed(4));
-        
-        // Progress Info
-        update('next-rank-display', targetRank.name);
+        update('power-leg-volume', powerLegBNB.toFixed(4)); 
+        update('other-legs-volume', otherLegsBNB.toFixed(4));
         update('current-power-val', powerLegBNB.toFixed(2));
-        update('target-power-val', `${targetRank.powerReq} BNB`);
         update('current-other-val', otherLegsBNB.toFixed(2));
+        update('target-power-val', `${targetRank.powerReq} BNB`);
         update('target-other-val', `${targetRank.otherReq} BNB`);
 
-        // --- PROGRESS BAR FIX (Force Style) ---
+        // Progress Bars
         const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
         const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
 
@@ -880,17 +865,13 @@ async function fetchLeadershipData(address) {
 
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
-        
-        if (pBar) {
-            pBar.style.width = `${pPercent}%`;
-            pBar.style.height = "100%"; 
-            pBar.style.minHeight = "8px"; 
-        }
-        if (oBar) {
-            oBar.style.width = `${oPercent}%`;
-            oBar.style.height = "100%"; 
-            oBar.style.minHeight = "8px";
-        }
+        if (pBar) pBar.style.width = `${pPercent}%`;
+        if (oBar) oBar.style.width = `${oPercent}%`;
+
+    } catch (err) {
+        console.error("Leadership Final Error:", err);
+    }
+}
 
         if (typeof loadLeadershipDownlines === "function") {
             loadLeadershipDownlines(address);
@@ -1256,6 +1237,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
