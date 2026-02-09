@@ -873,12 +873,9 @@ async function fetchLeadershipData(address) {
         const oBar = document.getElementById('other-progress-bar');
         if (pBar) pBar.style.width = `${pPercent}%`;
         if (oBar) oBar.style.width = `${oPercent}%`;
-if (typeof loadLeadershipDownlines === 'function') {
-            console.log("Calling loadLeadershipDownlines...");
-            loadLeadershipDownlines(address);
-        } else {
-            console.warn("loadLeadershipDownlines function NOT FOUND!");
-        }
+       
+console.log("Starting Downline Load...");
+        await loadLeadershipDownlines(address);
 
     } catch (err) {
         console.error("Leadership Final Error:", err);
@@ -1247,6 +1244,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
