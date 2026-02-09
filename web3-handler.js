@@ -819,32 +819,28 @@ async function fetchLeadershipData(address) {
         }
         if (!address || !activeContract) return;
 
-        // 1. Raw Data Fetching
+        // 1. Raw Data Fetching (Direct from Contract)
         const [user, extra] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
 
-        console.log("Raw Extra Data from Contract:", extra);
+        console.log("Contract Response:", extra);
 
-        // 2. Universal Mapping (Trying both Name and Index)
-        // Kuch environments me extra.maxLegBusiness kaam karta hai, kuch me extra[10]
-        const rIdx = Number(extra.rank !== undefined ? extra.rank : (extra[9] || 0));
-        
-        const rawPowerLeg = extra.maxLegBusiness !== undefined ? extra.maxLegBusiness : (extra[10] || 0);
-        const rawTotalBusiness = extra.totalTeamBusiness !== undefined ? extra.totalTeamBusiness : (extra[11] || 0);
-        
-        const rawUnclaimedRank = extra.rewardsRank !== undefined ? extra.rewardsRank : (extra[2] || 0);
-        const rawTotalEarned = user.totalEarnings !== undefined ? user.totalEarnings : (user[8] || 0);
+        // 2. Mapping from your exact Response
+        // Aapke contract response keys: rank, maxLegBusiness, totalTeamBusiness, rewardsRank
+        const rIdx = Number(extra.rank || 0);
+        const rawPowerLeg = extra.maxLegBusiness || 0;
+        const rawTotalBusiness = extra.totalTeamBusiness || 0;
+        const rawUnclaimedRank = extra.rewardsRank || 0;
+        const rawTotalEarned = user.totalEarnings || 0;
 
-        // 3. Conversion with Safety Check
+        // 3. Conversion to BNB
         const powerLegBNB = parseFloat(ethers.utils.formatEther(rawPowerLeg.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(rawTotalBusiness.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
 
-        console.log("Parsed Stats:", { powerLegBNB, totalBusBNB, otherLegsBNB, rank: rIdx });
-
-        // 4. Dashboard Updates
+        // 4. Update Stats on Dashboard
         const rankData = RANK_DETAILS[rIdx] || RANK_DETAILS[0];
         updateText('rank-display', rankData.name.toUpperCase());
         updateText('power-leg-volume', powerLegBNB.toFixed(4));
@@ -852,7 +848,7 @@ async function fetchLeadershipData(address) {
         updateText('rank-reward-available', parseFloat(ethers.utils.formatEther(rawUnclaimedRank.toString())).toFixed(4));
         updateText('total-rank-earned', parseFloat(ethers.utils.formatEther(rawTotalEarned.toString())).toFixed(4));
 
-        // 5. Next Rank & Progress Bars
+        // 5. Next Rank & Progress Bars Calculation
         const nextIdx = rIdx < 6 ? rIdx + 1 : 6;
         const nextRank = RANK_DETAILS[nextIdx];
 
@@ -862,9 +858,9 @@ async function fetchLeadershipData(address) {
         updateText('current-other-val', otherLegsBNB.toFixed(2));
         updateText('target-other-val', `${nextRank.otherReq} BNB`);
 
-        // Progress Calculation
-        const pPercent = nextRank.powerReq > 0 ? Math.min((powerLegVolume / nextRank.powerReq) * 100, 100) : 0;
-        const oPercent = nextRank.otherReq > 0 ? Math.min((otherLegsVolume / nextRank.otherReq) * 100, 100) : 0;
+        // Correct Progress Bar Percentages
+        const pPercent = nextRank.powerReq > 0 ? Math.min((powerLegBNB / nextRank.powerReq) * 100, 100) : 0;
+        const oPercent = nextRank.otherReq > 0 ? Math.min((otherLegsBNB / nextRank.otherReq) * 100, 100) : 0;
 
         updateText('power-progress-percent', `${pPercent.toFixed(0)}%`);
         updateText('other-progress-percent', `${oPercent.toFixed(0)}%`);
@@ -873,15 +869,15 @@ async function fetchLeadershipData(address) {
         const oBar = document.getElementById('other-progress-bar');
         if (pBar) pBar.style.width = `${pPercent}%`;
         if (oBar) oBar.style.width = `${oPercent}%`;
-       
-console.log("Starting Downline Load...");
+
+        // 6. Force Trigger Downline Table Load
+        console.log("Loading Downline Partners for:", address);
         await loadLeadershipDownlines(address);
 
     } catch (err) {
         console.error("Leadership Final Error:", err);
     }
 }
-
 async function loadLeadershipDownlines(address, myRankIdx) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -1244,6 +1240,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
