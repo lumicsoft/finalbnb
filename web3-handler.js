@@ -2,7 +2,7 @@ let provider, signer, contract, Contract;
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0x7f4b3f6e015e96a5394f502c89fea2880b901aa5"; 
-const TESTNET_CHAIN_ID = 97; 
+const TESTNET_CHAIN_ID = 56; 
 
 // --- RANK CONFIG FOR LEADERSHIP (Updated: Removed ROI, Added Rewards) ---
 const RANK_DETAILS = [
@@ -56,7 +56,7 @@ function checkReferralURL() {
 async function init() {
     checkReferralURL();
     
-    const bscTestnetRPC = "https://data-seed-prebsc-1-s1.binance.org:8545/";
+    const bscMainnetRPC = "https://bsc-dataseed.binance.org/";
     const savedAddr = localStorage.getItem('userAddress');
     const isIndexPage = window.location.pathname.endsWith('index.html') || window.location.pathname === '/';
 
@@ -86,7 +86,7 @@ async function init() {
                     contract = window.contract;
                     await setupApp(address);
                 } else if (savedAddr) {
-                    await setupReadOnly(bscTestnetRPC, savedAddr);
+                    await setupReadOnly(bscMainnetRPC, savedAddr);
                 }
             }
             // --- CONDITION END ---
@@ -101,11 +101,11 @@ async function init() {
 
         } else {
            
-            await setupReadOnly(bscTestnetRPC, savedAddr);
+            await setupReadOnly(bscMainnetRPC, savedAddr);
         }
     } catch (error) { 
         console.error("Init Error:", error);
-        if (savedAddr) await setupReadOnly(bscTestnetRPC, savedAddr);
+        if (savedAddr) await setupReadOnly(bscMainnetRPC, savedAddr);
     }
 }
 
@@ -534,9 +534,9 @@ window.handleLogin = async function() {
         const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
         const { chainId } = await tempProvider.getNetwork();
 
-        // Check if on BSC Testnet (97)
-        if (chainId !== TESTNET_CHAIN_ID) {
-            alert("Please switch your wallet to BSC Testnet (Chain 97)!");
+        // Check if on BSC Testnet (56)
+        if (chainId !== MAINNET_CHAIN_ID) {
+            alert("Please switch your wallet to BSC Mainnet (Chain 56)!");
             return;
         }
 
@@ -562,7 +562,7 @@ window.handleLogin = async function() {
         }
     } catch (err) { 
         console.error("Login Error:", err);
-        alert("Login failed! Make sure your wallet is connected to BSC Testnet."); 
+        alert("Login failed! Make sure your wallet is connected to BSC Mainnet."); 
     }
 }
 
@@ -598,20 +598,19 @@ window.handleRegister = async function() {
             window.contract = activeContract;
         }
 
-        // ---  NETWORK AUTO-SWITCH (BSC Testnet: 97) ---
-        const network = await activeSigner.provider.getNetwork();
-        if (network.chainId !== 97) {
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x61' }], // 0x61 = 97
-                });
-            } catch (switchError) {
-                alert("Please switch your wallet to BSC Testnet manually!");
-                return;
-            }
-        }
-
+       // --- NETWORK AUTO-SWITCH (BSC Mainnet: 56) ---
+const network = await activeSigner.provider.getNetwork();
+if (network.chainId !== 56) {
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x38' }], // 0x38 = 56 (Mainnet)
+        });
+    } catch (switchError) {
+        alert("Please switch your wallet to BSC Mainnet manually!");
+        return;
+    }
+}
         regBtn.disabled = true;
         regBtn.innerText = "CHECKING...";
 
@@ -680,8 +679,8 @@ async function setupApp(address) {
     
     localStorage.setItem('userAddress', address);
     const network = await provider.getNetwork();
-    if (network.chainId !== TESTNET_CHAIN_ID) { 
-        alert("Please switch your wallet to BSC Testnet (Chain 97)!"); 
+    if (network.chainId !==    MAINNET_CHAIN_ID) { 
+        alert("Please switch your wallet to BSC mainnet (Chain 56)!"); 
         return; 
     }
 
@@ -1247,6 +1246,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
