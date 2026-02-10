@@ -72,7 +72,7 @@ async function init() {
             if (isIndexPage) {
                 
                 if (savedAddr) {
-                    await setupReadOnly(bscTestnetRPC, savedAddr);
+                    await setupReadOnly(bscMainnetRPC, savedAddr);
                 }
             } else {
                
@@ -534,7 +534,7 @@ window.handleLogin = async function() {
         const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
         const { chainId } = await tempProvider.getNetwork();
 
-        // Check if on BSC Testnet (56)
+        // Check if on BSC Mainnet (56)
         if (chainId !== MAINNET_CHAIN_ID) {
             alert("Please switch your wallet to BSC Mainnet (Chain 56)!");
             return;
@@ -1246,6 +1246,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
