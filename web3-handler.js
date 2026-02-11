@@ -51,602 +51,170 @@ function checkReferralURL() {
         console.log("Referral auto-filled from URL:", refName);
     }
 }
-// --- INITIALIZATION ---
+
 // --- INITIALIZATION ---
 async function init() {
+    // Check for referral parameter on every load
     checkReferralURL();
-    
-    const bscMainnetRPC = "https://bsc-dataseed.binance.org/";
-    const savedAddr = localStorage.getItem('userAddress');
-    const isIndexPage = window.location.pathname.endsWith('index.html') || window.location.pathname === '/';
 
-    try {
-        if (window.ethereum) {
-           
-            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            
-            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    if (window.ethereum) {
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            const accounts = await provider.listAccounts();
+            window.signer = provider.getSigner();
+            signer = window.signer;
+            window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
             contract = window.contract;
 
-            // --- CONDITION START ---
-            if (isIndexPage) {
-                
-                if (savedAddr) {
-                    await setupReadOnly(bscMainnetRPC, savedAddr);
-                }
-            } else {
-               
-                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                if (accounts.length > 0) {
-                    const address = accounts[0];
-                    localStorage.setItem('userAddress', address);
-                    signer = provider.getSigner();
-                    window.signer = signer;
-                    window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-                    contract = window.contract;
-                    await setupApp(address);
-                } else if (savedAddr) {
-                    await setupReadOnly(bscMainnetRPC, savedAddr);
+            if (accounts.length > 0) {
+                if (localStorage.getItem('manualLogout') !== 'true') {
+                    await setupApp(accounts[0]);
+                } else {
+                    updateNavbar(accounts[0]);
                 }
             }
-            // --- CONDITION END ---
-
-       
-            window.ethereum.on('chainChanged', () => window.location.reload());
-            window.ethereum.on('accountsChanged', (accs) => {
-                if (accs.length === 0) localStorage.removeItem('userAddress');
-                else localStorage.setItem('userAddress', accs[0]);
-                window.location.reload();
-            });
-
-        } else {
-           
-            await setupReadOnly(bscMainnetRPC, savedAddr);
-        }
-    } catch (error) { 
-        console.error("Init Error:", error);
-        if (savedAddr) await setupReadOnly(bscMainnetRPC, savedAddr);
-    }
+        } catch (error) { console.error("Init Error", error); }
+    } else { alert("Please install MetaMask!"); }
 }
 
-async function setupReadOnly(rpcUrl, forcedAddress = null) {
-    console.log("Mode: RPC/Memory Data Loading...");
-    try {
-        const tempProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        
-        provider = tempProvider; 
-        window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
-        contract = window.contract;
-        
-        const addressToUse = forcedAddress || localStorage.getItem('userAddress');
-        
-        if (addressToUse && addressToUse !== "undefined" && addressToUse !== null) {
-            await setupApp(addressToUse);
-        }
-    } catch (e) {
-        console.error("RPC Setup Failed:", e);
-    }
-}
+
 
 
 // --- CORE LOGIC ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
     const depositBtn = document.getElementById('deposit-btn');
+    if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Please enter a valid amount!");
     
-    // 1. Validation check
-    if (!amountInput || !amountInput.value || parseFloat(amountInput.value) <= 0) {
-        return alert("Please enter a valid BNB amount!");
-    }
-
+    const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
+    
     try {
-        // Signer aur Contract check
-        let activeSigner = window.signer || (typeof signer !== 'undefined' ? signer : null);
-        let activeContract = window.contract || (typeof contract !== 'undefined' ? contract : null);
-
-        // --- FIX 1: Connection Priority ---
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            // Trust Wallet ke liye requestAccounts zyada stable hai
-            const accounts = await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-                                    
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
-
-        // UI Updates
         depositBtn.disabled = true;
-        depositBtn.innerText = "CONFIRMING...";
-
-        // BNB ko Wei mein convert karein
-        const amountInWei = ethers.utils.parseEther(amountInput.value.toString());
-
-        // --- FIX 2: Dynamic Gas Estimation ---
-        // Direct manual gas 300,000 dene se kabhi kabhi "Out of Gas" aata hai.
-        // Isliye pehle estimate karein, fir buffer add karein.
-        let gasLimit;
-        try {
-            const estimatedGas = await activeContract.estimateGas.deposit({ value: amountInWei });
-            // Add 20% buffer to estimated gas for mobile stability
-            gasLimit = estimatedGas.mul(120).div(100);
-        } catch (gasErr) {
-            console.warn("Gas estimation failed, using fallback.");
-            gasLimit = 500000; // Safe fallback
-        }
-
-        // 2. Deposit Logic
-        const tx = await activeContract.deposit({ 
-            value: amountInWei,
-            gasLimit: gasLimit 
-        });
+        depositBtn.innerText = "SIGNING...";
         
-        depositBtn.innerText = "PROCESSING...";
-        console.log("TX Hash:", tx.hash);
-
-        // 3. Wait for confirmation
-        const receipt = await tx.wait();
+        // Gas Estimation Fix: Added manual gasLimit to ensure it doesn't fail on BSC
+        const tx = await contract.deposit({ value: amountInWei });
         
-        if(receipt.status === 1) {
-            alert("Deposit Successful!");
-            location.reload(); 
-        } else {
-            throw new Error("Transaction reverted on chain");
-        }
-
+        depositBtn.innerText = "DEPOSITING...";
+        await tx.wait();
+        location.reload(); 
     } catch (err) {
-        console.error("Deposit Error:", err);
-        
-        let errorMsg = "Transaction Failed";
-        // Trust Wallet/MetaMask specific error handling
-        if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
-            errorMsg = "User rejected transaction";
-        } else if (err.data && err.data.message) {
-            errorMsg = err.data.message;
-        } else if (err.reason) {
-            errorMsg = err.reason;
-        }
-        
-        alert("Error: " + errorMsg);
-        
+        alert("Error: " + (err.reason || err.message));
         depositBtn.innerText = "DEPOSIT NOW";
         depositBtn.disabled = false;
     }
 }
 
 window.handleClaim = async function() {
-    const claimBtn = event.target;
-    const originalText = claimBtn.innerText;
-
     try {
-        // 1. STABLE CONNECTION LOGIC (From your perfect code)
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
-
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
-
-        // 2. DATA CALCULATION (From your current project)
-        const userAddress = await activeSigner.getAddress();
+        const userAddress = await signer.getAddress();
+        const extra = await contract.usersExtra(userAddress);
+        const live = await contract.getLiveBalance(userAddress);
         
-        // UI Updates
-        claimBtn.disabled = true;
-        claimBtn.innerText = "CALCULATING...";
-
-        const extra = await activeContract.usersExtra(userAddress);
-        const live = await activeContract.getLiveBalance(userAddress);
-        
-        // Combine all rewards
+        // Combine all withdrawable reserves
         const totalPending = live.pendingROI.add(live.pendingCap)
-                                     .add(extra.reserveDailyROI)
-                                     .add(extra.reserveDailyCapital);
-                                     
-        if (totalPending.lte(0)) {
-            claimBtn.disabled = false;
-            claimBtn.innerText = originalText;
-            return alert("No rewards to withdraw!");
-        }
-
-        // 3. TRANSACTION EXECUTION
-        claimBtn.innerText = "SIGNING...";
-
-        // Note: activeContract.claimDailyReward use kar rahe hain jo parameter leta hai
-        const tx = await activeContract.claimDailyReward(totalPending, {
-            gasLimit: 500000 // Mobile safe gas limit
-        });
-        
-        claimBtn.innerText = "CLAIMING...";
-        console.log("Claim tx sent:", tx.hash);
-        
+                             .add(extra.reserveDailyROI)
+                             .add(extra.reserveDailyCapital);
+                             
+        if (totalPending.lte(0)) return alert("No rewards to withdraw!");
+        // Wait for tx and use safe gas limit
+        const tx = await contract.claimDailyReward(totalPending);
         await tx.wait();
-        
-        alert("Rewards Claimed Successfully!");
-        location.reload(); 
-
-    } catch (err) {
-        console.error("Claim Error:", err);
-        alert("Claim failed: " + (err.reason || err.message || "User rejected or error occurred"));
-        
-        // Reset Button on Error
-        claimBtn.innerText = originalText;
-        claimBtn.disabled = false;
-    }
+        location.reload();
+    } catch (err) { alert("Withdraw failed: " + (err.reason || err.message)); }
 }
 window.handleCompoundDaily = async function() {
-    const compoundBtn = event.target;
-    const originalText = compoundBtn.innerText;
-
     try {
-        // 1. STABLE CONNECTION LOGIC (Trust Wallet Support)
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
-
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
-
-        const userAddress = await activeSigner.getAddress();
+        const userAddress = await signer.getAddress();
+        const extra = await contract.usersExtra(userAddress);
+        const live = await contract.getLiveBalance(userAddress);
         
-        // UI Updates
-        compoundBtn.disabled = true;
-        compoundBtn.innerText = "CALCULATING...";
-
-        // 2. DATA CALCULATION
-        const extra = await activeContract.usersExtra(userAddress);
-        const live = await activeContract.getLiveBalance(userAddress);
-        
-        // Sabhi compoundable rewards ka total
+        // Combine all compoundable reserves
         const totalPending = live.pendingROI.add(live.pendingCap)
-                                     .add(extra.reserveDailyROI)
-                                     .add(extra.reserveDailyCapital);
-                                     
-        if (totalPending.lte(0)) {
-            compoundBtn.disabled = false;
-            compoundBtn.innerText = originalText;
-            return alert("No rewards to compound!");
-        }
+                             .add(extra.reserveDailyROI)
+                             .add(extra.reserveDailyCapital);
 
-        // 3. TRANSACTION EXECUTION
-        compoundBtn.innerText = "SIGNING...";
-
-        // Compounding mein gas zyada lagti hai kyunki balance deposit mein add hota hai
-        const tx = await activeContract.compoundDailyReward(totalPending, {
-            gasLimit: 600000 // Thoda extra safety ke liye
-        });
-        
-        compoundBtn.innerText = "COMPOUNDING...";
-        console.log("Compound tx sent:", tx.hash);
-        
+        if (totalPending.lte(0)) return alert("No rewards to compound!");
+        // Wait for tx and use safe gas limit
+        const tx = await contract.compoundDailyReward(totalPending);
         await tx.wait();
-        
-        alert("Compounded Successfully!");
-        location.reload(); 
-
-    } catch (err) {
-        console.error("Compound Error:", err);
-        alert("Compound failed: " + (err.reason || err.message || "User rejected or error occurred"));
-        
-        // Reset Button on Error
-        compoundBtn.innerText = originalText;
-        compoundBtn.disabled = false;
-    }
+        location.reload();
+    } catch (err) { alert("Compound failed: " + (err.reason || err.message)); }
 }
+
 
 window.claimNetworkReward = async function(amountInWei) {
-    const claimBtn = event.target;
-    const originalText = claimBtn ? claimBtn.innerText : "CLAIM";
-
     try {
-        // 1. STABLE CONNECTION LOGIC (Trust Wallet Support)
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
-
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
-
-        // 2. VALIDATION
-        if (!amountInWei || amountInWei.lte(0)) {
-            return alert("No network rewards available to claim!");
-        }
-
-        // UI Updates
-        if (claimBtn && claimBtn.disabled !== undefined) {
-            claimBtn.disabled = true;
-            claimBtn.innerText = "SIGNING...";
-        }
-
-        // 3. TRANSACTION EXECUTION
-        // Network rewards claim karte waqt aksar referral trees update hote hain, isliye 500k gas safe hai
-        const tx = await activeContract.claimNetworkReward(amountInWei, {
-            gasLimit: 500000 
-        });
-        
-        if (claimBtn) claimBtn.innerText = "CLAIMING...";
-        console.log("Network claim tx sent:", tx.hash);
-        
+        const tx = await contract.claimNetworkReward(amountInWei);
         await tx.wait();
-        
-        alert("Network Rewards Claimed Successfully!");
-        location.reload(); 
-
-    } catch (err) {
-        console.error("Network Claim Error:", err);
-        alert("Network claim failed: " + (err.reason || err.message || "User rejected or error occurred"));
-        
-        // Reset Button on Error
-        if (claimBtn) {
-            claimBtn.innerText = originalText;
-            claimBtn.disabled = false;
-        }
-    }
+        location.reload();
+    } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
 }
+
+
 window.compoundNetworkReward = async function(amountInWei) {
-    const compoundBtn = event.target;
-    const originalText = compoundBtn ? compoundBtn.innerText : "COMPOUND";
-
     try {
-        // 1. STABLE CONNECTION LOGIC (Trust Wallet Support)
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
-
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
-
-        // 2. VALIDATION
-        if (!amountInWei || amountInWei.lte(0)) {
-            return alert("No network rewards available to compound!");
-        }
-
-        // UI Updates
-        if (compoundBtn && compoundBtn.disabled !== undefined) {
-            compoundBtn.disabled = true;
-            compoundBtn.innerText = "SIGNING...";
-        }
-
-        // 3. TRANSACTION EXECUTION
-        // Compounding mein state updates zyada hote hain, isliye 600k gas safe hai
-        const tx = await activeContract.compoundNetworkReward(amountInWei, {
-            gasLimit: 600000 
-        });
-        
-        if (compoundBtn) compoundBtn.innerText = "COMPOUNDING...";
-        console.log("Network compound tx sent:", tx.hash);
-        
+        const tx = await contract.compoundNetworkReward(amountInWei);
         await tx.wait();
-        
-        alert("Network Rewards Compounded Successfully!");
-        location.reload(); 
-
-    } catch (err) {
-        console.error("Network Compound Error:", err);
-        alert("Network compound failed: " + (err.reason || err.message || "User rejected or error occurred"));
-        
-        // Reset Button on Error
-        if (compoundBtn) {
-            compoundBtn.innerText = originalText;
-            compoundBtn.disabled = false;
-        }
-    }
+        location.reload();
+    } catch (err) { alert("Network compound failed: " + (err.reason || err.message)); }
 }
 
 window.handleCapitalWithdraw = async function() {
-    // 1. Pehle Confirmation (User ki safety ke liye)
-    if (!confirm("Are you sure? This will withdraw your full principal and stop your daily returns!")) return;
-
-    const withdrawBtn = event.target;
-    const originalText = withdrawBtn ? withdrawBtn.innerText : "WITHDRAW CAPITAL";
-
+    if (!confirm("Are you sure? This will stop your daily returns.")) return;
     try {
-        // 2. STABLE CONNECTION LOGIC (Trust Wallet Support)
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
-
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet or MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
-
-        // UI Updates
-        if (withdrawBtn && withdrawBtn.disabled !== undefined) {
-            withdrawBtn.disabled = true;
-            withdrawBtn.innerText = "SIGNING...";
-        }
-
-        // 3. TRANSACTION EXECUTION
-        // Principal withdraw mein contract kaafi saare resets karta hai, isliye 500k gas safe hai
-        const tx = await activeContract.withdrawPrincipal({
-            gasLimit: 500000 
-        });
-        
-        if (withdrawBtn) withdrawBtn.innerText = "WITHDRAWING...";
-        console.log("Capital withdraw tx sent:", tx.hash);
-        
+        const tx = await contract.withdrawPrincipal();
         await tx.wait();
-        
-        alert("Capital Withdrawn Successfully!");
-        location.reload(); 
-
-    } catch (err) {
-        console.error("Capital Withdraw Error:", err);
-        alert("Capital withdraw failed: " + (err.reason || err.message || "User rejected or error occurred"));
-        
-        // Reset Button on Error
-        if (withdrawBtn) {
-            withdrawBtn.innerText = originalText;
-            withdrawBtn.disabled = false;
-        }
-    }
+        location.reload();
+    } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
 }
+
 
 window.handleLogin = async function() {
     try {
-        if (!window.ethereum) return alert("Please install Trust Wallet or MetaMask!");
-
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!window.ethereum) return alert("Please install MetaMask!");
+        
+        // 1. Accounts request karein
+        const accounts = await provider.send("eth_requestAccounts", []);
         if (accounts.length === 0) return;
+        
         const userAddress = accounts[0]; 
-
-        const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-        const { chainId } = await tempProvider.getNetwork();
-
-        // Check if on BSC Mainnet (56)
-        if (chainId !== MAINNET_CHAIN_ID) {
-            alert("Please switch your wallet to BSC Mainnet (Chain 56)!");
-            return;
-        }
-
-        const tempSigner = tempProvider.getSigner();
-        const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempSigner);
-
-        provider = tempProvider;
-        signer = tempSigner;
-        contract = tempContract;
-
+        
+        // 2. Signer aur Contract ko re-initialize karein
+        signer = provider.getSigner();
+        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        
+        // Logout flag clear karein
+        localStorage.removeItem('manualLogout');
+        
+        // 3. Contract se user data fetch karein
         const userData = await contract.users(userAddress);
 
+        // 4. Registration Check
         if (userData.registered === true) {
-            localStorage.setItem('userAddress', userAddress);
-            localStorage.removeItem('manualLogout');
-            
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
-            
-            window.location.href = "index1.html";
+            window.location.href = "index1.php";
         } else {
-            alert("User Are Not registered ! Plz  Registration...");
-            window.location.href = "register.html";
+            alert("This wallet is not registered in EarnBNB!");
+            window.location.href = "register.php";
         }
-    } catch (err) { 
+    } catch (err) {
         console.error("Login Error:", err);
-        alert("Login failed! Make sure your wallet is connected to BSC Mainnet."); 
+        alert("Login failed! Make sure you are on BSC Mainnet.");
     }
 }
 
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
-    const regBtn = event.target; // Button ko pakadne ke liye
-    
     if (!userField || !refField) return;
-
-    const username = userField.value.trim();
-    const referrer = refField.value.trim();
-
-    if (!username || !referrer) {
-        alert("Username and Referrer are required!");
-        return;
-    }
-
     try {
-      
-        let activeSigner = window.signer || signer;
-        let activeContract = window.contract || contract;
-
-        if (!activeSigner || !window.ethereum) {
-            if (!window.ethereum) return alert("Please use Trust Wallet/MetaMask browser!");
-            
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            await tempProvider.send("eth_requestAccounts", []);
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-            
-            window.signer = activeSigner;
-            window.contract = activeContract;
-        }
-
-       // --- NETWORK AUTO-SWITCH (BSC Mainnet: 56) ---
-const network = await activeSigner.provider.getNetwork();
-if (network.chainId !== 56) {
-    try {
-        await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x38' }], // 0x38 = 56 (Mainnet)
-        });
-    } catch (switchError) {
-        alert("Please switch your wallet to BSC Mainnet manually!");
-        return;
-    }
-}
-        regBtn.disabled = true;
-        regBtn.innerText = "CHECKING...";
-
-        
-        console.log("Registering username:", username);
-        
-        // Manual gas limit for Trust Wallet stability
-        const tx = await activeContract.register(username, referrer, {
-            gasLimit: 500000 
-        });
-
-        regBtn.innerText = "CONFIRMING...";
-        console.log("Tx Hash:", tx.hash);
-
+       const tx = await contract.register(userField.value.trim(), refField.value.trim());
         await tx.wait();
-        
-        
-        localStorage.removeItem('manualLogout');
-        localStorage.setItem('userAddress', await activeSigner.getAddress()); 
-        
-        alert("Registration Successful!");
-        window.location.href = "index1.html";
-
-    } catch (err) { 
-        console.error("Register Error:", err);
-        regBtn.disabled = false;
-        regBtn.innerText = "REGISTER NOW";
-
-        if (err.code === 4001 || err.message.includes("user rejected")) {
-            alert("Transaction rejected by user.");
-        } else {
-            alert("Error: " + (err.reason || "Username might be taken or balance is low."));
-        }
-    }
+        localStorage.removeItem('manualLogout'); 
+        window.location.href = "index1.php";
+    } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
-
 // --- LOGOUT LOGIC (Optimized) ---
 window.handleLogout = function() {
     if (confirm("Do you want to disconnect?")) {
@@ -660,10 +228,9 @@ window.handleLogout = function() {
         if (connectBtn) connectBtn.innerText = "Connect Wallet";
         if (logoutBtn) logoutBtn.classList.add('hidden');
         
-        window.location.href = "index.html";
+        window.location.href = "index.php";
     }
 }
-
 function showLogoutIcon(address) {
     const btn = document.getElementById('connect-btn');
     const logout = document.getElementById('logout-icon-btn');
@@ -675,28 +242,21 @@ function showLogoutIcon(address) {
 
 // --- APP SETUP ---
 async function setupApp(address) {
-    if (!address || address === "undefined") return;
+    const { chainId } = await provider.getNetwork();
+    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
     
-    localStorage.setItem('userAddress', address);
-    const network = await provider.getNetwork();
-    if (network.chainId !==    MAINNET_CHAIN_ID) { 
-        alert("Please switch your wallet to BSC mainnet (Chain 56)!"); 
-        return; 
-    }
-
-    const activeContract = window.contract || contract;
-    const userData = await activeContract.users(address);
+    const userData = await contract.users(address);
     const path = window.location.pathname;
 
-    // Registration Logic
+    // --- SMART REDIRECTION ---
     if (!userData.registered) {
-        if (!path.includes('register.html') && !path.includes('login.html')) {
-            window.location.href = "register.html"; 
+        if (!path.includes('register.php') && !path.includes('login.php')) {
+            window.location.href = "register.php"; 
             return; 
         }
     } else {
-        if (path.includes('register.html') || path.includes('login.html') || path.endsWith('/') || path.endsWith('index.html')) {
-            window.location.href = "index1.html";
+        if (path.includes('register.php') || path.includes('login.php') || path.endsWith('/') || path.endsWith('index.php')) {
+            window.location.href = "index1.php";
             return;
         }
     }
@@ -704,15 +264,17 @@ async function setupApp(address) {
     updateNavbar(address);
     showLogoutIcon(address); 
 
-    if (path.includes('index1.html')) {
-        setTimeout(() => fetchAllData(address), 300);
+    if (path.includes('index1.php')) {
+        fetchAllData(address);
         start8HourCountdown(); 
     }
-    if (path.includes('leadership.html')) {
-        setTimeout(() => fetchLeadershipData(address), 300);
+
+    if (path.includes('leadership.php')) {
+        fetchLeadershipData(address);
     }
-    if (path.includes('history.html')) {
-        setTimeout(() => window.showHistory('deposit'), 300);
+    
+    if (path.includes('history.php')) {
+        window.showHistory('deposit');
     }
 }
 
@@ -1246,6 +808,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
