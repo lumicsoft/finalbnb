@@ -206,38 +206,66 @@ function showLogoutIcon(address) {
 }
 // --- APP SETUP ---
 async function setupApp(address) {
-    const { chainId } = await provider.getNetwork();
-    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
-    
-    const userData = await contract.users(address);
-    const path = window.location.pathname;
-
-    if (!userData.registered) {
-        if (!path.includes('register.html') && !path.includes('login.html')) {
-            window.location.href = "register.html"; 
-            return; 
+    try {
+        // --- 1. NETWORK SYNC (TESTNET 97) ---
+        const network = await provider.getNetwork();
+        const chainId = network.chainId;
+        
+        // Agar Chain ID 97 (Testnet) nahi hai, toh switch prompt dega
+        if (chainId !== 97) { 
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x61' }], // 0x61 = 97
+                });
+            } catch (err) {
+                alert("Please switch to BSC Testnet in Trust Wallet!");
+                return; 
+            }
         }
-    } else {
-        if (path.includes('register.html') || path.includes('login.html') || path.endsWith('/') || path.endsWith('index.html')) {
-            window.location.href = "index1.html";
-            return;
+        
+        // --- 2. DATA FETCH ---
+        const userData = await contract.users(address);
+        const path = window.location.pathname;
+
+        // --- 3. REDIRECTION LOGIC (CLEANED) ---
+        if (!userData.registered) {
+            // Agar user registered nahi hai aur register page par nahi hai, toh bhejo
+            if (!path.includes('register') && !path.includes('login')) {
+                window.location.href = "register.php"; 
+                return; 
+            }
+        } else {
+            // Agar user registered hai aur login/register/home par hai, toh dashboard bhejo
+            if (path.includes('register') || path.includes('login') || path.endsWith('/') || path.endsWith('index.html') || path.endsWith('index.php')) {
+                window.location.href = "index1.php";
+                return;
+            }
         }
-    }
 
-    updateNavbar(address);
-    showLogoutIcon(address); 
+        // --- 4. UI & DATA LOADING ---
+        updateNavbar(address);
+        showLogoutIcon(address); 
 
-    if (path.includes('index1.html')) {
-        fetchAllData(address);
-        start8HourCountdown(); 
-    }
+        // Dashboard Data
+        if (path.includes('index1')) {
+            await fetchAllData(address);
+            start8HourCountdown(); 
+        }
 
-    if (path.includes('leadership.html')) {
-        fetchLeadershipData(address);
-    }
-    
-    if (path.includes('history.html')) {
-        window.showHistory('deposit');
+        // Leadership Data
+        if (path.includes('leadership')) {
+            await fetchLeadershipData(address);
+        }
+        
+        // History Data
+        if (path.includes('history')) {
+            window.showHistory('deposit');
+        }
+
+    } catch (e) {
+        console.error("SetupApp Error:", e);
+        // Trust Wallet ke liye silent error handling zaroori hai
     }
 }
 
@@ -683,6 +711,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
