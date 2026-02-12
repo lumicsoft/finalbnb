@@ -207,7 +207,7 @@ function showLogoutIcon(address) {
 // --- APP SETUP ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
-    if (chainId !== MAINNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
+    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
     
     const userData = await contract.users(address);
     const path = window.location.pathname;
@@ -683,6 +683,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
