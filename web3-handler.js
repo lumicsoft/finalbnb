@@ -2,7 +2,7 @@ let provider, signer, contract, Contract;
 
 // --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0x7f4b3f6e015e96a5394f502c89fea2880b901aa5"; 
-const TESTNET_CHAIN_ID = 56; 
+const TESTNET_CHAIN_ID = 97; 
 
 // --- RANK CONFIG FOR LEADERSHIP (Updated: Removed ROI, Added Rewards) ---
 const RANK_DETAILS = [
@@ -309,60 +309,55 @@ window.showHistory = async function(type) {
 
 window.fetchBlockchainHistory = async function(type) {
     try {
-        // 1. Connection Guard (Trust Wallet support)
-        let activeSigner = window.signer || (typeof signer !== 'undefined' ? signer : null);
-        let activeContract = window.contract || (typeof contract !== 'undefined' ? contract : null);
-
-        // Agar signer nahi hai toh temporary provider se connect karo (Read-only ke liye)
-        if (!activeSigner && window.ethereum) {
-            const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            activeSigner = tempProvider.getSigner();
-            activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-        }
-
-        if (!activeSigner) return [];
-
         const address = await activeSigner.getAddress();
-        
-        // Contract se raw history mangwayenge
         const rawHistory = await activeContract.getUserHistory(address);
         
+        // Input type ko lowercase mein convert karein for safety
+        const filterType = type.toLowerCase(); 
+
         const processedLogs = rawHistory.map(item => {
             const txType = (item.txType || "").toUpperCase(); 
             const detail = (item.detail || "").toUpperCase();
-            const dt = new Date(item.timestamp.toNumber() * 1000);
+            
+            // BigNumber to JS Number conversion (Works for both v5 & v6)
+            const timestamp = item.timestamp.toNumber ? item.timestamp.toNumber() : Number(item.timestamp);
+            const dt = new Date(timestamp * 1000);
             
             let match = false;
             
-            // 2. Logic Implementation (Wahi jo aapne diya tha)
-            if (type === 'deposit' && txType === 'DEPOSIT') match = true;
+            if (filterType === 'deposit' && txType === 'DEPOSIT') match = true;
             
-            if (type === 'compounding' && (txType.includes('COMPOUND') || detail.includes('COMPOUND') || txType === 'REINVEST')) match = true;
+            if (filterType === 'compounding' && (txType.includes('COMPOUND') || detail.includes('COMPOUND') || txType === 'REINVEST')) match = true;
             
-            if (type === 'income') {
+            if (filterType === 'income') {
                 const incomeKeywords = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'LEVEL', 'NETWORK', 'REWARD', 'ROI'];
                 if (incomeKeywords.some(k => txType.includes(k) || detail.includes(k))) match = true;
             }
             
-            if (type === 'withdrawal' && (txType === 'CAPITAL' || detail.includes('CLAIM') || detail.includes('WITHDRAW') || txType.includes('WITHDRAW'))) match = true;
+            if (filterType === 'withdrawal' && (txType === 'CAPITAL' || detail.includes('CLAIM') || detail.includes('WITHDRAW') || txType.includes('WITHDRAW'))) match = true;
 
             if (!match) return null;
 
-            // 3. Formatting
+            // Proper amount formatting
+            let formattedAmount;
+            try {
+                formattedAmount = typeof format === 'function' ? format(item.amount) : 
+                                  (window.ethers.utils ? ethers.utils.formatEther(item.amount) : ethers.formatEther(item.amount));
+            } catch (err) {
+                formattedAmount = "0.00";
+            }
+
             return {
-                type: txType.replace('_', ' '),
-                // Yahan ensure karein 'format' function BNB ke liye sahi decimals use kar raha hai
-                amount: typeof format === 'function' ? format(item.amount) : ethers.utils.formatEther(item.amount),
+                type: txType.replace(/_/g, ' '),
+                amount: formattedAmount,
                 date: dt.toLocaleDateString(),
                 time: dt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                ts: item.timestamp.toNumber(),
+                ts: timestamp,
                 detail: item.detail,
-                // UI Colors
-                color: (type === 'income' || type === 'deposit') ? 'text-cyan-400' : 'text-yellow-500'
+                color: (filterType === 'income' || filterType === 'deposit') ? 'text-cyan-400' : 'text-yellow-500'
             };
         });
 
-        // Null hatana aur Latest record upar dikhana
         return processedLogs.filter(l => l !== null).sort((a, b) => b.ts - a.ts);
 
     } catch (e) {
@@ -533,29 +528,28 @@ async function loadLeadershipDownlines(address) {
 // --- GLOBAL DATA FETCH ---
 async function fetchAllData(address) {
     try {
-        // --- TRUST WALLET CONNECTION FIX ---
+        // --- DIRECT CONNECTION (No Temp Provider) ---
         let activeSigner = window.signer || signer;
         let activeContract = window.contract || contract;
 
-        // Agar signer ya contract missing hai (jaisa mobile browser mein hota hai)
+        // Agar contract ya signer nahi hai, toh aage nahi badhenge
         if (!activeSigner || !activeContract) {
-            if (window.ethereum) {
-                const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                activeSigner = tempProvider.getSigner();
-                activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-                
-                // Future use ke liye save kar lein
-                window.signer = activeSigner;
-                window.contract = activeContract;
-            } else {
-                return; // No wallet found
-            }
+            console.log("Wallet not connected or Contract not initialized");
+            return; 
         }
 
         // Agar address parameter mein nahi aaya, toh active signer se lein
         if (!address) {
             address = await activeSigner.getAddress();
         }
+
+        // Ab aap apna data fetch karne ka logic niche likh sakte hain
+        // Udaharan: const userData = await activeContract.users(address);
+
+    } catch (e) {
+        console.error("Fetch All Data Error:", e);
+    }
+}
 
         // --- FETCH DATA (Stable Promise.all) ---
         const [user, extra, live] = await Promise.all([
@@ -658,21 +652,15 @@ window.loadLevelData = async function(level) {
     tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic animate-pulse">Scanning Level ${level} Blockchain...</td></tr>`;
     
     try {
-        // 1. TRUST WALLET CONNECTION GUARD
+        // 1. DIRECT CONNECTION GUARD (Removed Temp Provider)
+        // Sirf existing signer aur contract ka istemal karega
         let activeSigner = window.signer || (typeof signer !== 'undefined' ? signer : null);
         let activeContract = window.contract || (typeof contract !== 'undefined' ? contract : null);
 
+        // Agar wallet connected nahi hai toh yahan se return ho jayega
         if (!activeSigner || !activeContract) {
-            if (window.ethereum) {
-                const tempProvider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                activeSigner = tempProvider.getSigner();
-                activeContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, activeSigner);
-                window.signer = activeSigner;
-                window.contract = activeContract;
-            } else {
-                tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Wallet Not Connected</td></tr>`;
-                return;
-            }
+            tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Wallet Not Connected. Please connect first.</td></tr>`;
+            return;
         }
 
         const address = await activeSigner.getAddress();
@@ -808,6 +796,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
