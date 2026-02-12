@@ -330,45 +330,69 @@ async function fetchLeadershipData(address) {
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
-        const finalRawPower = extraData.maxLegBusiness || 0;
-        const finalRawTotal = extraData.totalTeamBusiness || 0;
-        const rankIndex = Number(extraData.rank || 0);
+
+        // --- 1. DATA EXTRACTION ---
+        const finalRawPower = extraData.maxLegBusiness || extraData[10] || extraData[11] || 0;
+        const finalRawTotal = extraData.totalTeamBusiness || extraData[11] || extraData[12] || 0;
+        
+        // Rank ko pakka number banayein
+        const rankIndex = Number(extraData.rank || extraData[9] || 0);
+        
         const powerLegBNB = parseFloat(ethers.utils.formatEther(finalRawPower.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(finalRawTotal.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
+
+        // --- 2. DYNAMIC TARGET FIX ---
+        // Agar user V1 (Rank 1) hai, toh target har haal me V2 (Index 2) hona chahiye
         let nextIdx = rankIndex + 1; 
-        if (nextIdx > 6) nextIdx = 6; 
+        if (nextIdx > 6) nextIdx = 6; // Max rank limit
 
         const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
         const targetRank = RANK_DETAILS[nextIdx]; 
+
+        // --- 3. UI UPDATES HELPER ---
         const update = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
         };
+
+        // Dashbaord Rank Update
         update('rank-display', currentRank.name);
-        update('next-rank-display', targetRank.name); 
+        update('next-rank-display', targetRank.name); // <--- Ye ab V2 dikhayega
+
+        // Volume Display
         update('power-leg-volume', powerLegBNB.toFixed(4));
         update('other-legs-volume', otherLegsBNB.toFixed(4));
+
+        // --- 4. TARGET & PROGRESS CALCULATION (THE FIX) ---
+        // Yahan targetRank.powerReq ab V2 wala value (0.2) pick karega
         update('target-power-val', `${targetRank.powerReq} BNB`);
         update('target-other-val', `${targetRank.otherReq} BNB`);
         update('current-power-val', powerLegBNB.toFixed(4));
         update('current-other-val', otherLegsBNB.toFixed(4));
+
+        // Percentages calculation based on NEXT target
         const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
         const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
+
         update('power-progress-percent', `${Math.floor(pPercent)}%`);
         update('other-progress-percent', `${Math.floor(oPercent)}%`);
+
+        // --- 5. PROGRESS BAR VISUAL FIX ---
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
         
         if (pBar) {
             pBar.style.width = `${pPercent}%`;
             pBar.style.height = "100%";
-            pBar.style.minHeight = "10px";
+            pBar.style.minHeight = "10px"; // Ensure visibility
+            console.log("Setting Power Bar to:", pPercent + "%");
         }
         if (oBar) {
             oBar.style.width = `${oPercent}%`;
             oBar.style.height = "100%";
             oBar.style.minHeight = "10px";
+            console.log("Setting Other Bar to:", oPercent + "%");
         }
 
         if (typeof loadLeadershipDownlines === "function") {
@@ -379,6 +403,7 @@ async function fetchLeadershipData(address) {
         console.error("Leadership Final Error:", err);
     }
 }
+
 async function loadLeadershipDownlines(address) {
     const tableBody = document.getElementById('direct-downline-body');
     if(!tableBody) return;
@@ -653,4 +678,5 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
