@@ -1,7 +1,7 @@
 
 let provider, signer, contract, Contract;
 const CONTRACT_ADDRESS = "0x7f4b3f6e015e96a5394f502c89fea2880b901aa5"; 
-const MAINNET_CHAIN_ID = 97; 
+const TESTNET_CHAIN_ID = 97; 
 const RANK_DETAILS = [
    { name: "NONE", reward: "0 BNB", powerReq: 0, otherReq: 0 },
     { name: "V1", reward: "0.55 BNB", powerReq: 1.11, otherReq: 1.11 },
@@ -683,6 +683,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
