@@ -54,22 +54,31 @@ async function init() {
     checkReferralURL();
     if (window.ethereum) {
         try {
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await provider.listAccounts();
+            // "any" network sync issue ko rokta hai
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+
+            // Trust Wallet ke liye requestAccounts use karna best hai taaki connection bana rahe
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            
             window.signer = provider.getSigner();
             signer = window.signer;
             window.contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
             contract = window.contract;
 
-            if (accounts.length > 0) {
+            if (accounts && accounts.length > 0) {
                 if (localStorage.getItem('manualLogout') !== 'true') {
+                    // setupApp ko account bhej rahe hain
                     await setupApp(accounts[0]);
                 } else {
                     updateNavbar(accounts[0]);
                 }
             }
-        } catch (error) { console.error("Init Error", error); }
-    } else { alert("Please install MetaMask!"); }
+        } catch (error) { 
+            console.error("Init Error", error); 
+        }
+    } else { 
+        alert("Wallet not detected! Please open this site inside Trust Wallet or MetaMask browser."); 
+    }
 }
 // --- CORE LOGIC ---
 window.handleDeposit = async function() {
@@ -711,6 +720,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
