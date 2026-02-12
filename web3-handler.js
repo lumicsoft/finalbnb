@@ -1,10 +1,6 @@
 let provider, signer, contract, Contract;
-
-// --- CONFIGURATION ---
 const CONTRACT_ADDRESS = "0x7f4b3f6e015e96a5394f502c89fea2880b901aa5"; 
 const TESTNET_CHAIN_ID = 97; 
-
-// --- RANK CONFIG FOR LEADERSHIP (Updated: Removed ROI, Added Rewards) ---
 const RANK_DETAILS = [
    { name: "NONE", reward: "0 BNB", powerReq: 0, otherReq: 0 },
     { name: "V1", reward: "0.55 BNB", powerReq: 1.11, otherReq: 1.11 },
@@ -18,7 +14,7 @@ const RANK_DETAILS = [
 // --- ABI ---
 const CONTRACT_ABI = [
     "function register(string username, string referrerUsername) external",
-    "function deposit() external payable", // FIX: No argument here
+    "function deposit() external payable", 
     "function claimNetworkReward(uint256 amount) external",
     "function compoundDailyReward(uint256 amount) external",
     "function claimDailyReward(uint256 amount) external",
@@ -36,14 +32,14 @@ const CONTRACT_ABI = [
 
 const calculateGlobalROI = (amount) => {
     const amt = parseFloat(amount);
-    if (amt >= 0.256) return 5.50; // New Logic
-    if (amt >= 0.112) return 5.25; // New Logic
-    return 5.00;                  // Base ROI
+    if (amt >= 0.256) return 5.50; 
+    if (amt >= 0.112) return 5.25; 
+    return 5.00;                  
 };
 // --- 1. NEW: AUTO-FILL LOGIC ---
 function checkReferralURL() {
     const urlParams = new URLSearchParams(window.location.search);
-    const refName = urlParams.get('ref'); // URL mein ?ref=NAME hona chahiye
+    const refName = urlParams.get('ref'); 
     const refField = document.getElementById('reg-referrer');
 
     if (refName && refField) {
@@ -54,9 +50,7 @@ function checkReferralURL() {
 
 // --- INITIALIZATION ---
 async function init() {
-    // Check for referral parameter on every load
     checkReferralURL();
-
     if (window.ethereum) {
         try {
             provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -76,10 +70,6 @@ async function init() {
         } catch (error) { console.error("Init Error", error); }
     } else { alert("Please install MetaMask!"); }
 }
-
-
-
-
 // --- CORE LOGIC ---
 window.handleDeposit = async function() {
     const amountInput = document.getElementById('deposit-amount');
@@ -87,12 +77,9 @@ window.handleDeposit = async function() {
     if (!amountInput || !amountInput.value || amountInput.value <= 0) return alert("Please enter a valid amount!");
     
     const amountInWei = ethers.utils.parseUnits(amountInput.value.toString(), 18);
-    
     try {
         depositBtn.disabled = true;
         depositBtn.innerText = "SIGNING...";
-        
-        // Gas Estimation Fix: Added manual gasLimit to ensure it doesn't fail on BSC
         const tx = await contract.deposit({ value: amountInWei });
         
         depositBtn.innerText = "DEPOSITING...";
@@ -104,20 +91,16 @@ window.handleDeposit = async function() {
         depositBtn.disabled = false;
     }
 }
-
 window.handleClaim = async function() {
     try {
         const userAddress = await signer.getAddress();
         const extra = await contract.usersExtra(userAddress);
         const live = await contract.getLiveBalance(userAddress);
-        
-        // Combine all withdrawable reserves
         const totalPending = live.pendingROI.add(live.pendingCap)
-                             .add(extra.reserveDailyROI)
-                             .add(extra.reserveDailyCapital);
-                             
+                               .add(extra.reserveDailyROI)
+                               .add(extra.reserveDailyCapital);
+                               
         if (totalPending.lte(0)) return alert("No rewards to withdraw!");
-        // Wait for tx and use safe gas limit
         const tx = await contract.claimDailyReward(totalPending);
         await tx.wait();
         location.reload();
@@ -128,14 +111,11 @@ window.handleCompoundDaily = async function() {
         const userAddress = await signer.getAddress();
         const extra = await contract.usersExtra(userAddress);
         const live = await contract.getLiveBalance(userAddress);
-        
-        // Combine all compoundable reserves
         const totalPending = live.pendingROI.add(live.pendingCap)
-                             .add(extra.reserveDailyROI)
-                             .add(extra.reserveDailyCapital);
+                               .add(extra.reserveDailyROI)
+                               .add(extra.reserveDailyCapital);
 
         if (totalPending.lte(0)) return alert("No rewards to compound!");
-        // Wait for tx and use safe gas limit
         const tx = await contract.compoundDailyReward(totalPending);
         await tx.wait();
         location.reload();
@@ -150,8 +130,6 @@ window.claimNetworkReward = async function(amountInWei) {
         location.reload();
     } catch (err) { alert("Network claim failed: " + (err.reason || err.message)); }
 }
-
-
 window.compoundNetworkReward = async function(amountInWei) {
     try {
         const tx = await contract.compoundNetworkReward(amountInWei);
@@ -168,29 +146,17 @@ window.handleCapitalWithdraw = async function() {
         location.reload();
     } catch (err) { alert("Capital withdraw failed: " + (err.reason || err.message)); }
 }
-
-
 window.handleLogin = async function() {
     try {
         if (!window.ethereum) return alert("Please install MetaMask!");
-        
-        // 1. Accounts request karein
         const accounts = await provider.send("eth_requestAccounts", []);
         if (accounts.length === 0) return;
         
         const userAddress = accounts[0]; 
-        
-        // 2. Signer aur Contract ko re-initialize karein
         signer = provider.getSigner();
         contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        
-        // Logout flag clear karein
         localStorage.removeItem('manualLogout');
-        
-        // 3. Contract se user data fetch karein
         const userData = await contract.users(userAddress);
-
-        // 4. Registration Check
         if (userData.registered === true) {
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
             window.location.href = "index1.php";
@@ -203,7 +169,6 @@ window.handleLogin = async function() {
         alert("Login failed! Make sure you are on BSC Mainnet.");
     }
 }
-
 window.handleRegister = async function() {
     const userField = document.getElementById('reg-username');
     const refField = document.getElementById('reg-referrer');
@@ -215,7 +180,6 @@ window.handleRegister = async function() {
         window.location.href = "index1.php";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
-// --- LOGOUT LOGIC (Optimized) ---
 window.handleLogout = function() {
     if (confirm("Do you want to disconnect?")) {
         localStorage.setItem('manualLogout', 'true');
@@ -239,7 +203,6 @@ function showLogoutIcon(address) {
         logout.style.display = 'flex'; 
     }
 }
-
 // --- APP SETUP ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
@@ -248,7 +211,6 @@ async function setupApp(address) {
     const userData = await contract.users(address);
     const path = window.location.pathname;
 
-    // --- SMART REDIRECTION ---
     if (!userData.registered) {
         if (!path.includes('register.php') && !path.includes('login.php')) {
             window.location.href = "register.php"; 
@@ -309,36 +271,30 @@ window.showHistory = async function(type) {
 
 window.fetchBlockchainHistory = async function(type) {
     try {
+        const activeSigner = window.signer || signer;
+        const activeContract = window.contract || contract;
         const address = await activeSigner.getAddress();
         const rawHistory = await activeContract.getUserHistory(address);
         
-        // Input type ko lowercase mein convert karein for safety
         const filterType = type.toLowerCase(); 
 
         const processedLogs = rawHistory.map(item => {
             const txType = (item.txType || "").toUpperCase(); 
             const detail = (item.detail || "").toUpperCase();
-            
-            // BigNumber to JS Number conversion (Works for both v5 & v6)
             const timestamp = item.timestamp.toNumber ? item.timestamp.toNumber() : Number(item.timestamp);
             const dt = new Date(timestamp * 1000);
             
             let match = false;
-            
             if (filterType === 'deposit' && txType === 'DEPOSIT') match = true;
-            
             if (filterType === 'compounding' && (txType.includes('COMPOUND') || detail.includes('COMPOUND') || txType === 'REINVEST')) match = true;
-            
             if (filterType === 'income') {
                 const incomeKeywords = ['INCOME', 'REFERRAL', 'RANK', 'ONBOARDING', 'LEVEL', 'NETWORK', 'REWARD', 'ROI'];
                 if (incomeKeywords.some(k => txType.includes(k) || detail.includes(k))) match = true;
             }
-            
             if (filterType === 'withdrawal' && (txType === 'CAPITAL' || detail.includes('CLAIM') || detail.includes('WITHDRAW') || txType.includes('WITHDRAW'))) match = true;
 
             if (!match) return null;
 
-            // Proper amount formatting
             let formattedAmount;
             try {
                 formattedAmount = typeof format === 'function' ? format(item.amount) : 
@@ -374,69 +330,45 @@ async function fetchLeadershipData(address) {
             activeContract.users(address),
             activeContract.usersExtra(address)
         ]);
-
-        // --- 1. DATA EXTRACTION ---
-        const finalRawPower = extraData.maxLegBusiness || extraData[10] || extraData[11] || 0;
-        const finalRawTotal = extraData.totalTeamBusiness || extraData[11] || extraData[12] || 0;
-        
-        // Rank ko pakka number banayein
-        const rankIndex = Number(extraData.rank || extraData[9] || 0);
-        
+        const finalRawPower = extraData.maxLegBusiness || 0;
+        const finalRawTotal = extraData.totalTeamBusiness || 0;
+        const rankIndex = Number(extraData.rank || 0);
         const powerLegBNB = parseFloat(ethers.utils.formatEther(finalRawPower.toString()));
         const totalBusBNB = parseFloat(ethers.utils.formatEther(finalRawTotal.toString()));
         const otherLegsBNB = Math.max(0, totalBusBNB - powerLegBNB);
-
-        // --- 2. DYNAMIC TARGET FIX ---
-        // Agar user V1 (Rank 1) hai, toh target har haal me V2 (Index 2) hona chahiye
         let nextIdx = rankIndex + 1; 
-        if (nextIdx > 6) nextIdx = 6; // Max rank limit
+        if (nextIdx > 6) nextIdx = 6; 
 
         const currentRank = RANK_DETAILS[rankIndex] || RANK_DETAILS[0];
         const targetRank = RANK_DETAILS[nextIdx]; 
-
-        // --- 3. UI UPDATES HELPER ---
         const update = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
         };
-
-        // Dashbaord Rank Update
         update('rank-display', currentRank.name);
-        update('next-rank-display', targetRank.name); // <--- Ye ab V2 dikhayega
-
-        // Volume Display
+        update('next-rank-display', targetRank.name); 
         update('power-leg-volume', powerLegBNB.toFixed(4));
         update('other-legs-volume', otherLegsBNB.toFixed(4));
-
-        // --- 4. TARGET & PROGRESS CALCULATION (THE FIX) ---
-        // Yahan targetRank.powerReq ab V2 wala value (0.2) pick karega
         update('target-power-val', `${targetRank.powerReq} BNB`);
         update('target-other-val', `${targetRank.otherReq} BNB`);
         update('current-power-val', powerLegBNB.toFixed(4));
         update('current-other-val', otherLegsBNB.toFixed(4));
-
-        // Percentages calculation based on NEXT target
         const pPercent = Math.min((powerLegBNB / targetRank.powerReq) * 100, 100) || 0;
         const oPercent = Math.min((otherLegsBNB / targetRank.otherReq) * 100, 100) || 0;
-
         update('power-progress-percent', `${Math.floor(pPercent)}%`);
         update('other-progress-percent', `${Math.floor(oPercent)}%`);
-
-        // --- 5. PROGRESS BAR VISUAL FIX ---
         const pBar = document.getElementById('power-progress-bar');
         const oBar = document.getElementById('other-progress-bar');
         
         if (pBar) {
             pBar.style.width = `${pPercent}%`;
             pBar.style.height = "100%";
-            pBar.style.minHeight = "10px"; // Ensure visibility
-            console.log("Setting Power Bar to:", pPercent + "%");
+            pBar.style.minHeight = "10px";
         }
         if (oBar) {
             oBar.style.width = `${oPercent}%`;
             oBar.style.height = "100%";
             oBar.style.minHeight = "10px";
-            console.log("Setting Other Bar to:", oPercent + "%");
         }
 
         if (typeof loadLeadershipDownlines === "function") {
@@ -455,10 +387,8 @@ async function loadLeadershipDownlines(address) {
         let activeContract = window.contract || contract;
         if (!activeContract) return;
 
-        // Initial Loading State
         tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-yellow-500 italic animate-pulse">Loading direct partners...</td></tr>`;
 
-        // 1. Fetch Level 1 Partners
         const res = await activeContract.getLevelTeamDetails(address, 1);
         const wallets = res.wallets || res[1] || [];
         const names = res.names || res[0] || [];
@@ -467,34 +397,21 @@ async function loadLeadershipDownlines(address) {
             tableBody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 italic">No direct members found</td></tr>`;
             return;
         }
-
         let html = '';
-        
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
             if (!uA || uA === "0x0000000000000000000000000000000000000000") continue;
             
             try {
-                // 2. Fetch Partner's Data (Users & UsersExtra)
                 const [dUser, dExtra] = await Promise.all([
                     activeContract.users(uA),
                     activeContract.usersExtra(uA)
                 ]);
-                
-                // 3. Precise Calculations (Matching Dashboard Logic)
                 const partnerPersonal = parseFloat(ethers.utils.formatEther(dUser.totalActiveDeposit || 0));
-                
-                // Partner ka apna Power Leg aur Total Business
                 const pPowerLegBNB = parseFloat(ethers.utils.formatEther(dExtra.maxLegBusiness || 0));
                 const pTotalBusBNB = parseFloat(ethers.utils.formatEther(dExtra.totalTeamBusiness || 0));
-                
-                // Important: Partner ka total volume = uska personal + uska total team business
                 const partnerTotalVolume = partnerPersonal + pTotalBusBNB;
-                
-                // Partner ki Other Legs (Total - Power)
                 const pOtherLegsBNB = Math.max(0, pTotalBusBNB - pPowerLegBNB);
-
-                // 4. Rank Details mapping
                 const pRank = Number(dExtra.rank || 0);
                 const rankInfo = RANK_DETAILS[pRank] || RANK_DETAILS[0];
 
@@ -528,30 +445,16 @@ async function loadLeadershipDownlines(address) {
 // --- GLOBAL DATA FETCH ---
 async function fetchAllData(address) {
     try {
-        // --- DIRECT CONNECTION (No Temp Provider) ---
         let activeSigner = window.signer || signer;
         let activeContract = window.contract || contract;
-
-        // Agar contract ya signer nahi hai, toh aage nahi badhenge
         if (!activeSigner || !activeContract) {
             console.log("Wallet not connected or Contract not initialized");
             return; 
         }
-
-        // Agar address parameter mein nahi aaya, toh active signer se lein
         if (!address) {
             address = await activeSigner.getAddress();
         }
 
-        // Ab aap apna data fetch karne ka logic niche likh sakte hain
-        // Udaharan: const userData = await activeContract.users(address);
-
-    } catch (e) {
-        console.error("Fetch All Data Error:", e);
-    }
-}
-
-        // --- FETCH DATA (Stable Promise.all) ---
         const [user, extra, live] = await Promise.all([
             activeContract.users(address),
             activeContract.usersExtra(address),
@@ -560,13 +463,11 @@ async function fetchAllData(address) {
 
         if (!user.registered) return;
 
-        // Helper function for safe formatting (BNB 18 decimals)
         const formatVal = (val) => {
             if (!val) return "0.00";
             return typeof format === 'function' ? format(val) : ethers.utils.formatEther(val);
         };
 
-        // --- UI UPDATES (Same as your logic) ---
         updateText('total-deposit-display', formatVal(user.totalDeposited));
         updateText('active-deposit', formatVal(user.totalActiveDeposit));
         updateText('total-earned', formatVal(user.totalEarnings));
@@ -579,7 +480,6 @@ async function fetchAllData(address) {
         updateText('capital-investment-display', formatVal(user.totalDeposited));
         updateText('capital-withdrawn-display', formatVal(user.totalWithdrawn));
 
-        // --- LIVE BALANCE CALCULATIONS ---
         const networkBalance = parseFloat(formatVal(extra.rewardsReferral)) + 
                                parseFloat(formatVal(extra.rewardsOnboarding)) + 
                                parseFloat(formatVal(extra.rewardsRank)) + 
@@ -597,7 +497,6 @@ async function fetchAllData(address) {
         updateText('compounding-balance', totalPending.toFixed(4));
         updateText('withdrawable-display', (totalPending + networkBalance).toFixed(4));
         
-        // --- STATUS & CP DISPLAY ---
         const activeAmt = parseFloat(formatVal(user.totalActiveDeposit));
         updateText('cp-display', activeAmt.toFixed(4));
         
@@ -619,53 +518,42 @@ async function fetchAllData(address) {
             }
         }
 
-        // Projected ROI logic
         if (typeof calculateGlobalROI === 'function') {
             const projectedReturn = (activeAmt * (calculateGlobalROI(activeAmt)/100)).toFixed(4);
             updateText('projected-return', projectedReturn);
         }
         
-        // Rank logic
         if (typeof getRankName === 'function') {
             updateText('rank-display', getRankName(extra.rank));
         }
 
-        // --- REFERRAL LINK LOGIC ---
         const currentUrl = window.location.href.split('?')[0];
         const baseUrl = currentUrl.includes('index.html') ? currentUrl.replace('index.html', 'register.html') : currentUrl + 'register.html';
-        
         const refUrl = `${baseUrl}?ref=${user.username || address}`; 
         
         if(document.getElementById('refURL')) {
             document.getElementById('refURL').value = refUrl;
         }
 
-    } catch (err) { 
-        console.error("Data Fetch Error:", err); 
+    } catch (e) {
+        console.error("Fetch All Data Error:", e);
     }
 }
+
 window.loadLevelData = async function(level) {
     const tableBody = document.getElementById('team-table-body');
     if(!tableBody) return;
     
-    // Initial Loading State
     tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-yellow-500 italic animate-pulse">Scanning Level ${level} Blockchain...</td></tr>`;
-    
     try {
-        // 1. DIRECT CONNECTION GUARD (Removed Temp Provider)
-        // Sirf existing signer aur contract ka istemal karega
         let activeSigner = window.signer || (typeof signer !== 'undefined' ? signer : null);
         let activeContract = window.contract || (typeof contract !== 'undefined' ? contract : null);
-
-        // Agar wallet connected nahi hai toh yahan se return ho jayega
         if (!activeSigner || !activeContract) {
             tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Wallet Not Connected. Please connect first.</td></tr>`;
             return;
         }
 
         const address = await activeSigner.getAddress();
-        
-        // 2. FETCH DATA (Using Tuple Fallbacks)
         const res = await activeContract.getLevelTeamDetails(address, level);
         const names = res.names || res[0] || [];
         const wallets = res.wallets || res[1] || [];
@@ -677,33 +565,24 @@ window.loadLevelData = async function(level) {
             tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-gray-500 italic text-sm">No members found in Level ${level}</td></tr>`;
             return;
         }
-
-        // Helper for BNB formatting
         const formatVal = (val) => {
             const formatted = typeof format === 'function' ? format(val) : ethers.utils.formatEther(val);
             return parseFloat(formatted);
         };
-        
         let html = '';
         for(let i=0; i < wallets.length; i++) {
             const uA = wallets[i];
-            
-            // Safety Check for empty addresses
             if (!uA || uA === "0x0000000000000000000000000000000000000000") continue;
-            
             const uName = names[i] || "N/A";
             const activeD = formatVal(activeDeps[i]);
             const teamTD = formatVal(teamTotalDeps[i]);
-            
             let jDate = "N/A";
             if (joinDates[i] > 0) {
                 const timestamp = joinDates[i].toNumber ? joinDates[i].toNumber() : joinDates[i];
                 jDate = new Date(timestamp * 1000).toLocaleDateString();
             }
-
             const statusText = activeD > 0 ? 'ACTIVE' : 'INACTIVE';
             const statusColor = activeD > 0 ? 'text-green-400' : 'text-red-500';
-
             html += `
             <tr class="border-b border-white/5 hover:bg-white/10 transition-all">
                 <td class="p-4 font-mono text-yellow-500 text-[10px]">
@@ -720,9 +599,7 @@ window.loadLevelData = async function(level) {
                 <td class="p-4 text-[10px] text-gray-500 whitespace-nowrap">${jDate}</td>
             </tr>`;
         }
-        
         tableBody.innerHTML = html || `<tr><td colspan="7" class="p-10 text-center text-gray-500">Empty Level</td></tr>`;
-
     } catch (e) { 
         console.error("Level Sync Error:", e);
         tableBody.innerHTML = `<tr><td colspan="7" class="p-10 text-center text-red-500">Blockchain Sync Error. Refresh Wallet.</td></tr>`; 
@@ -732,43 +609,26 @@ window.loadLevelData = async function(level) {
 function start8HourCountdown() {
     const timerElement = document.getElementById('next-timer');
     if (!timerElement) return;
-
     setInterval(() => {
         const now = new Date();
-        
-        // 1. Current UTC time (in milliseconds)
         const nowUTC = now.getTime();
-        
-        // 2. 8 hours in milliseconds (Contract cycle duration)
         const eightHoursInMs = 8 * 60 * 60 * 1000;
-        
-        // 3. Agla target nikaalna jo 8-hour bucket mein fit ho (UTC 00, 08, 16)
-        // Ye math.ceil se agla slot pakad lega (chahe kisi bhi desh mein ho)
         const nextTargetUTC = Math.ceil(nowUTC / eightHoursInMs) * eightHoursInMs;
-        
-        // 4. Time difference
+      
         const diff = nextTargetUTC - nowUTC;
-
         if (diff <= 0) {
-            // Jaise hi timer zero ho, dashboard refresh karein
             if (typeof fetchAllData === "function") {
-                const accounts = localStorage.getItem('userAccount'); // ya jo bhi aapka address variable hai
+                const accounts = localStorage.getItem('userAccount'); 
                 if(accounts) fetchAllData(accounts);
             }
             return;
         }
-
-        // 5. Units mein convert karein (H:M:S)
         const h = Math.floor(diff / (1000 * 60 * 60)).toString().padStart(2, '0');
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
         const s = Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
-        // 6. Display update
         timerElement.innerText = `${h}:${m}:${s}`;
     }, 1000);
 }
-
-
 // --- UTILS ---
 const format = (val) => {
     try { 
@@ -777,15 +637,12 @@ const format = (val) => {
         return parseFloat(f).toFixed(4);
     } catch (e) { return "0.0000"; }
 };
-
 const updateText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
 const getRankName = (r) => RANK_DETAILS[r]?.name || "NONE (-)";
-
 function updateNavbar(addr) {
     const btn = document.getElementById('connect-btn');
     if(btn) btn.innerText = addr.substring(0,6) + "..." + addr.substring(38);
 }
-
 // Listen for account changes
 if (window.ethereum) {
     window.ethereum.on('accountsChanged', () => {
@@ -796,59 +653,3 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
