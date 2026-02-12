@@ -160,10 +160,10 @@ window.handleLogin = async function() {
         const userData = await contract.users(userAddress);
         if (userData.registered === true) {
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
-            window.location.href = "index1.php";
+            window.location.href = "index1.html";
         } else {
             alert("This wallet is not registered in EarnBNB!");
-            window.location.href = "register.php";
+            window.location.href = "register.html";
         }
     } catch (err) {
         console.error("Login Error:", err);
@@ -178,7 +178,7 @@ window.handleRegister = async function() {
        const tx = await contract.register(userField.value.trim(), refField.value.trim());
         await tx.wait();
         localStorage.removeItem('manualLogout'); 
-        window.location.href = "index1.php";
+        window.location.href = "index1.html";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
 window.handleLogout = function() {
@@ -193,7 +193,7 @@ window.handleLogout = function() {
         if (connectBtn) connectBtn.innerText = "Connect Wallet";
         if (logoutBtn) logoutBtn.classList.add('hidden');
         
-        window.location.href = "index.php";
+        window.location.href = "index.html";
     }
 }
 function showLogoutIcon(address) {
@@ -213,13 +213,13 @@ async function setupApp(address) {
     const path = window.location.pathname;
 
     if (!userData.registered) {
-        if (!path.includes('register.php') && !path.includes('login.php')) {
-            window.location.href = "register.php"; 
+        if (!path.includes('register.html') && !path.includes('login.html')) {
+            window.location.href = "register.html"; 
             return; 
         }
     } else {
-        if (path.includes('register.php') || path.includes('login.php') || path.endsWith('/') || path.endsWith('index.php')) {
-            window.location.href = "index1.php";
+        if (path.includes('register.html') || path.includes('login.html') || path.endsWith('/') || path.endsWith('index.html')) {
+            window.location.href = "index1.html";
             return;
         }
     }
@@ -227,16 +227,16 @@ async function setupApp(address) {
     updateNavbar(address);
     showLogoutIcon(address); 
 
-    if (path.includes('index1.php')) {
+    if (path.includes('index1.html')) {
         fetchAllData(address);
         start8HourCountdown(); 
     }
 
-    if (path.includes('leadership.php')) {
+    if (path.includes('leadership.html')) {
         fetchLeadershipData(address);
     }
     
-    if (path.includes('history.php')) {
+    if (path.includes('history.html')) {
         window.showHistory('deposit');
     }
 }
@@ -554,7 +554,7 @@ async function fetchAllData(address) {
         }
 
         const currentUrl = window.location.href.split('?')[0];
-        const baseUrl = currentUrl.includes('index.php') ? currentUrl.replace('index.php', 'register.php') : currentUrl + 'register.php';
+        const baseUrl = currentUrl.includes('index.html') ? currentUrl.replace('index.html', 'register.html') : currentUrl + 'register.html';
         const refUrl = `${baseUrl}?ref=${user.username || address}`; 
         
         if(document.getElementById('refURL')) {
@@ -679,6 +679,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
