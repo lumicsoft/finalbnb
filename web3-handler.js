@@ -1,6 +1,7 @@
+
 let provider, signer, contract, Contract;
-const CONTRACT_ADDRESS = "0x7f4b3f6e015e96a5394f502c89fea2880b901aa5"; 
-const TESTNET_CHAIN_ID = 97; 
+const CONTRACT_ADDRESS = "0xcf625eba834783689584ee1c043e6785ac864b38"; 
+const MAINNET_CHAIN_ID = 56; 
 const RANK_DETAILS = [
    { name: "NONE", reward: "0 BNB", powerReq: 0, otherReq: 0 },
     { name: "V1", reward: "0.55 BNB", powerReq: 1.11, otherReq: 1.11 },
@@ -159,10 +160,10 @@ window.handleLogin = async function() {
         const userData = await contract.users(userAddress);
         if (userData.registered === true) {
             if(typeof showLogoutIcon === "function") showLogoutIcon(userAddress);
-            window.location.href = "index1.html";
+            window.location.href = "index1.php";
         } else {
             alert("This wallet is not registered in EarnBNB!");
-            window.location.href = "register.html";
+            window.location.href = "register.php";
         }
     } catch (err) {
         console.error("Login Error:", err);
@@ -177,7 +178,7 @@ window.handleRegister = async function() {
        const tx = await contract.register(userField.value.trim(), refField.value.trim());
         await tx.wait();
         localStorage.removeItem('manualLogout'); 
-        window.location.href = "index1.html";
+        window.location.href = "index1.php";
     } catch (err) { alert("Error: " + (err.reason || err.message)); }
 }
 window.handleLogout = function() {
@@ -192,7 +193,7 @@ window.handleLogout = function() {
         if (connectBtn) connectBtn.innerText = "Connect Wallet";
         if (logoutBtn) logoutBtn.classList.add('hidden');
         
-        window.location.href = "index.html";
+        window.location.href = "index.php";
     }
 }
 function showLogoutIcon(address) {
@@ -206,19 +207,19 @@ function showLogoutIcon(address) {
 // --- APP SETUP ---
 async function setupApp(address) {
     const { chainId } = await provider.getNetwork();
-    if (chainId !== TESTNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
+    if (chainId !== MAINNET_CHAIN_ID) { alert("Please switch to BSC Mainnet!"); return; }
     
     const userData = await contract.users(address);
     const path = window.location.pathname;
 
     if (!userData.registered) {
-        if (!path.includes('register.html') && !path.includes('login.html')) {
-            window.location.href = "register.html"; 
+        if (!path.includes('register.php') && !path.includes('login.php')) {
+            window.location.href = "register.php"; 
             return; 
         }
     } else {
-        if (path.includes('register.html') || path.includes('login.html') || path.endsWith('/') || path.endsWith('index.html')) {
-            window.location.href = "index1.html";
+        if (path.includes('register.php') || path.includes('login.php') || path.endsWith('/') || path.endsWith('index.php')) {
+            window.location.href = "index1.php";
             return;
         }
     }
@@ -226,16 +227,16 @@ async function setupApp(address) {
     updateNavbar(address);
     showLogoutIcon(address); 
 
-    if (path.includes('index1.html')) {
+    if (path.includes('index1.php')) {
         fetchAllData(address);
         start8HourCountdown(); 
     }
 
-    if (path.includes('leadership.html')) {
+    if (path.includes('leadership.php')) {
         fetchLeadershipData(address);
     }
     
-    if (path.includes('history.html')) {
+    if (path.includes('history.php')) {
         window.showHistory('deposit');
     }
 }
@@ -553,7 +554,7 @@ async function fetchAllData(address) {
         }
 
         const currentUrl = window.location.href.split('?')[0];
-        const baseUrl = currentUrl.includes('index.html') ? currentUrl.replace('index.html', 'register.html') : currentUrl + 'register.html';
+        const baseUrl = currentUrl.includes('index.php') ? currentUrl.replace('index.php', 'register.php') : currentUrl + 'register.php';
         const refUrl = `${baseUrl}?ref=${user.username || address}`; 
         
         if(document.getElementById('refURL')) {
@@ -678,5 +679,6 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
