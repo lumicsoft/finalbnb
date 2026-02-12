@@ -552,10 +552,14 @@ async function fetchAllData(address) {
         if (typeof getRankName === 'function') {
             updateText('rank-display', getRankName(extra.rank));
         }
+const siteOrigin = window.location.origin; 
+        const path = window.location.pathname;
+        let directory = path.substring(0, path.lastIndexOf('/'));
+        if (directory === "/") directory = ""; 
 
-        const currentUrl = window.location.href.split('?')[0];
-        const baseUrl = currentUrl.includes('index.html') ? currentUrl.replace('index.html', 'register.html') : currentUrl + 'register.html';
-        const refUrl = `${baseUrl}?ref=${user.username || address}`; 
+        const cleanBaseUrl = siteOrigin + directory;
+        // Isse link hamesha https://earnbnb.co/register.php banega
+        const refUrl = `${cleanBaseUrl}/register.php?ref=${user.username || address}`; 
         
         if(document.getElementById('refURL')) {
             document.getElementById('refURL').value = refUrl;
@@ -679,6 +683,7 @@ if (window.ethereum) {
 }
 
 window.addEventListener('load', init);
+
 
 
 
