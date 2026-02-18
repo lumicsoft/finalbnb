@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="style1.css">
     <style>
         .withdraw-btn { background: linear-gradient(135deg, #ff416c, #ff4b2b) !important; color: white !important; }
+        /* Capital button style ab use nahi hoga, par backup ke liye rakha hai */
         .capital-btn { background: linear-gradient(135deg, #00f2ff, #0066ff) !important; color: white !important; }
         .animate-spin-slow { animation: spin 8s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -112,32 +113,6 @@
             </div>
         </div>
 
-        <div class="premium-border p-8 mb-8 bg-blue-950/10 border-blue-500/30">
-            <div class="relative z-10">
-                <div class="flex justify-center mb-8">
-                    <button onclick="handleCapitalWithdraw()" class="gold-btn capital-btn px-12 py-4 text-sm tracking-widest">
-                        <i data-lucide="unlock" class="w-4 h-4 inline-block mr-2"></i> Capital Withdrawal
-                    </button>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-black/40 p-4 rounded-2xl border border-white/5 text-center">
-                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Total Investment</p>
-                        <h4 class="text-xl font-black orbitron text-white flex items-center justify-center">
-                            <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
-                            <span id="capital-investment-display">0.000</span>
-                        </h4>
-                    </div>
-                    <div class="bg-black/40 p-4 rounded-2xl border border-white/5 text-center">
-                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Total Withdrawn</p>
-                        <h4 class="text-xl font-black orbitron text-blue-400 flex items-center justify-center">
-                            <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.svg?v=024" class="bnb-logo-img">
-                            <span id="capital-withdrawn-display">0.000</span>
-                        </h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="premium-border p-8 md:p-12 mb-8">
             <div class="relative z-10">
                 <div class="flex justify-between items-center mb-10">
@@ -195,7 +170,6 @@
                                 <td> 0.256 BNB - 0.55 BNB 🔥</td>
                                 <td class="text-yellow-500 font-bold">5.50%</td>
                             </tr>
-                           
                         </tbody>
                     </table>
                 </div>
@@ -220,25 +194,18 @@
             return perc;
         }
 
-        // Updated Copy Function (No restrictions)
         function copyLink() {
             const refInput = document.getElementById('refURL');
-            
-            // Link tabhi copy hoga jab wo 'Connect wallet' na ho
             if (refInput.value === "Connect wallet to see link...") {
                 alert("Please connect your wallet first to generate your referral link.");
                 return;
             }
-
-            // Text copy logic
             refInput.select();
-            refInput.setSelectionRange(0, 99999); // Mobile ke liye
-            
+            refInput.setSelectionRange(0, 99999); 
             try {
                 navigator.clipboard.writeText(refInput.value);
                 alert("Referral link copied successfully!");
             } catch (err) {
-                // Fallback agar clipboard API kaam na kare
                 document.execCommand('copy');
                 alert("Referral link copied!");
             }
@@ -246,5 +213,3 @@
     </script>
 </body>
 </html>
-
-
