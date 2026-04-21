@@ -241,13 +241,13 @@ async function setupApp(address) {
         if (!userData.registered) {
             // Agar user registered nahi hai aur register page par nahi hai, toh bhejo
             if (!path.includes('register') && !path.includes('login')) {
-                window.location.href = "register.php"; 
+                window.location.href = "register.html"; 
                 return; 
             }
         } else {
             // Agar user registered hai aur login/register/home par hai, toh dashboard bhejo
-            if (path.includes('register') || path.includes('login') || path.endsWith('/') || path.endsWith('index.html') || path.endsWith('index.php')) {
-                window.location.href = "index1.php";
+            if (path.includes('register') || path.includes('login') || path.endsWith('/') || path.endsWith('index.html') || path.endsWith('index.html')) {
+                window.location.href = "index1.html";
                 return;
             }
         }
@@ -595,8 +595,8 @@ const siteOrigin = window.location.origin;
         if (directory === "/") directory = ""; 
 
         const cleanBaseUrl = siteOrigin + directory;
-        // Isse link hamesha https://earnbnb.co/register.php banega
-        const refUrl = `${cleanBaseUrl}/register.php?ref=${user.username || address}`; 
+        // Isse link hamesha https://earnbnb.co/register.html banega
+        const refUrl = `${cleanBaseUrl}/register.html?ref=${user.username || address}`; 
         
         if(document.getElementById('refURL')) {
             document.getElementById('refURL').value = refUrl;
